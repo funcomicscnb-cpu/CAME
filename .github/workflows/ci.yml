@@ -126,7 +126,7 @@ jobs:
           r-version: "release"
 
       - name: Cache Bioconductor packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.R_LIBS_USER }}
           key: r-bioc-deseq2-${{ runner.os }}-${{ hashFiles('environment/install_r_packages.R') }}
