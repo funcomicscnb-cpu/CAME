@@ -1,0 +1,5 @@
+reference_id	species	genome_fasta	gtf	transcript_fasta	star_index	bwa_index	chrom_sizes	blacklist_bed	repeatmasker_bed	mappability_bed	annotation_version	source	notes
+mmus_ref	Mus_musculus	references/mouse/genome.fa	references/mouse/genes.gtf	references/mouse/transcripts.fa	references/mouse/star	references/mouse/bwa	references/mouse/chrom.sizes				example_v1	example	metadata path only
+drer_ref	Danio_rerio	references/zebrafish/genome.fa	references/zebrafish/genes.gtf	references/zebrafish/transcripts.fa	references/zebrafish/star	references/zebrafish/bwa	references/zebrafish/chrom.sizes				example_v1	example	metadata path only
+ggal_ref	Gallus_gallus	references/chicken/genome.fa	references/chicken/genes.gtf	references/chicken/transcripts.fa	references/chicken/star	references/chicken/bwa	references/chicken/chrom.sizes				example_v1	example	metadata path only
+xtro_ref	Xenopus_tropicalis	references/xenopus/genome.fa	references/xenopus/genes.gtf	references/xenopus/transcripts.fa	references/xenopus/star	references/xenopus/bwa	references/xenopus/chrom.sizes				example_v1	example	metadata path only

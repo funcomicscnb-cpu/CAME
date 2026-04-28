@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CAME omics_samplesheet",
+  "type": "object",
+  "required": ["sample_id", "species", "individual_id", "replicate_id", "omics_type", "condition", "timepoint", "reference_id"],
+  "properties": {
+    "sample_id": {"type": "string", "minLength": 1},
+    "species": {"type": "string", "minLength": 1},
+    "individual_id": {"type": "string", "minLength": 1},
+    "replicate_id": {"type": "string", "minLength": 1},
+    "omics_type": {"type": "string", "examples": ["rnaseq", "atacseq"]},
+    "condition": {"type": "string", "minLength": 1},
+    "timepoint": {"type": "string", "minLength": 1},
+    "reference_id": {"type": "string", "minLength": 1},
+    "perturbation": {"type": ["string", "null"]},
+    "dose": {"type": ["number", "string", "null"]},
+    "dose_unit": {"type": ["string", "null"]},
+    "batch": {"type": ["string", "null"]},
+    "fastq_1": {"type": ["string", "null"]},
+    "fastq_2": {"type": ["string", "null"]},
+    "strandedness": {"type": ["string", "null"]},
+    "read_layout": {"type": ["string", "null"], "examples": ["single-end", "paired-end"]},
+    "library_strategy": {"type": ["string", "null"]},
+    "file": {"type": ["string", "null"]},
+    "notes": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

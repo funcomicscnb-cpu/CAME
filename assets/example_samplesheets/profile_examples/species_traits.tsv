@@ -1,0 +1,17 @@
+species	phylogeny_label	common_name	clade	external_trait	covariate	trait_value	trait_unit	trait_source	trait_confidence
+Mus_musculus	Mus_musculus	house mouse	Mammalia	life_history	body_mass	0.025	kg	example	medium
+Danio_rerio	Danio_rerio	zebrafish	Actinopterygii	life_history	body_mass	0.0005	kg	example	medium
+Gallus_gallus	Gallus_gallus	chicken	Aves	life_history	body_mass	1.5	kg	example	medium
+Xenopus_tropicalis	Xenopus_tropicalis	tropical clawed frog	Amphibia	life_history	body_mass	0.07	kg	example	medium
+Mus_musculus	Mus_musculus	house mouse	Mammalia	immune_template	infection_resistance	0.72	ratio	example	medium
+Danio_rerio	Danio_rerio	zebrafish	Actinopterygii	immune_template	infection_resistance	0.65	ratio	example	medium
+Gallus_gallus	Gallus_gallus	chicken	Aves	immune_template	infection_resistance	0.70	ratio	example	medium
+Xenopus_tropicalis	Xenopus_tropicalis	tropical clawed frog	Amphibia	immune_template	infection_resistance	0.58	ratio	example	medium
+Mus_musculus	Mus_musculus	house mouse	Mammalia	metabolic_template	metabolic_flexibility	0.68	ratio	example	medium
+Danio_rerio	Danio_rerio	zebrafish	Actinopterygii	metabolic_template	metabolic_flexibility	0.62	ratio	example	medium
+Gallus_gallus	Gallus_gallus	chicken	Aves	metabolic_template	metabolic_flexibility	0.66	ratio	example	medium
+Xenopus_tropicalis	Xenopus_tropicalis	tropical clawed frog	Amphibia	metabolic_template	metabolic_flexibility	0.55	ratio	example	medium
+Mus_musculus	Mus_musculus	house mouse	Mammalia	stress_template	stress_resilience	0.74	ratio	example	medium
+Danio_rerio	Danio_rerio	zebrafish	Actinopterygii	stress_template	stress_resilience	0.61	ratio	example	medium
+Gallus_gallus	Gallus_gallus	chicken	Aves	stress_template	stress_resilience	0.69	ratio	example	medium
+Xenopus_tropicalis	Xenopus_tropicalis	tropical clawed frog	Amphibia	stress_template	stress_resilience	0.57	ratio	example	medium

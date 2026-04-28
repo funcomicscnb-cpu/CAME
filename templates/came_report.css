@@ -1,0 +1,104 @@
+:root {
+  color-scheme: light;
+  --text: #18212f;
+  --muted: #52616b;
+  --line: #d7dee8;
+  --panel: #f7f9fb;
+  --head: #edf2f7;
+  --link: #0b5cad;
+  --ok: #166534;
+  --warn: #92400e;
+  --missing: #6b7280;
+  --error: #991b1b;
+}
+
+body {
+  margin: 2rem auto;
+  max-width: 1180px;
+  padding: 0 1.25rem 2rem;
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.45;
+  background: #fff;
+}
+
+h1,
+h2,
+h3 {
+  color: #12344d;
+  line-height: 1.2;
+}
+
+h1 {
+  margin-bottom: 1.5rem;
+}
+
+a {
+  color: var(--link);
+}
+
+section {
+  margin-bottom: 1.35rem;
+}
+
+table {
+  width: 100%;
+  margin: 0.75rem 0 1.5rem;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+th,
+td {
+  padding: 0.42rem 0.55rem;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--head);
+  font-weight: 650;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--panel);
+}
+
+.meta,
+.note {
+  color: var(--muted);
+}
+
+.status-completed {
+  color: var(--ok);
+  font-weight: 650;
+}
+
+.status-warning {
+  color: var(--warn);
+  font-weight: 650;
+}
+
+.status-missing_optional {
+  color: var(--missing);
+  font-weight: 650;
+}
+
+.status-failed-error {
+  color: var(--error);
+  font-weight: 650;
+}
+
+@media (max-width: 760px) {
+  body {
+    margin-top: 1rem;
+    padding: 0 0.8rem 1.5rem;
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}

@@ -1,0 +1,12 @@
+species	feature_id	orthogroup_id	gene_symbol	human_anchor_id	transcript_id	orthology_type	orthology_confidence	source	notes
+Mus_musculus	gene_0001	OG_GENE_0001	SynGene1	HGNC:0001	tx_gene_0001	one_to_one	high	synthetic_stage7	
+Gallus_gallus	gene_0001	OG_GENE_0001	SynGene1	HGNC:0001	tx_gene_0001	one_to_one	high	synthetic_stage7	
+Mus_musculus	gene_0002	OG_GENE_0002	SynGene2	HGNC:0002	tx_gene_0002	one_to_one	high	synthetic_stage7	
+Gallus_gallus	gene_0002	OG_GENE_0002	SynGene2	HGNC:0002	tx_gene_0002	one_to_one	high	synthetic_stage7	
+Mus_musculus	gene_0003	OG_GENE_0003	SynGene3	HGNC:0003	tx_gene_0003	many_to_one	medium	synthetic_stage7	
+Mus_musculus	gene_0004	OG_GENE_0003	SynGene4	HGNC:0003	tx_gene_0004	many_to_one	medium	synthetic_stage7	many-to-one example
+Gallus_gallus	gene_0003	OG_GENE_0003	SynGene3	HGNC:0003	tx_gene_0003	many_to_one	medium	synthetic_stage7	
+Mus_musculus	gene_0005	OG_GENE_0004	SynGene5	HGNC:0004	tx_gene_0005	one_to_many	low	synthetic_stage7	ambiguous one-to-many example
+Mus_musculus	gene_0005	OG_GENE_0005	SynGene5	HGNC:0005	tx_gene_0005	one_to_many	low	synthetic_stage7	ambiguous one-to-many example
+Gallus_gallus	gene_0005	OG_GENE_0004	SynGene5	HGNC:0004	tx_gene_0005	many_to_one	medium	synthetic_stage7	
+Gallus_gallus	gene_0006	OG_GENE_0006	SynGene6	HGNC:0006	tx_gene_0006	one_to_one	medium	synthetic_stage7	

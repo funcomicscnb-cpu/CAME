@@ -1,0 +1,45 @@
+study:
+  profile_id: ddr_ror_test
+  name: DDR/RoR test profile
+  description: Minimal DDR/RoR test profile.
+  version: "1.0"
+
+phenotype_index:
+  name: DDRstate
+  formula: "(viability - apoptosis - senescence) / (viability + apoptosis)"
+  components:
+    - viability
+    - apoptosis
+    - senescence
+  aggregation: mean
+  contrasts:
+    - name: damage_response
+      type: baseline_vs_response
+      baseline_condition: control
+      response_condition: damage
+      baseline_timepoint: 0h
+      response_timepoint: 24h
+
+derived_variables:
+  - viability_response
+
+external_traits:
+  - max_longevity
+
+hypotheses:
+  - name: test_ddr_hypothesis
+    description: Test DDR/RoR hypothesis.
+    model_type: regression
+    response: max_longevity
+    predictors:
+      - viability_response
+    covariates: []
+    phylogenetic: false
+    stratify_by: []
+
+reporting:
+  phenotype_label: DDR state
+  condition_label: Damage condition
+  response_label: DDR response
+  external_trait_label: Evolutionary trait
+  candidate_mechanism_label: Candidate DDR mechanism

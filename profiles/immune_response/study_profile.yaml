@@ -1,0 +1,70 @@
+study:
+  profile_id: immune_response
+  name: Immune response template profile
+  description: Template profile for comparative immune challenge response studies.
+  version: "1.0"
+
+phenotype_index:
+  name: immune_response_index
+  formula: "(pathogen_clearance + cytokine_signal - tissue_damage) / max(inflammation_baseline, 0.1)"
+  components:
+    - pathogen_clearance
+    - cytokine_signal
+    - tissue_damage
+    - inflammation_baseline
+  aggregation: mean_by_species_condition_timepoint
+  contrasts:
+    - name: immune_challenge_response
+      type: baseline_vs_response
+      baseline_condition: unexposed
+      response_condition: immune_challenge
+      baseline_timepoint: 0h
+      response_timepoint: 24h
+
+derived_variables:
+  - phenotype_index
+  - phenotype_index_response
+  - pathogen_clearance_response
+  - cytokine_signal_response
+  - tissue_damage_response
+  - inflammation_baseline_response
+  - residual_infection_resistance_after_body_mass
+
+external_traits:
+  - infection_resistance
+
+covariates:
+  - body_mass
+
+hypotheses:
+  - name: immune_response_trait_association
+    description: Test whether the immune response index is associated with the external infection-resistance trait.
+    model_type: phylogenetic_regression
+    response: infection_resistance
+    predictors:
+      - phenotype_index_response
+    covariates: []
+    phylogenetic: true
+    stratify_by: []
+  - name: body_mass_adjusted_immune_response_trait
+    description: Test whether infection resistance after body-mass adjustment is associated with the immune response index.
+    model_type: residual_regression
+    response: residual_infection_resistance_after_body_mass
+    predictors:
+      - phenotype_index_response
+    covariates:
+      - body_mass
+    phylogenetic: true
+    stratify_by: []
+
+reporting:
+  phenotype_label: Immune response index
+  condition_label: Immune challenge condition
+  response_label: Immune response
+  external_trait_label: Infection-resistance trait
+  candidate_mechanism_label: Candidate immune response mechanism
+
+notes:
+  - This profile is a template for profile authoring and validation.
+  - It is not a biologically validated immune response analysis.
+  - Study-specific immune terms remain in this profile, documentation, examples, and tests.

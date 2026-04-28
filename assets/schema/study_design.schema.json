@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CAME study_design",
+  "type": "object",
+  "required": ["study", "metadata", "contrasts"],
+  "properties": {
+    "study": {"type": "object"},
+    "metadata": {"type": "object"},
+    "contrasts": {"type": "array"},
+    "phenotype_indexes": {"type": ["array", "null"]},
+    "hypothesis_models": {"type": ["array", "null"]}
+  },
+  "additionalProperties": true
+}

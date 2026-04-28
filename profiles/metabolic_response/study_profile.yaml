@@ -1,0 +1,70 @@
+study:
+  profile_id: metabolic_response
+  name: Metabolic response template profile
+  description: Template profile for comparative metabolic challenge response studies.
+  version: "1.0"
+
+phenotype_index:
+  name: metabolic_response_index
+  formula: "(glucose_clearance + lipid_mobilization + oxygen_efficiency) / max(heat_output, 0.1)"
+  components:
+    - glucose_clearance
+    - lipid_mobilization
+    - oxygen_efficiency
+    - heat_output
+  aggregation: mean_by_species_condition_timepoint
+  contrasts:
+    - name: fasting_response
+      type: baseline_vs_response
+      baseline_condition: fed
+      response_condition: fasted
+      baseline_timepoint: 0h
+      response_timepoint: 12h
+
+derived_variables:
+  - phenotype_index
+  - phenotype_index_response
+  - glucose_clearance_response
+  - lipid_mobilization_response
+  - oxygen_efficiency_response
+  - heat_output_response
+  - residual_metabolic_flexibility_after_body_mass
+
+external_traits:
+  - metabolic_flexibility
+
+covariates:
+  - body_mass
+
+hypotheses:
+  - name: metabolic_response_trait_association
+    description: Test whether the metabolic response index is associated with the external metabolic-flexibility trait.
+    model_type: phylogenetic_regression
+    response: metabolic_flexibility
+    predictors:
+      - phenotype_index_response
+    covariates: []
+    phylogenetic: true
+    stratify_by: []
+  - name: body_mass_adjusted_metabolic_response_trait
+    description: Test whether metabolic flexibility after body-mass adjustment is associated with the metabolic response index.
+    model_type: residual_regression
+    response: residual_metabolic_flexibility_after_body_mass
+    predictors:
+      - phenotype_index_response
+    covariates:
+      - body_mass
+    phylogenetic: true
+    stratify_by: []
+
+reporting:
+  phenotype_label: Metabolic response index
+  condition_label: Metabolic challenge condition
+  response_label: Metabolic response
+  external_trait_label: Metabolic-flexibility trait
+  candidate_mechanism_label: Candidate metabolic response mechanism
+
+notes:
+  - This profile is a template for profile authoring and validation.
+  - It is not a biologically validated metabolic response analysis.
+  - Study-specific metabolic terms remain in this profile, documentation, examples, and tests.

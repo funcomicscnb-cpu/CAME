@@ -1,0 +1,8 @@
+/omics_samplesheet.csv
+/reference_manifest.tsv
+/rnaseq/*
+!/rnaseq/.gitkeep
+/atacseq/*
+!/atacseq/.gitkeep
+/reference/*
+!/reference/.gitkeep

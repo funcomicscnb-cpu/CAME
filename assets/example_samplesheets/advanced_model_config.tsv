@@ -1,0 +1,6 @@
+model_id	analysis_target	model_family	enabled	response	predictors	covariates	phylogenetic_model	min_species	notes
+hypothesis_lm_screen	hypothesis_model_table	lm	true	phenotype_index_response	external_trait_alpha			3	Example ordinary linear model over Stage 4 model-ready inputs.
+hypothesis_pagel_lambda	hypothesis_model_table	pgls_pagel_lambda	false	phenotype_index_response	external_trait_alpha	pgls_pagel_lambda		3	Optional Pagel lambda model; disabled by default.
+hypothesis_ou_placeholder	hypothesis_model_table	ou_placeholder	true	phenotype_index_response	external_trait_alpha	ou		3	Placeholder row demonstrating explicit warnings for deferred OU models.
+integration_multivariate_placeholder	phenotype_omics_model_table	multivariate_placeholder	true	feature_response_value	phenotype_response_value			3	Placeholder row for future multivariate phenotype-omics models.
+integration_permutation_placeholder	phenotype_omics_model_table	permutation_placeholder	true	feature_response_value	phenotype_response_value			3	Placeholder row for future permutation robustness models.

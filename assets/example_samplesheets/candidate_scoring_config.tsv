@@ -1,0 +1,11 @@
+evidence_type	weight	enabled	notes
+differential_expression	1.0	true	Orthogroup-level differential gene expression
+differential_accessibility	1.0	true	Orthogroup-level differential regulatory element accessibility
+differential_gra_activity	1.2	true	Differential activity of gene regulatory architectures
+phenotype_expression_association	2.0	true	Association between phenotype response and expression response
+phenotype_accessibility_association	2.0	true	Association between phenotype response and accessibility response
+phenotype_gra_association	2.5	true	Association between phenotype response and GRA activity response
+response_cluster	0.75	true	Cross-species molecular response pattern
+pairwise_species_contrast	1.0	true	Pairwise phenotype and molecular direction agreement
+hypothesis_support	1.0	true	Candidate-specific hypothesis model support when candidate IDs exist
+gra_membership	0.5	true	Low-weight structural support from GRA membership

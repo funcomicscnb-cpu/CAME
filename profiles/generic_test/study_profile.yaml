@@ -1,0 +1,49 @@
+study:
+  profile_id: generic_test
+  name: Generic test profile
+  description: Minimal test profile for validator tests.
+  version: "1.0"
+
+phenotype_index:
+  name: test_index
+  formula: "(component_a - component_b) / component_c"
+  components:
+    - component_a
+    - component_b
+    - component_c
+  aggregation: mean
+  contrasts:
+    - name: test_contrast
+      type: baseline_vs_response
+      baseline_condition: baseline
+      response_condition: response
+      baseline_timepoint: t0
+      response_timepoint: t1
+
+derived_variables:
+  - phenotype_index_response
+
+external_traits:
+  - external_trait_alpha
+
+covariates:
+  - covariate_alpha
+
+hypotheses:
+  - name: test_hypothesis
+    description: Test hypothesis.
+    model_type: regression
+    response: external_trait_alpha
+    predictors:
+      - phenotype_index_response
+    covariates:
+      - covariate_alpha
+    phylogenetic: false
+    stratify_by: []
+
+reporting:
+  phenotype_label: Test index
+  condition_label: Condition
+  response_label: Response
+  external_trait_label: External trait
+  candidate_mechanism_label: Candidate mechanism

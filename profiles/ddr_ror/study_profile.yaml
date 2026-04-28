@@ -1,0 +1,87 @@
+study:
+  profile_id: ddr_ror
+  name: DDR/RoR example profile
+  description: Example profile for DNA damage response and robustness-of-regulation studies; not required by CAME core logic.
+  version: "1.0"
+
+phenotype_index:
+  name: DDRstate
+  formula: "(viability - apoptosis - senescence) / (viability + apoptosis)"
+  components:
+    - viability
+    - apoptosis
+    - senescence
+  aggregation: mean_by_species_condition_timepoint
+  contrasts:
+    - name: damage_response
+      type: baseline_vs_response
+      baseline_condition: control
+      response_condition: damage
+      baseline_timepoint: 0h
+      response_timepoint: 24h
+
+derived_variables:
+  - phenotype_index
+  - phenotype_index_response
+  - viability_response
+  - apoptosis_senescence_response
+  - residual_cancer_prevalence_after_body_mass
+
+external_traits:
+  - max_longevity
+  - cancer_prevalence
+
+covariates:
+  - body_mass
+
+mechanistic_proxies:
+  - viability_response
+  - apoptosis_senescence_response
+
+hypotheses:
+  - name: viability_longevity_association
+    description: Direct example hypothesis testing whether viability response is associated with maximum longevity.
+    model_type: phylogenetic_regression
+    response: max_longevity
+    predictors:
+      - viability_response
+    covariates: []
+    phylogenetic: true
+    stratify_by: []
+  - name: cancer_body_mass_residual_viability
+    description: Residual example hypothesis testing whether body-mass-adjusted cancer prevalence is associated with viability response.
+    model_type: residual_regression
+    response: residual_cancer_prevalence_after_body_mass
+    predictors:
+      - viability_response
+    covariates:
+      - body_mass
+    phylogenetic: true
+    stratify_by: []
+  - name: cancer_longevity_residual_apoptosis_senescence
+    description: Residual example hypothesis testing whether longevity-adjusted cancer prevalence is associated with apoptosis and senescence response.
+    model_type: residual_regression
+    response: cancer_prevalence
+    predictors:
+      - apoptosis_senescence_response
+    covariates:
+      - max_longevity
+    phylogenetic: true
+    stratify_by: []
+
+reporting:
+  phenotype_label: DDR state
+  condition_label: Damage condition
+  response_label: DDR response
+  external_trait_label: Evolutionary trait
+  candidate_mechanism_label: Candidate DDR mechanism
+
+condition_ranking:
+  - control
+  - damage
+
+notes:
+  - This is an example profile; DDR/RoR terms are not required by CAME core logic.
+  - The formula uses only the current safe profile formula syntax.
+  - Hypotheses document possible profile-level questions and do not add hardcoded DDR/RoR analysis behavior.
+  - Biological interpretation requires study-specific review of assays, contrasts, covariates, and species coverage.

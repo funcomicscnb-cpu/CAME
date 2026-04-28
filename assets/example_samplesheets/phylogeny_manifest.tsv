@@ -1,0 +1,5 @@
+phylogeny_id	phylogeny_file	species	phylogeny_label	source	branch_length_type	notes
+example_tree	phylogeny/example_tree.nwk	Mus_musculus	Mus_musculus	example	substitutions	example tree
+example_tree	phylogeny/example_tree.nwk	Danio_rerio	Danio_rerio	example	substitutions	example tree
+example_tree	phylogeny/example_tree.nwk	Gallus_gallus	Gallus_gallus	example	substitutions	example tree
+example_tree	phylogeny/example_tree.nwk	Xenopus_tropicalis	Xenopus_tropicalis	example	substitutions	example tree

@@ -1,0 +1,5 @@
+sample_id,species,individual_id,replicate_id,omics_type,condition,timepoint,reference_id,perturbation,dose,dose_unit,batch,fastq_1,fastq_2,strandedness,read_layout,library_strategy,file,notes
+omics_mouse_rna_1,Mus_musculus,mouse_001,rep1,rnaseq,control,0h,mmus_ref,,,,batch1,data/fastq/mouse_R1.fastq.gz,data/fastq/mouse_R2.fastq.gz,reverse,paired-end,RNA-Seq,,example RNA-seq row
+omics_fish_atac_1,Danio_rerio,fish_001,rep1,atacseq,control,0h,drer_ref,,,,batch1,data/fastq/fish_R1.fastq.gz,data/fastq/fish_R2.fastq.gz,,paired-end,ATAC-Seq,,example ATAC-seq row
+omics_chicken_rna_1,Gallus_gallus,chicken_001,rep1,rnaseq,control,0h,ggal_ref,,,,batch1,data/fastq/chicken_R1.fastq.gz,data/fastq/chicken_R2.fastq.gz,reverse,paired-end,RNA-Seq,,example RNA-seq row
+omics_xenopus_atac_1,Xenopus_tropicalis,xenopus_001,rep1,atacseq,control,0h,xtro_ref,,,,batch1,data/fastq/xenopus_R1.fastq.gz,data/fastq/xenopus_R2.fastq.gz,,paired-end,ATAC-Seq,,example ATAC-seq row

@@ -1,0 +1,6 @@
+inference_id	species	method	max_distance	promoter_upstream	promoter_downstream	min_contact_score	notes
+stub_contract	Mus_musculus	stub				0.0	deterministic scaffold output
+promoter_example	Mus_musculus	promoter_overlap		1000	200		example promoter window contract
+nearest_example	Mus_musculus	nearest_gene	50000				example nearest-gene contract
+window_example	Mus_musculus	distance_window	100000				example distance-window contract
+contact_example	Mus_musculus	chromatin_contact				0.5	example contact contract

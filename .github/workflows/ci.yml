@@ -1,0 +1,170 @@
+name: CAME CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  fast-validation:
+    name: Fast validation and lightweight regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+
+      - name: Install Nextflow
+        run: |
+          curl -s https://get.nextflow.io | bash
+          sudo mv nextflow /usr/local/bin/nextflow
+          nextflow -version
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r environment/requirements.txt
+
+      - name: Install minimal R dependencies
+        run: Rscript environment/install_r_packages.R --install-core --skip-deseq2
+
+      - name: Stage 14 packaging checks
+        run: |
+          python3 bin/print_versions.py
+          python3 bin/validate_release_bundle.py
+          bash tests/test_release_packaging.sh
+
+      - name: Real-mode unit tests
+        run: bash tests/test_real_mode_unit.sh
+
+      - name: Lightweight regression tests
+        run: |
+          bash tests/test_metadata_validation.sh
+          bash tests/test_profile_examples.sh
+          bash tests/test_study_profile_validation.sh
+          bash tests/test_phenotype_processing.sh
+          bash tests/test_phylo_hypothesis.sh
+          bash tests/test_bulk_omics.sh
+          bash tests/test_differential_omics.sh
+          bash tests/test_orthology_projection.sh
+          bash tests/test_gra_analysis.sh
+          bash tests/test_phenotype_omics_integration.sh
+          bash tests/test_candidate_prioritization.sh
+          bash tests/test_functional_interpretation.sh
+          bash tests/test_final_report.sh
+
+  end-to-end-stub:
+    name: End-to-end stub orchestration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+
+      - name: Install Nextflow
+        run: |
+          curl -s https://get.nextflow.io | bash
+          sudo mv nextflow /usr/local/bin/nextflow
+          nextflow -version
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r environment/requirements.txt
+
+      - name: Install minimal R dependencies
+        run: Rscript environment/install_r_packages.R --install-core --skip-deseq2
+
+      - name: Stage 13 all-run stub test
+        run: CAME_STAGE13_SKIP_REGRESSION=true bash tests/test_end_to_end_orchestration.sh
+
+  deseq2-validation:
+    name: Optional DESeq2 differential validation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+
+      - name: Cache Bioconductor packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-bioc-deseq2-${{ runner.os }}-${{ hashFiles('environment/install_r_packages.R') }}
+          restore-keys: r-bioc-deseq2-${{ runner.os }}-
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r environment/requirements.txt
+
+      - name: Install R dependencies including DESeq2
+        run: Rscript environment/install_r_packages.R --install-core --install-deseq2
+
+      - name: Differential omics test with real DESeq2
+        run: bash tests/test_differential_omics.sh
+
+  real-mode-smoke:
+    name: Optional real-mode smoke inventory
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Nextflow
+        run: |
+          curl -s https://get.nextflow.io | bash
+          sudo mv nextflow /usr/local/bin/nextflow
+          nextflow -version
+
+      - name: Stage 15 soft real-mode smoke
+        run: bash tests/test_real_mode_smoke.sh --soft

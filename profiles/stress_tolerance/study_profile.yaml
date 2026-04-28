@@ -1,0 +1,70 @@
+study:
+  profile_id: stress_tolerance
+  name: Stress tolerance template profile
+  description: Template profile for comparative environmental stress response studies.
+  version: "1.0"
+
+phenotype_index:
+  name: stress_tolerance_index
+  formula: "(survival_fraction + recovery_rate - damage_marker) / max(stress_intensity, 0.1)"
+  components:
+    - survival_fraction
+    - recovery_rate
+    - damage_marker
+    - stress_intensity
+  aggregation: mean_by_species_condition_timepoint
+  contrasts:
+    - name: acute_stress_response
+      type: baseline_vs_response
+      baseline_condition: ambient
+      response_condition: stress
+      baseline_timepoint: 0h
+      response_timepoint: 6h
+
+derived_variables:
+  - phenotype_index
+  - phenotype_index_response
+  - survival_fraction_response
+  - recovery_rate_response
+  - damage_marker_response
+  - stress_intensity_response
+  - residual_stress_resilience_after_body_mass
+
+external_traits:
+  - stress_resilience
+
+covariates:
+  - body_mass
+
+hypotheses:
+  - name: stress_tolerance_trait_association
+    description: Test whether the stress tolerance index is associated with the external stress-resilience trait.
+    model_type: phylogenetic_regression
+    response: stress_resilience
+    predictors:
+      - phenotype_index_response
+    covariates: []
+    phylogenetic: true
+    stratify_by: []
+  - name: body_mass_adjusted_stress_tolerance_trait
+    description: Test whether stress resilience after body-mass adjustment is associated with the stress tolerance index.
+    model_type: residual_regression
+    response: residual_stress_resilience_after_body_mass
+    predictors:
+      - phenotype_index_response
+    covariates:
+      - body_mass
+    phylogenetic: true
+    stratify_by: []
+
+reporting:
+  phenotype_label: Stress tolerance index
+  condition_label: Stress condition
+  response_label: Stress response
+  external_trait_label: Stress-resilience trait
+  candidate_mechanism_label: Candidate stress tolerance mechanism
+
+notes:
+  - This profile is a template for profile authoring and validation.
+  - It is not a biologically validated stress tolerance analysis.
+  - Study-specific stress terms remain in this profile, documentation, examples, and tests.

@@ -1,0 +1,5 @@
+species	feature_id	chrom	start	end	strand	region_type	source	notes
+Mus_musculus	mmus_re_0001	chr1	100	180	+	enhancer	example_coordinate_projection	stub input region
+Mus_musculus	mmus_re_0002	chr1	220	310	+	promoter	example_coordinate_projection	stub input region
+Mus_musculus	mmus_re_0003	chr2	400	480	-	enhancer	example_coordinate_projection	stub input region
+Mus_musculus	mmus_re_0004	chr3	600	720	.	accessibility_peak	example_coordinate_projection	stub input region

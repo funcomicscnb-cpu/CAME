@@ -1,0 +1,13 @@
+gene_set_id	gene_set_name	gene_orthogroup_id	gene_set_source	description	category	notes
+GS_SIGNAL_RESPONSE	Signal response genes	OG_GENE_0001	synthetic_stage11	Synthetic high-priority response set	response	example enriched set
+GS_SIGNAL_RESPONSE	Signal response genes	OG_GENE_0002	synthetic_stage11	Synthetic high-priority response set	response	example enriched set
+GS_SIGNAL_RESPONSE	Signal response genes	OG_GENE_0003	synthetic_stage11	Synthetic high-priority response set	response	example enriched set
+GS_REGULATORY_TARGETS	Regulatory target genes	OG_GENE_0001	synthetic_stage11	Synthetic genes linked to regulatory candidates	regulatory	example linked set
+GS_REGULATORY_TARGETS	Regulatory target genes	OG_GENE_0004	synthetic_stage11	Synthetic genes linked to regulatory candidates	regulatory	example linked set
+GS_REGULATORY_TARGETS	Regulatory target genes	OG_GENE_0005	synthetic_stage11	Synthetic genes linked to regulatory candidates	regulatory	example linked set
+GS_BACKGROUND_MODULE	Background module genes	OG_GENE_0006	synthetic_stage11	Synthetic background gene set	background	
+GS_BACKGROUND_MODULE	Background module genes	OG_GENE_0007	synthetic_stage11	Synthetic background gene set	background	
+GS_BACKGROUND_MODULE	Background module genes	OG_GENE_0008	synthetic_stage11	Synthetic background gene set	background	
+GS_MIXED_MODULE	Mixed module genes	OG_GENE_0002	synthetic_stage11	Synthetic mixed example set	mixed	
+GS_MIXED_MODULE	Mixed module genes	OG_GENE_0006	synthetic_stage11	Synthetic mixed example set	mixed	
+GS_MIXED_MODULE	Mixed module genes	OG_GENE_0008	synthetic_stage11	Synthetic mixed example set	mixed	

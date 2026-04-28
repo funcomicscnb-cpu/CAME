@@ -1,0 +1,25 @@
+species	phylogeny_label	common_name	clade	external_trait	covariate	trait_value	trait_unit	trait_source	trait_confidence
+Mus_musculus	Mus_musculus	house mouse	Mammalia	life_history	body_size	0.025	kg	example	medium
+Danio_rerio	Danio_rerio	zebrafish	Actinopterygii	life_history	body_size	0.0005	kg	example	medium
+Mus_musculus	Mus_musculus	house mouse	Mammalia	generic_external	external_trait_alpha	1.2	ratio	example	medium
+Danio_rerio	Danio_rerio	zebrafish	Actinopterygii	generic_external	external_trait_alpha	0.9	ratio	example	medium
+Mus_musculus	Mus_musculus	house mouse	Mammalia	generic_covariate	covariate_alpha	0.4	ratio	example	medium
+Danio_rerio	Danio_rerio	zebrafish	Actinopterygii	generic_covariate	covariate_alpha	0.5	ratio	example	medium
+Mus_musculus	Mus_musculus	house mouse	Mammalia	life_history	max_longevity	4	years	example	medium
+Danio_rerio	Danio_rerio	zebrafish	Actinopterygii	life_history	max_longevity	5	years	example	medium
+Mus_musculus	Mus_musculus	house mouse	Mammalia	disease_trait	cancer_prevalence	0.12	proportion	example	medium
+Danio_rerio	Danio_rerio	zebrafish	Actinopterygii	disease_trait	cancer_prevalence	0.08	proportion	example	medium
+Mus_musculus	Mus_musculus	house mouse	Mammalia	life_history	body_mass	0.025	kg	example	medium
+Danio_rerio	Danio_rerio	zebrafish	Actinopterygii	life_history	body_mass	0.0005	kg	example	medium
+Gallus_gallus	Gallus_gallus	chicken	Aves	life_history	body_size	1.5	kg	example	medium
+Xenopus_tropicalis	Xenopus_tropicalis	tropical clawed frog	Amphibia	life_history	body_size	0.07	kg	example	medium
+Gallus_gallus	Gallus_gallus	chicken	Aves	generic_external	external_trait_alpha	1.05	ratio	example	medium
+Xenopus_tropicalis	Xenopus_tropicalis	tropical clawed frog	Amphibia	generic_external	external_trait_alpha	0.75	ratio	example	medium
+Gallus_gallus	Gallus_gallus	chicken	Aves	generic_covariate	covariate_alpha	0.45	ratio	example	medium
+Xenopus_tropicalis	Xenopus_tropicalis	tropical clawed frog	Amphibia	generic_covariate	covariate_alpha	0.55	ratio	example	medium
+Gallus_gallus	Gallus_gallus	chicken	Aves	life_history	max_longevity	8	years	example	medium
+Xenopus_tropicalis	Xenopus_tropicalis	tropical clawed frog	Amphibia	life_history	max_longevity	16	years	example	medium
+Gallus_gallus	Gallus_gallus	chicken	Aves	disease_trait	cancer_prevalence	0.10	proportion	example	medium
+Xenopus_tropicalis	Xenopus_tropicalis	tropical clawed frog	Amphibia	disease_trait	cancer_prevalence	0.05	proportion	example	medium
+Gallus_gallus	Gallus_gallus	chicken	Aves	life_history	body_mass	1.5	kg	example	medium
+Xenopus_tropicalis	Xenopus_tropicalis	tropical clawed frog	Amphibia	life_history	body_mass	0.07	kg	example	medium

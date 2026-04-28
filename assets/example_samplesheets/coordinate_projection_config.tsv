@@ -1,0 +1,3 @@
+projection_id	source_species	target_species	method	min_overlap_fraction	reciprocal_required	notes
+proj_mouse_to_zebrafish	Mus_musculus	Danio_rerio	liftover_chain	0.50	true	stub mode ignores missing alignment files
+proj_mouse_to_xenopus	Mus_musculus	Xenopus_tropicalis	maf_projection	0.40	false	stub mode ignores missing alignment files

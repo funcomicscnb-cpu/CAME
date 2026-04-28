@@ -1,0 +1,64 @@
+study:
+  profile_id: generic
+  name: Generic phenotype response profile
+  description: Abstract profile for validating configurable phenotype indexes and hypotheses.
+  version: "1.0"
+
+phenotype_index:
+  name: composite_response_index
+  formula: "(component_a - component_b) / component_c"
+  components:
+    - component_a
+    - component_b
+    - component_c
+  aggregation: mean_by_species_condition_timepoint
+  contrasts:
+    - name: baseline_vs_response
+      type: baseline_vs_response
+      baseline_condition: baseline
+      response_condition: response
+      baseline_timepoint: t0
+      response_timepoint: t1
+
+derived_variables:
+  - phenotype_index
+  - phenotype_index_response
+  - component_response
+  - residual_external_trait_after_covariate
+
+external_traits:
+  - external_trait_alpha
+
+covariates:
+  - covariate_alpha
+
+hypotheses:
+  - name: external_trait_association
+    description: Test whether a declared external trait is associated with the phenotype index response.
+    model_type: phylogenetic_regression
+    response: external_trait_alpha
+    predictors:
+      - phenotype_index_response
+    covariates: []
+    phylogenetic: true
+    stratify_by: []
+  - name: adjusted_external_trait_association
+    description: Test whether a derived residual external trait is associated with the phenotype index response.
+    model_type: regression
+    response: residual_external_trait_after_covariate
+    predictors:
+      - phenotype_index_response
+    covariates:
+      - covariate_alpha
+    phylogenetic: false
+    stratify_by: []
+
+reporting:
+  phenotype_label: Composite response index
+  condition_label: Condition
+  response_label: Response
+  external_trait_label: External trait
+  candidate_mechanism_label: Candidate mechanism
+
+notes:
+  - This profile intentionally uses abstract variable names.

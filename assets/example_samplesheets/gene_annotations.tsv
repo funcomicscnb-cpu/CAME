@@ -1,0 +1,9 @@
+gene_orthogroup_id	gene_symbol	description	species	source_gene_id	chrom	start	end	strand	biotype	external_id	notes
+OG_GENE_0001	SynGene1	Synthetic response-associated orthogroup	orthogroup	gene_0001	chr1	1000	2200	+	protein_coding	SYN:0001	stage11 example
+OG_GENE_0002	SynGene2	Synthetic regulatory target orthogroup	orthogroup	gene_0002	chr2	3000	4300	-	protein_coding	SYN:0002	stage11 example
+OG_GENE_0003	SynGene3	Synthetic shared molecular response orthogroup	orthogroup	gene_0003	chr3	5000	6200	+	protein_coding	SYN:0003	stage11 example
+OG_GENE_0004	SynGene4	Synthetic ambiguous mapping orthogroup	orthogroup	gene_0004	chr4	7000	8100	-	protein_coding	SYN:0004	stage11 example
+OG_GENE_0005	SynGene5	Synthetic stress module orthogroup	orthogroup	gene_0005	chr5	9000	10300	+	protein_coding	SYN:0005	stage11 example
+OG_GENE_0006	SynGene6	Synthetic baseline module orthogroup	orthogroup	gene_0006	chr6	11000	12100	-	protein_coding	SYN:0006	stage11 example
+OG_GENE_0007	SynGene7	Synthetic background orthogroup	orthogroup	gene_0007	chr7	13000	14100	+	protein_coding	SYN:0007	stage11 example
+OG_GENE_0008	SynGene8	Synthetic background orthogroup	orthogroup	gene_0008	chr8	15000	16300	-	protein_coding	SYN:0008	stage11 example

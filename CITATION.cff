@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: "CAME: Comparative Analysis of Multi-omics Evolution"
+message: "If you use CAME, please cite this software release."
+type: software
+version: 0.1.0
+date-released: "TODO: confirm v0.1 public release date"
+authors:
+  - family-names: "TODO"
+    given-names: "TODO"
+    affiliation: "TODO: add author affiliation"
+repository-code: "TODO: add public repository URL"
+abstract: "CAME is a phenotype-agnostic Nextflow DSL2 framework for comparative multi-omics evolution workflows. The v0.1 release focuses on metadata validation, stub-mode orchestration, core analysis scaffolding, final reporting, and release packaging."
+keywords:
+  - comparative genomics
+  - multi-omics
+  - evolution
+  - Nextflow
+  - workflow
+license: GPL-3.0-only

@@ -1,0 +1,7 @@
+species	re_feature_id	gene_feature_id	link_type	re_orthogroup_id	gene_orthogroup_id	distance_to_tss	contact_score	link_confidence	source	notes
+orthogroup	re_0001	gene_0001	promoter	OG_RE_0001	OG_GENE_0001	120	0.92	0.95	synthetic_stage8	promoter example
+orthogroup	re_0002	gene_0001	proximal	OG_RE_0002	OG_GENE_0001	850	0.76	0.80	synthetic_stage8	gene with multiple REs
+orthogroup	re_0003	gene_0002	distal_contact	OG_RE_0003	OG_GENE_0002	35000	0.68	0.72	synthetic_stage8	distal contact example
+orthogroup	re_0003	gene_0003	distal_contact	OG_RE_0003	OG_GENE_0003	42000	0.61	0.70	synthetic_stage8	RE linked to multiple genes
+orthogroup	re_0005	gene_0005	curated	OG_RE_0004	OG_GENE_0004		0.83	0.88	synthetic_stage8	curated orthogroup-level link
+Danio_rerio	re_unresolved	gene_unresolved	nearest_gene					synthetic_stage8	partially unresolved link retained for validation

@@ -1,0 +1,4 @@
+species	region_a_chrom	region_a_start	region_a_end	region_b_chrom	region_b_start	region_b_end	contact_score	cell_type	assay	source	notes
+Mus_musculus	chr2	400	480	chr2	350	540	0.74	generic	cell_contact	example_re_to_gene_inference	distal contact stub metadata
+Mus_musculus	chr2	400	480	chr2	560	740	0.68	generic	cell_contact	example_re_to_gene_inference	one RE linked to multiple genes
+Mus_musculus	chr3	600	720	chr3	590	780	0.51	generic	cell_contact	example_re_to_gene_inference	nearest/contact ambiguity metadata

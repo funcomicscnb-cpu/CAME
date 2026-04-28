@@ -1,0 +1,5 @@
+reference_id	species	masking_strategy	known_repeats_bed	mappability_bed	problematic_sites_bed	cnv_regions_bed	retain_coverage_deviation_labels	notes
+mmus_ref	Mus_musculus	label_only					true	example stub config only
+drer_ref	Danio_rerio	mask_problematic	references/zebrafish/repeats.bed	references/zebrafish/mappability.bed	references/zebrafish/problematic_sites.bed	references/zebrafish/cnv_regions.bed	false	example stub config only
+ggal_ref	Gallus_gallus	label_only					true	example stub config only
+xtro_ref	Xenopus_tropicalis	exclude_for_mutation_calling			references/xenopus/problematic_sites.bed		false	example stub config only

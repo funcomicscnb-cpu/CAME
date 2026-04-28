@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CAME phenotype_samplesheet",
+  "type": "object",
+  "required": ["sample_id", "species", "individual_id", "replicate_id", "condition", "timepoint", "assay", "measurement", "value", "unit"],
+  "properties": {
+    "sample_id": {"type": "string", "minLength": 1},
+    "species": {"type": "string", "minLength": 1},
+    "individual_id": {"type": "string", "minLength": 1},
+    "replicate_id": {"type": "string", "minLength": 1},
+    "condition": {"type": "string", "minLength": 1},
+    "timepoint": {"type": "string", "minLength": 1},
+    "assay": {"type": "string", "minLength": 1},
+    "measurement": {"type": "string", "minLength": 1},
+    "value": {"type": ["number", "string"], "minLength": 1},
+    "unit": {"type": "string", "minLength": 1},
+    "perturbation": {"type": ["string", "null"]},
+    "dose": {"type": ["number", "string", "null"]},
+    "dose_unit": {"type": ["string", "null"]},
+    "recovery_time": {"type": ["string", "null"]},
+    "batch": {"type": ["string", "null"]},
+    "plate_id": {"type": ["string", "null"]},
+    "well_id": {"type": ["string", "null"]},
+    "file": {"type": ["string", "null"]},
+    "notes": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

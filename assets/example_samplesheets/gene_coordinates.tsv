@@ -1,0 +1,6 @@
+species	gene_feature_id	chrom	start	end	strand	gene_symbol	orthogroup_id	tss	source	notes
+Mus_musculus	gene_0001	chr1	80	260	+	SynGene1	OG_GENE_0001	80	example_re_to_gene_inference	promoter/proximal stub target
+Mus_musculus	gene_0002	chr2	350	540	-	SynGene2	OG_GENE_0002	540	example_re_to_gene_inference	distal contact stub target
+Mus_musculus	gene_0003	chr2	560	740	+	SynGene3	OG_GENE_0003	560	example_re_to_gene_inference	shared distal contact stub target
+Mus_musculus	gene_0004	chr3	590	780	+	SynGene4	OG_GENE_0003	590	example_re_to_gene_inference	nearest-gene stub target
+Mus_musculus	gene_0005	chr3	900	1120	-	SynGene5	OG_GENE_0004	1120	example_re_to_gene_inference	ambiguous nearest-gene stub target

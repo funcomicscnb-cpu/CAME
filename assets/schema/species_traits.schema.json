@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CAME species_traits",
+  "type": "object",
+  "required": ["species", "phylogeny_label", "trait_value"],
+  "properties": {
+    "species": {"type": "string", "minLength": 1},
+    "phylogeny_label": {"type": "string", "minLength": 1},
+    "common_name": {"type": ["string", "null"]},
+    "clade": {"type": ["string", "null"]},
+    "external_trait": {"type": ["string", "null"]},
+    "covariate": {"type": ["string", "null"]},
+    "trait_value": {"type": ["number", "string"], "minLength": 1},
+    "trait_unit": {"type": ["string", "null"]},
+    "trait_source": {"type": ["string", "null"]},
+    "trait_confidence": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

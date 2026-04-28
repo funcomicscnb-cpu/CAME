@@ -1,0 +1,12 @@
+species	feature_id	orthogroup_id	chrom	start	end	human_anchor_region	re_type	orthology_type	orthology_confidence	source	notes
+Danio_rerio	re_0001	OG_RE_0001	chr1	1000	1250	hg38_chr1:1000-1250	enhancer	one_to_one	high	synthetic_stage7	
+Xenopus_tropicalis	re_0001	OG_RE_0001	chr1	1000	1250	hg38_chr1:1000-1250	enhancer	one_to_one	high	synthetic_stage7	
+Danio_rerio	re_0002	OG_RE_0002	chr2	1500	1750	hg38_chr2:1500-1750	promoter	one_to_one	high	synthetic_stage7	
+Xenopus_tropicalis	re_0002	OG_RE_0002	chr2	1500	1750	hg38_chr2:1500-1750	promoter	one_to_one	high	synthetic_stage7	
+Danio_rerio	re_0003	OG_RE_0003	chr3	2000	2250	hg38_chr3:2000-2250	enhancer	many_to_one	medium	synthetic_stage7	
+Danio_rerio	re_0004	OG_RE_0003	chr1	2500	2750	hg38_chr3:2000-2250	enhancer	many_to_one	medium	synthetic_stage7	many-to-one example
+Xenopus_tropicalis	re_0003	OG_RE_0003	chr3	2000	2250	hg38_chr3:2000-2250	enhancer	many_to_one	medium	synthetic_stage7	
+Danio_rerio	re_0005	OG_RE_0004	chr2	3000	3250	hg38_chr4:3000-3250	enhancer	one_to_many	low	synthetic_stage7	ambiguous one-to-many example
+Danio_rerio	re_0005	OG_RE_0005	chr2	3000	3250	hg38_chr5:3000-3250	enhancer	one_to_many	low	synthetic_stage7	ambiguous one-to-many example
+Xenopus_tropicalis	re_0005	OG_RE_0004	chr2	3000	3250	hg38_chr4:3000-3250	enhancer	many_to_one	medium	synthetic_stage7	
+Xenopus_tropicalis	re_0006	OG_RE_0006	chr3	3500	3750	hg38_chr6:3500-3750	enhancer	one_to_one	medium	synthetic_stage7	

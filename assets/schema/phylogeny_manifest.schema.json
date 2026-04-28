@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CAME phylogeny_manifest",
+  "type": "object",
+  "required": ["phylogeny_id", "phylogeny_file"],
+  "properties": {
+    "phylogeny_id": {"type": "string", "minLength": 1},
+    "phylogeny_file": {"type": "string", "minLength": 1},
+    "species": {"type": ["string", "null"]},
+    "phylogeny_label": {"type": ["string", "null"]},
+    "source": {"type": ["string", "null"]},
+    "branch_length_type": {"type": ["string", "null"]},
+    "notes": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

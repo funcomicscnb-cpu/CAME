@@ -1,0 +1,25 @@
+name: came
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.10
+  - pyyaml
+  - jsonschema
+  - pandas
+  - numpy
+  - scipy
+  - nextflow>=22.10.0
+  - r-base>=4.2
+  - r-yaml
+  - r-ape
+  - r-nlme
+  - r-data.table
+  - bioconductor-deseq2
+  - fastqc
+  - star
+  - subread
+  - bwa
+  - samtools
+  - bedtools
+  - multiqc

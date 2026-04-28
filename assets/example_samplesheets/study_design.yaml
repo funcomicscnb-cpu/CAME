@@ -1,0 +1,18 @@
+study:
+  study_id: came_stage1_example
+  title: CAME phenotype-agnostic metadata example
+metadata:
+  phenotype_samplesheet: phenotype_samplesheet.csv
+  omics_samplesheet: omics_samplesheet.csv
+  species_traits: species_traits.tsv
+  reference_manifest: reference_manifest.tsv
+  phylogeny_manifest: phylogeny_manifest.tsv
+contrasts:
+  - contrast_id: example_control_profile
+    description: Placeholder contrast for future study-specific models.
+phenotype_indexes:
+  - index_id: generic_response_index
+    description: Placeholder for future configurable phenotype indexes.
+hypothesis_models:
+  - model_id: placeholder_model
+    description: Placeholder for future hypothesis model definitions.
