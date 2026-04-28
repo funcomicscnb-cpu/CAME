@@ -88,7 +88,7 @@ nextflow run . -resume \
 - Verify Stage 16 documentation explains manifest files, provenance, report assets, report sections, release checks, warning behavior, and limitations.
 - Verify [versioning.md](versioning.md) and [release_notes_v0.1.md](release_notes_v0.1.md) match `VERSION` and `CHANGELOG.md`.
 - Verify known limitations are stated without implying unsupported analyses were performed.
-- Verify citation placeholders are intentional and not fabricated names, dates, institutions, or repository URLs.
+- Verify citation metadata is intentional and does not include fabricated dates, institutions, or identifiers.
 - Verify the GPL-3.0-only license text is complete and unmodified.
 
 ## Known Limitations
@@ -109,5 +109,5 @@ nextflow run . -resume \
 4. Inspect `results/final/release_checks/came_release_checks.tsv` and resolve all `ERROR` records.
 5. Inspect `results/all/summary/came_all_run_summary.tsv`.
 6. Review the final HTML and Markdown reports for missing or misleading sections.
-7. Resolve TODO citation/repository/release-date/copyright decisions.
+7. Resolve release-date and copyright-holder decisions.
 8. Create a version tag only after tests, release checks, and public metadata are clean.

@@ -67,7 +67,7 @@ Stub-mode tests require Java, Nextflow, Python, and a small R package set. Real-
 
 ## Licensing And Citation
 
-CAME v0.1 is distributed under `GPL-3.0-only`. Citation metadata is provided in `CITATION.cff`; TODO placeholders must be resolved before a final public tag.
+CAME v0.1 is distributed under `GPL-3.0-only`. Citation metadata is provided in `CITATION.cff` with David Juan as author and `https://github.com/funcomicscnb-cpu/CAME` as the public code repository. The release date remains unset until the final public tag.
 
 ## Known Limitations
 

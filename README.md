@@ -10,7 +10,7 @@ Bundled study-profile templates include `generic`, `ddr_ror`, `immune_response`,
 
 Current release metadata targets `v0.1.0`. This release prepares the public repository package, stub-mode orchestration, final reports, and release checks. It does not add new biological analyses, implement NanoSeq or mutation profiling, or change default `--run_stage all` behavior.
 
-CAME is distributed under `GPL-3.0-only`. Citation metadata is available in [CITATION.cff](CITATION.cff) and still contains TODO placeholders for authorship, repository URL, and release date.
+CAME is distributed under `GPL-3.0-only`. Citation metadata is available in [CITATION.cff](CITATION.cff); the public repository is `https://github.com/funcomicscnb-cpu/CAME`, and the release date is still unset.
 
 ## Quick Install
 

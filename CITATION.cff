@@ -5,10 +5,9 @@ type: software
 version: 0.1.0
 date-released: "TODO: confirm v0.1 public release date"
 authors:
-  - family-names: "TODO"
-    given-names: "TODO"
-    affiliation: "TODO: add author affiliation"
-repository-code: "TODO: add public repository URL"
+  - family-names: "Juan"
+    given-names: "David"
+repository-code: "https://github.com/funcomicscnb-cpu/CAME"
 abstract: "CAME is a phenotype-agnostic Nextflow DSL2 framework for comparative multi-omics evolution workflows. The v0.1 release focuses on metadata validation, stub-mode orchestration, core analysis scaffolding, final reporting, and release packaging."
 keywords:
   - comparative genomics

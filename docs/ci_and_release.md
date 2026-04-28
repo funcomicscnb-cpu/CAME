@@ -60,7 +60,7 @@ Use `--strict` when missing requested real-mode tools should fail the check.
 ## Release Checklist
 
 1. Confirm `VERSION` and `CHANGELOG.md` match the intended tag.
-2. Confirm `LICENSE` is GPL-3.0-only and `CITATION.cff` contains no fabricated authorship, repository, or release-date metadata.
+2. Confirm `LICENSE` is GPL-3.0-only and `CITATION.cff` contains no fabricated release-date, affiliation, or identifier metadata.
 3. Run `python3 bin/print_versions.py`.
 4. Run `python3 bin/validate_release_bundle.py`.
 5. Run all local tests listed above.
@@ -100,4 +100,4 @@ Use the repository's normal review and approval process before pushing a release
 - `--resume_completed_stages` is documented/reporting only; actual process reuse uses Nextflow `-resume`.
 - Stage status checks are presence/non-empty checks, not content hashing.
 - DESeq2 is optional for smoke tests; fallback differential paths are expected when DESeq2 is absent.
-- Authorship, public repository URL, release date, and copyright holder must be resolved before the final public tag.
+- Release date and copyright holder must be resolved before the final public tag.
