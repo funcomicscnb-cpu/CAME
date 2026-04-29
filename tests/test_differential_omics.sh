@@ -154,7 +154,8 @@ Rscript "$ROOT_DIR/bin/run_differential_analysis.R" \
 test -s "$R_OUT/differential_results.tsv"
 test -s "$R_OUT/normalized_counts.tsv"
 test -s "$R_OUT/differential_warnings.tsv"
-assert_header "$R_OUT/differential_results.tsv" "omics_type	contrast_name	contrast_type	species	feature_id	feature_type	baseline_label	response_label	n_baseline	n_response	base_mean	baseline_mean	response_mean	log2_fold_change	statistic	p_value	padj	method	status	message	annotation_id"
+assert_header "$R_OUT/differential_results.tsv" "omics_type	contrast_name	contrast_type	species	feature_id	feature_type	baseline_label	response_label	n_baseline	n_response	base_mean	baseline_mean	response_mean	log2_fold_change	statistic	p_value	padj	correction_method	method	status	message	annotation_id"
+assert_grep '	BH	' "$R_OUT/differential_results.tsv" "BH correction_method missing"
 assert_grep 'filtered_low_count' "$R_OUT/differential_results.tsv" "filtered feature status missing"
 
 if Rscript -e "library(DESeq2)" 2>/dev/null; then

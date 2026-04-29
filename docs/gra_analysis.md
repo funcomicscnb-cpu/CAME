@@ -122,7 +122,7 @@ Differential:
 - `results/gra/differential/normalized_gra_activity.tsv`
 - `results/gra/differential/differential_gra_activity_warnings.tsv`
 
-`differential_gra_activity.tsv` includes the species for each species-stratified GRA contrast so downstream phenotype-omics integration can join GRA responses to phenotype responses.
+`differential_gra_activity.tsv` includes the species for each species-stratified GRA contrast so downstream phenotype-omics integration can join GRA responses to phenotype responses. It also reports `correction_method`, with `BH` for adjusted p-values and `NA` for untested rows.
 
 Summary:
 

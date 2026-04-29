@@ -61,7 +61,9 @@ Outputs are written under `results/differential_omics/` by default:
 
 Result tables start with:
 
-`omics_type`, `contrast_name`, `contrast_type`, `species`, `feature_id`, `feature_type`, `baseline_label`, `response_label`, `n_baseline`, `n_response`, `base_mean`, `baseline_mean`, `response_mean`, `log2_fold_change`, `statistic`, `p_value`, `padj`, `method`, `status`, `message`
+`omics_type`, `contrast_name`, `contrast_type`, `species`, `feature_id`, `feature_type`, `baseline_label`, `response_label`, `n_baseline`, `n_response`, `base_mean`, `baseline_mean`, `response_mean`, `log2_fold_change`, `statistic`, `p_value`, `padj`, `correction_method`, `method`, `status`, `message`
+
+`correction_method` is `BH` when an adjusted p-value is reported and `NA` for untested rows.
 
 RNA-seq appends `annotation_id`; ATAC-seq appends `chrom`, `start`, `end`.
 
@@ -85,9 +87,11 @@ sh environment/install_local.sh --install-hmmratac --hmmratac-jar /path/to/HMMRA
 
 The installer does not edit global shell configuration.
 
-## HMMRATAC Real Mode
+## Real-Mode Upstream Notes
 
-Stage 5 ATAC-seq real mode resolves HMMRATAC in this order:
+Stage 6 consumes count matrices from upstream bulk omics. Stage 24 ATAC production real mode uses Bowtie2 and MACS3 and writes `results/atacseq/counts/re_counts.tsv`.
+
+The legacy Stage 5 ATAC-seq scaffold still resolves HMMRATAC in this order:
 
 1. `HMMRATAC` on `PATH`
 2. `hmmratac` on `PATH`
@@ -95,7 +99,7 @@ Stage 5 ATAC-seq real mode resolves HMMRATAC in this order:
 4. `--hmmratac_jar`
 5. local jar names such as `HMMRATAC.jar`, `hmmratac.jar`, `tools/HMMRATAC.jar`, `environment/tools/HMMRATAC.jar`, or `environment/HMMRATAC.jar`
 
-No alternate tool is substituted for HMMRATAC. Stub mode does not require HMMRATAC.
+Stage 24 production ATAC real mode does not use HMMRATAC. Stub mode does not require HMMRATAC.
 
 ## Limitations
 

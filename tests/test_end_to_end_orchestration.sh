@@ -82,6 +82,9 @@ if ! nextflow run "$ROOT_DIR" \
   echo "FAIL: Nextflow all run failed" >&2
   exit 1
 fi
+assert_grep '\[CAME WARNING\].*reference_prepare' "$TMP_DIR/nf_all.out" "all-run excluded-stage warning missing"
+assert_grep 'wgs_variants' "$TMP_DIR/nf_all.out" "all-run warning missing wgs_variants"
+assert_grep 'advanced_statistics' "$TMP_DIR/nf_all.out" "all-run warning missing advanced_statistics"
 test -s "$NF_OUT/final/report/came_final_report.html"
 test -s "$NF_OUT/final/report/came_final_report.md"
 test -s "$NF_OUT/final/report/came_report.css"

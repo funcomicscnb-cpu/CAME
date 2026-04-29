@@ -183,6 +183,17 @@ complete_model_data <- function(data, response, predictors, covariates, species_
   if (nrow(model_data) < 3) {
     stop("Fewer than 3 species remain after filtering model-ready data", call. = FALSE)
   }
+  if (grepl("^pgls", model_type) && nrow(model_data) < 6) {
+    warnings <- rbind(
+      warnings,
+      warning_row(
+        model_id,
+        model_type,
+        "WARNING",
+        sprintf("Only %d species available. PGLS with fewer than 6 species has low power and unstable phylogenetic parameter estimates; treat results as exploratory.", nrow(model_data))
+      )
+    )
+  }
   list(data = model_data, warnings = warnings)
 }
 

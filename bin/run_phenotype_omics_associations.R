@@ -278,19 +278,31 @@ fit_pgls <- function(group, min_species, labels, phylo) {
   if (!prepared$ok) {
     return(list(result = skip_result(group, "pgls_brownian", prepared$message, phy$phylogeny_id), warning = warning_row(group, "pgls_brownian", "WARNING", prepared$message)))
   }
+  data <- prepared$data
+  small_n_warning <- empty_frame(warning_fields)
+  if (nrow(data) < 6) {
+    small_n_warning <- warning_row(
+      group,
+      "pgls_brownian",
+      "WARNING",
+      sprintf("Only %d species available. PGLS with fewer than 6 species has low power and unstable phylogenetic parameter estimates; treat results as exploratory.", nrow(data))
+    )
+  }
+  pgls_warning <- function(message) {
+    rbind(small_n_warning, warning_row(group, "pgls_brownian", "WARNING", message))
+  }
   if (!requireNamespace("ape", quietly = TRUE) || !requireNamespace("nlme", quietly = TRUE)) {
     message <- "PGLS skipped because R package ape or nlme is unavailable"
-    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = warning_row(group, "pgls_brownian", "WARNING", message)))
+    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = pgls_warning(message)))
   }
   if (isTRUE(phy$multiple)) {
     message <- "PGLS skipped because species map to multiple phylogeny files"
-    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = warning_row(group, "pgls_brownian", "WARNING", message)))
+    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = pgls_warning(message)))
   }
   if (phy$phylogeny_file == "" || !file.exists(phy$phylogeny_file)) {
     message <- paste("PGLS skipped because phylogeny file is unavailable:", phy$phylogeny_file)
-    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = warning_row(group, "pgls_brownian", "WARNING", message)))
+    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = pgls_warning(message)))
   }
-  data <- prepared$data
   data$phylogeny_label <- vapply(data$species, function(item) {
     value <- labels[[item]]
     if (is.null(value)) "" else value
@@ -298,18 +310,18 @@ fit_pgls <- function(group, min_species, labels, phylo) {
   if (any(data$phylogeny_label == "")) {
     missing <- paste(data$species[data$phylogeny_label == ""], collapse = ",")
     message <- paste("PGLS skipped because species lack phylogeny labels:", missing)
-    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = warning_row(group, "pgls_brownian", "WARNING", message)))
+    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = pgls_warning(message)))
   }
   tree <- try(ape::read.tree(phy$phylogeny_file), silent = TRUE)
   if (inherits(tree, "try-error")) {
     message <- paste("PGLS skipped because tree could not be read:", as.character(tree))
-    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = warning_row(group, "pgls_brownian", "WARNING", message)))
+    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = pgls_warning(message)))
   }
   absent <- data$phylogeny_label[!data$phylogeny_label %in% tree$tip.label]
   if (length(absent)) {
     species <- paste(data$species[data$phylogeny_label %in% absent], collapse = ",")
     message <- paste("PGLS skipped because model species are absent from tree:", species)
-    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = warning_row(group, "pgls_brownian", "WARNING", message)))
+    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = pgls_warning(message)))
   }
   if (is.null(tree$edge.length)) {
     tree <- ape::compute.brlen(tree)
@@ -324,12 +336,12 @@ fit_pgls <- function(group, min_species, labels, phylo) {
   }, silent = TRUE)
   if (inherits(fit, "try-error")) {
     message <- paste("PGLS failed:", as.character(fit))
-    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = warning_row(group, "pgls_brownian", "WARNING", message)))
+    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = pgls_warning(message)))
   }
   coefs <- summary(fit)$tTable
   if (!"phenotype_response_value" %in% rownames(coefs)) {
     message <- "PGLS coefficient for phenotype_response_value was not estimable"
-    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = warning_row(group, "pgls_brownian", "WARNING", message)))
+    return(list(result = skip_result(group, "pgls_brownian", message, phy$phylogeny_id), warning = pgls_warning(message)))
   }
   row <- coefs["phenotype_response_value", ]
   fitted <- as.numeric(stats::fitted(fit))
@@ -340,7 +352,7 @@ fit_pgls <- function(group, min_species, labels, phylo) {
     row[["Value"]], row[["Std.Error"]], row[["t-value"]], row[["p-value"]],
     stats::AIC(fit), pseudo_r2, phy$phylogeny_id, "OK", ""
   )
-  list(result = result, warning = empty_frame(warning_fields))
+  list(result = result, warning = small_n_warning)
 }
 
 run_associations <- function(args) {

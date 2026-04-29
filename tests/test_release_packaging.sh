@@ -51,16 +51,22 @@ assert_grep '^license_gplv3	PASS' "$VALIDATION_OUT" "GPLv3 license check did not
 assert_grep '^citation_metadata	PASS' "$VALIDATION_OUT" "citation metadata check did not pass"
 assert_grep '^version_parse	PASS' "$VALIDATION_OUT" "VERSION parse check did not pass"
 assert_grep '^readme_release_links	PASS' "$VALIDATION_OUT" "README release links check did not pass"
+assert_grep '^schema_files	PASS' "$VALIDATION_OUT" "schema file check did not pass"
+assert_grep '^schema_sync	PASS' "$VALIDATION_OUT" "schema sync check did not pass"
+assert_grep '^conda_linux_lock	PASS' "$VALIDATION_OUT" "conda linux lock check did not pass"
 assert_grep '^nanoseq_not_advertised	PASS' "$VALIDATION_OUT" "NanoSeq overclaim check did not pass"
 assert_grep '^optional_scaffold_docs	PASS' "$VALIDATION_OUT" "optional scaffold documentation check did not pass"
+assert_grep '^real_mode_fixture_files	PASS' "$VALIDATION_OUT" "real-mode fixture packaging check did not pass"
 
 for required in \
   "$ROOT_DIR/.github/workflows/ci.yml" \
+  "$ROOT_DIR/.github/workflows/publish_container.yml" \
   "$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.md" \
   "$ROOT_DIR/.github/ISSUE_TEMPLATE/feature_request.md" \
   "$ROOT_DIR/.github/PULL_REQUEST_TEMPLATE.md" \
   "$ROOT_DIR/.github/dependabot.yml" \
   "$ROOT_DIR/environment/came_environment.yml" \
+  "$ROOT_DIR/environment/conda-linux-64.lock" \
   "$ROOT_DIR/environment/requirements.txt" \
   "$ROOT_DIR/environment/install_local.sh" \
   "$ROOT_DIR/environment/install_r_packages.R" \
@@ -74,17 +80,39 @@ for required in \
   "$ROOT_DIR/docs/versioning.md" \
   "$ROOT_DIR/docs/release_notes_v0.1.md" \
   "$ROOT_DIR/docs/report_customization.md" \
+  "$ROOT_DIR/docs/real_mode_fixture_strategy.md" \
   "$ROOT_DIR/templates/came_report.css" \
   "$ROOT_DIR/templates/came_report_template.html" \
   "$ROOT_DIR/templates/came_report_template.md" \
+  "$ROOT_DIR/Dockerfile" \
+  "$ROOT_DIR/.dockerignore" \
+  "$ROOT_DIR/schemas/reference_manifest.schema.json" \
+  "$ROOT_DIR/schemas/real_mode_metadata.schema.json" \
+  "$ROOT_DIR/assets/schema/reference_manifest.schema.json" \
+  "$ROOT_DIR/assets/schema/reference_manifest_legacy.schema.json" \
   "$ROOT_DIR/bin/collect_run_provenance.py" \
+  "$ROOT_DIR/bin/make_real_mode_fixtures.py" \
   "$ROOT_DIR/bin/make_report_assets.py" \
+  "$ROOT_DIR/bin/validate_real_mode_fixtures.py" \
   "$ROOT_DIR/tests/test_report_polish.sh" \
+  "$ROOT_DIR/tests/test_real_mode_fixtures.sh" \
   "$ROOT_DIR/tests/test_profile_examples.sh" \
+  "$ROOT_DIR/assets/test_data/real_mode_fixtures/README.md" \
+  "$ROOT_DIR/assets/test_data/real_mode_fixtures/manifests/reference_manifest.tsv" \
+  "$ROOT_DIR/assets/test_data/real_mode_fixtures/manifests/real_mode_metadata.tsv" \
+  "$ROOT_DIR/assets/test_data/real_mode_fixtures/manifests/wgs_samplesheet.csv" \
+  "$ROOT_DIR/assets/test_data/real_mode_fixtures/manifests/expected_output_contracts.tsv" \
   "$ROOT_DIR/VERSION"
 do
   assert_file "$required" "required release packaging file missing: $required"
 done
+
+LIST_STAGES_OUT="$TMP_DIR/list_stages.out"
+nextflow run "$ROOT_DIR" --list_stages true > "$LIST_STAGES_OUT" 2>&1
+assert_grep 'run_stage.*maturity.*included_in_all.*real_mode_scope.*notes' "$LIST_STAGES_OUT" "--list_stages header missing"
+assert_grep 'reference_prepare.*scaffold.*false' "$LIST_STAGES_OUT" "--list_stages missing reference_prepare scaffold row"
+assert_grep 'wgs_variants.*production.*false' "$LIST_STAGES_OUT" "--list_stages missing wgs_variants optional row"
+assert_grep 'all.*orchestration' "$LIST_STAGES_OUT" "--list_stages missing all orchestration row"
 
 assert_grep 'GNU GENERAL PUBLIC LICENSE' "$ROOT_DIR/LICENSE" "LICENSE does not contain GPLv3 title"
 assert_grep 'Version 3, 29 June 2007' "$ROOT_DIR/LICENSE" "LICENSE does not contain GPLv3 version"

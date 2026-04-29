@@ -45,6 +45,7 @@ def write_reference(reference_dir: Path) -> None:
     )
     (reference_dir / "smoke.chrom.sizes").write_text(f"{CHROM}\t{len(GENOME_PREFIX)}\n")
     (reference_dir / "smoke_regions.bed").write_text(f"{CHROM}\t300\t380\tsmoke_region_1\n")
+    (reference_dir / "assembly_report.txt").write_text("synthetic smoke assembly report\n")
 
 
 def write_omics_samplesheet(path: Path) -> None:
@@ -111,15 +112,108 @@ def write_omics_samplesheet(path: Path) -> None:
         writer.writerows(rows)
 
 
+def write_real_mode_metadata(path: Path) -> None:
+    fields = [
+        "sample_id",
+        "study_id",
+        "species",
+        "individual_id",
+        "biological_replicate",
+        "assay",
+        "tissue",
+        "condition",
+        "platform",
+        "library_protocol",
+        "read_layout",
+        "fastq_1",
+        "fastq_2",
+        "reference_id",
+        "strandedness",
+        "batch",
+        "read_length",
+        "library_id",
+        "run_id",
+        "lane",
+        "timepoint",
+        "notes",
+    ]
+    rows = [
+        {
+            "sample_id": "smoke_rna_1",
+            "study_id": "stage24_smoke",
+            "species": SPECIES,
+            "individual_id": "smoke_individual_1",
+            "biological_replicate": "rep1",
+            "assay": "rna",
+            "tissue": "synthetic",
+            "condition": "control",
+            "platform": "Illumina",
+            "library_protocol": "RNA-seq",
+            "read_layout": "single",
+            "fastq_1": "rnaseq/smoke_rna_R1.fastq",
+            "reference_id": REFERENCE_ID,
+            "strandedness": "unstranded",
+            "batch": "smoke_batch",
+            "read_length": "50",
+            "library_id": "smoke_rna_lib",
+            "run_id": "smoke_run",
+            "lane": "1",
+            "timepoint": "0h",
+            "notes": "synthetic Stage 24 RNA real-mode row",
+        },
+        {
+            "sample_id": "smoke_atac_1",
+            "study_id": "stage24_smoke",
+            "species": SPECIES,
+            "individual_id": "smoke_individual_1",
+            "biological_replicate": "rep1",
+            "assay": "atac",
+            "tissue": "synthetic",
+            "condition": "control",
+            "platform": "Illumina",
+            "library_protocol": "ATAC-seq",
+            "read_layout": "single",
+            "fastq_1": "atacseq/smoke_atac_R1.fastq",
+            "reference_id": REFERENCE_ID,
+            "batch": "smoke_batch",
+            "read_length": "50",
+            "library_id": "smoke_atac_lib",
+            "run_id": "smoke_run",
+            "lane": "1",
+            "timepoint": "0h",
+            "notes": "synthetic Stage 24 ATAC real-mode row",
+        },
+    ]
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields, delimiter="\t", quoting=csv.QUOTE_NONE, escapechar="\\", lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def write_reference_manifest(path: Path) -> None:
     fields = [
         "reference_id",
         "species",
+        "species_name",
+        "assembly_name",
+        "assembly_accession",
+        "assembly_source",
+        "assembly_release",
+        "assembly_report",
+        "fasta",
+        "fai",
+        "annotation_file",
+        "annotation_format",
+        "annotation_source",
+        "annotation_release",
+        "seqname_style",
+        "mitochondrial_name",
         "genome_fasta",
         "gtf",
         "transcript_fasta",
         "star_index",
         "bwa_index",
+        "bowtie2_index",
         "chrom_sizes",
         "blacklist_bed",
         "repeatmasker_bed",
@@ -131,11 +225,26 @@ def write_reference_manifest(path: Path) -> None:
     row = {
         "reference_id": REFERENCE_ID,
         "species": SPECIES,
+        "species_name": SPECIES.replace("_", " "),
+        "assembly_name": "SmokeAssembly",
+        "assembly_accession": "CAME_SMOKE_1",
+        "assembly_source": "Custom",
+        "assembly_release": "smoke_v1",
+        "assembly_report": "reference/assembly_report.txt",
+        "fasta": "reference/smoke.fa",
+        "fai": "reference/smoke.fa.fai",
+        "annotation_file": "reference/smoke.gtf",
+        "annotation_format": "gtf",
+        "annotation_source": "CAME",
+        "annotation_release": "smoke_v1",
+        "seqname_style": "custom",
+        "mitochondrial_name": "",
         "genome_fasta": "reference/smoke.fa",
         "gtf": "reference/smoke.gtf",
         "transcript_fasta": "",
         "star_index": "reference/star_index",
         "bwa_index": "reference/smoke.fa",
+        "bowtie2_index": "reference/bowtie2/genome",
         "chrom_sizes": "reference/smoke.chrom.sizes",
         "blacklist_bed": "",
         "repeatmasker_bed": "",
@@ -154,6 +263,7 @@ def create_smoke_data(outdir: Path, force: bool) -> None:
     if outdir.exists() and force:
         for relative in [
             "omics_samplesheet.csv",
+            "real_mode_metadata.tsv",
             "reference_manifest.tsv",
             "rnaseq/smoke_rna_R1.fastq",
             "atacseq/smoke_atac_R1.fastq",
@@ -161,6 +271,7 @@ def create_smoke_data(outdir: Path, force: bool) -> None:
             "reference/smoke.gtf",
             "reference/smoke.chrom.sizes",
             "reference/smoke_regions.bed",
+            "reference/assembly_report.txt",
         ]:
             target = outdir / relative
             if target.exists():
@@ -169,7 +280,7 @@ def create_smoke_data(outdir: Path, force: bool) -> None:
             target = outdir / "reference" / f"smoke.fa{suffix}"
             if target.exists():
                 target.unlink()
-        for directory in ["reference/star_index"]:
+        for directory in ["reference/star_index", "reference/bowtie2"]:
             target = outdir / directory
             if target.exists():
                 shutil.rmtree(target)
@@ -178,6 +289,7 @@ def create_smoke_data(outdir: Path, force: bool) -> None:
     write_fastq(outdir / "atacseq" / "smoke_atac_R1.fastq", "smoke_atac_1", subseq(321, 50))
     write_reference(outdir / "reference")
     write_omics_samplesheet(outdir / "omics_samplesheet.csv")
+    write_real_mode_metadata(outdir / "real_mode_metadata.tsv")
     write_reference_manifest(outdir / "reference_manifest.tsv")
 
 

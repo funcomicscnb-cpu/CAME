@@ -45,7 +45,7 @@ Phenotype contrast variables use `response_metric: difference` by default. Profi
 - `pgls_pagel_lambda`: Pagel lambda PGLS when supported by installed `ape`/`nlme`.
 - `phylo_anova`: validated placeholder that writes a warning because full phylo-ANOVA is deferred.
 
-Phylogenetic models read Newick trees from `phylogeny_manifest`, match tips to species `phylogeny_label`, prune extra tree tips, report species absent from the tree, and fail if fewer than 3 species remain. Missing `ape` or `nlme` produces a clear dependency error for phylogenetic models. `lm` models do not require phylogenetic packages.
+Phylogenetic models read Newick trees from `phylogeny_manifest`, match tips to species `phylogeny_label`, prune extra tree tips, report species absent from the tree, warn when PGLS has only 3-5 matched species, and fail if fewer than 3 species remain. Missing `ape` or `nlme` produces a clear dependency error for phylogenetic models. `lm` models do not require phylogenetic packages.
 
 Generic model outputs:
 

@@ -1,12 +1,12 @@
 # CAME v0.1 Release Notes
 
-CAME v0.1 prepares the repository for a public release of the phenotype-agnostic Nextflow DSL2 framework. The release focuses on validated interfaces, stub-mode orchestration, final reporting, release packaging, and documentation.
+CAME v0.1 prepares the repository for a public release of the phenotype-agnostic Nextflow DSL2 framework. The release focuses on validated interfaces, stub-mode orchestration, final reporting, release packaging, real-mode operational contracts, and documentation. Its release label is **advanced beta for expert users**.
 
 ## Scope
 
 The v0.1 release includes implemented validation, phenotype processing, phylogenetic/hypothesis modeling, bulk RNA-seq/ATAC-seq interfaces, differential omics, orthology projection, GRA analysis, phenotype-omics integration, candidate prioritization, functional interpretation, final reporting, release checks, and optional future-facing scaffold stages through Stage 20.
 
-`--run_stage all` remains the v0.1 stub-oriented end-to-end path. It does not automatically include optional scaffold stages unless those stages were already explicitly part of the all-run design.
+`--run_stage all` remains the v0.1 core end-to-end path. It warns that `reference_prepare`, `reference_quality`, `wgs_variants`, `coordinate_projection`, `re_to_gene_inference`, and `advanced_statistics` are excluded and must be run explicitly when needed.
 
 ## Optional Scaffolds
 
@@ -59,11 +59,11 @@ Key release outputs include:
 
 ## Testing Status
 
-The v0.1 release gate is the stub-mode test matrix documented in `docs/ci_and_release.md` and `docs/release_checklist.md`. Real-mode smoke checks are optional and inventory-oriented unless run in an environment with all required tools and reference assets.
+The v0.1 release gate includes the stub-mode test matrix documented in `docs/ci_and_release.md` and `docs/release_checklist.md`, plus container-backed strict execution of the committed tiny real-mode fixtures when the release image is built.
 
 ## Dependencies
 
-Stub-mode tests require Java, Nextflow, Python, and a small R package set. Real-mode RNA-seq and ATAC-seq paths require external tools and prepared references as documented in `docs/installation.md`.
+Stub-mode tests require Java, Nextflow, Python, and a small R package set. Real-mode RNA-seq, ATAC-seq, and WGS paths require external tools and prepared references as documented in `docs/installation.md`. Docker/Apptainer/Singularity profiles default to `ghcr.io/funcomicscnb-cpu/came:<VERSION>`.
 
 ## Licensing And Citation
 
@@ -73,6 +73,9 @@ CAME v0.1 is distributed under `GPL-3.0-only`. Citation metadata is provided in 
 
 - Stub-mode validation does not prove biological correctness.
 - Real-mode production readiness depends on caller-provided data, references, and external tools.
+- WGS is per-sample only in v0.1: BQSR is not applied and joint genotyping is not performed.
+- ATAC consensus peaks are bedtools-merge exploratory outputs; IDR and TSS enrichment are not computed in v0.1.
+- PGLS models with 3-5 species emit warnings and should be treated as exploratory.
 - Optional scaffold stages are not production analysis implementations.
 - NanoSeq and mutation profiling are not implemented.
 - Orthology tables and regulatory-element-to-gene links are supplied inputs for the v0.1 all-run path.

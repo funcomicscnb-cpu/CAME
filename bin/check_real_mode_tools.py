@@ -13,14 +13,19 @@ from pathlib import Path
 
 
 FIELDS = ["tool", "scope", "status", "severity", "path", "version", "message"]
-SUPPORTED_OMICS_TYPES = {"rnaseq", "atacseq"}
+SUPPORTED_OMICS_TYPES = {"rnaseq", "atacseq", "wgs"}
 TOOL_COMMANDS = {
     "fastqc": ["fastqc", "--version"],
     "multiqc": ["multiqc", "--version"],
     "STAR": ["STAR", "--version"],
     "featureCounts": ["featureCounts", "-v"],
     "bwa": ["bwa"],
+    "bwa-mem2": ["bwa-mem2", "version"],
+    "bowtie2": ["bowtie2", "--version"],
+    "bowtie2-build": ["bowtie2-build", "--version"],
+    "macs3": ["macs3", "--version"],
     "samtools": ["samtools", "--version"],
+    "gatk": ["gatk", "--version"],
     "bedtools": ["bedtools", "--version"],
     "java": ["java", "-version"],
     "HMMRATAC": ["HMMRATAC", "--version"],
@@ -134,24 +139,36 @@ def row(tool: str, scope: str, status: str, severity: str, path: str, version: s
 
 def required_tools(requested: list[str]) -> set[str]:
     tools = {"fastqc"}
+    if any(item in requested for item in ["rnaseq", "atacseq"]):
+        tools.add("multiqc")
     if "rnaseq" in requested:
-        tools.update({"STAR", "featureCounts"})
+        tools.update({"STAR", "featureCounts", "samtools"})
     if "atacseq" in requested:
-        tools.update({"bwa", "samtools", "bedtools", "hmmratac_resolver"})
+        tools.update({"bowtie2", "bowtie2-build", "macs3", "samtools", "bedtools"})
+    if "wgs" in requested:
+        tools.update({"bwa-mem2", "samtools", "gatk"})
     return tools
 
 
 def scope_for(tool: str, requested: list[str]) -> str:
     scopes: list[str] = []
-    if tool in {"fastqc"}:
+    if tool in {"fastqc", "multiqc"}:
         scopes.extend(requested)
     if tool in {"STAR", "featureCounts"}:
         scopes.append("rnaseq")
-    if tool in {"bwa", "samtools", "bedtools", "hmmratac_resolver"}:
+    if tool == "samtools":
+        scopes.extend(requested)
+    if tool in {"bwa-mem2", "gatk"}:
+        scopes.append("wgs")
+    if tool in {"bowtie2", "bowtie2-build", "macs3", "bedtools"}:
         scopes.append("atacseq")
+    if tool == "bwa":
+        scopes.append("legacy_atacseq")
     if tool in {"HMMRATAC", "hmmratac", "hmmratac_jar"}:
-        scopes.append("atacseq")
-    if tool in {"multiqc", "java"}:
+        scopes.append("legacy_atacseq")
+    if tool == "hmmratac_resolver":
+        scopes.append("legacy_atacseq")
+    if tool in {"java"}:
         scopes.append("optional")
     return ",".join(dict.fromkeys(scopes))
 
@@ -181,7 +198,24 @@ def write_tsv(path: Path, records: list[dict[str, str]]) -> None:
 def build_records(args: argparse.Namespace) -> list[dict[str, str]]:
     root = Path(args.project_dir).resolve()
     requested = parse_omics_types(args.omics_types)
-    records = [check_command(tool) for tool in ["fastqc", "multiqc", "STAR", "featureCounts", "bwa", "samtools", "bedtools", "java"]]
+    records = [
+        check_command(tool)
+        for tool in [
+            "fastqc",
+            "multiqc",
+            "STAR",
+            "featureCounts",
+            "bwa-mem2",
+            "bowtie2",
+            "bowtie2-build",
+            "macs3",
+            "bwa",
+            "samtools",
+            "gatk",
+            "bedtools",
+            "java",
+        ]
+    ]
     records.extend(check_command(tool) for tool in ["HMMRATAC", "hmmratac"])
 
     jar_source, jar_path = resolve_hmmratac_jar(root, args.hmmratac_jar or "")

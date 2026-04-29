@@ -150,6 +150,7 @@ if ! grep -q 'pgls_brownian' "$ASSOC/phenotype_expression_associations.tsv" "$AS
   echo "FAIL: PGLS result or skip warning missing" >&2
   exit 1
 fi
+assert_grep 'fewer than 6 species' "$ASSOC/phenotype_omics_association_warnings.tsv" "PGLS small-n warning missing"
 
 PAIRWISE="$TMP_DIR/integration/pairwise"
 python3 "$ROOT_DIR/bin/run_pairwise_species_contrasts.py" \

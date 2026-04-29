@@ -98,7 +98,9 @@ workflow ALL {
         omics_stub
     )
 
-    if (params.omics_stub.toString().toBoolean()) {
+    allExplicitOmicsMode = params.omics_mode ? params.omics_mode.toString().trim().toLowerCase() : ''
+    allEffectiveOmicsMode = allExplicitOmicsMode ?: (omics_stub.toString().toBoolean() ? 'stub' : 'real')
+    if (allEffectiveOmicsMode == 'stub') {
         ALL_STUB_OMICS_CONTRASTS(
             bulkOmicsSamplesheet,
             study_profile,

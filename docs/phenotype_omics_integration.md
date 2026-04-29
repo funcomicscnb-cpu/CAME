@@ -83,7 +83,7 @@ Small species sets limit inference. The default minimum is:
 --integration_min_species 3
 ```
 
-With three species, LM and PGLS estimates are possible but uncertainty is high.
+With three to five species, LM and PGLS estimates are possible but uncertainty is high. PGLS models in that range emit structured warning rows and should be treated as exploratory.
 
 ## Pairwise Species Contrasts
 

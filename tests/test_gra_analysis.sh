@@ -211,8 +211,9 @@ Rscript "$ROOT_DIR/bin/run_differential_gra_activity.R" \
 test -s "$DIFF/differential_gra_activity.tsv"
 test -s "$DIFF/normalized_gra_activity.tsv"
 test -s "$DIFF/differential_gra_activity_warnings.tsv"
-assert_header_prefix "$DIFF/differential_gra_activity.tsv" "gra_id	gene_orthogroup_id	contrast_name	baseline_label	response_label	log2_fold_change	statistic	p_value	padj	mean_baseline	mean_response	n_baseline	n_response	method	status"
+assert_header_prefix "$DIFF/differential_gra_activity.tsv" "gra_id	gene_orthogroup_id	contrast_name	baseline_label	response_label	log2_fold_change	statistic	p_value	padj	correction_method	mean_baseline	mean_response	n_baseline	n_response	method	status"
 assert_grep 'species' "$DIFF/differential_gra_activity.tsv" "GRA differential output missing species column"
+assert_grep '	BH	' "$DIFF/differential_gra_activity.tsv" "GRA correction_method missing"
 
 SUMMARY="$TMP_DIR/summary"
 python3 "$ROOT_DIR/bin/summarize_gra_analysis.py" \

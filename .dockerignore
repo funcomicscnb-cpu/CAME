@@ -1,0 +1,9 @@
+.git
+.nextflow
+.nextflow.log*
+work
+results
+__pycache__
+*.pyc
+*.pyo
+.DS_Store

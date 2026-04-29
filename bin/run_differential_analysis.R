@@ -6,7 +6,7 @@ base_fields <- c(
   "omics_type", "contrast_name", "contrast_type", "species", "feature_id", "feature_type",
   "baseline_label", "response_label", "n_baseline", "n_response", "base_mean",
   "baseline_mean", "response_mean", "log2_fold_change", "statistic", "p_value",
-  "padj", "method", "status", "message"
+  "padj", "correction_method", "method", "status", "message"
 )
 metadata_fields_by_type <- list(
   rnaseq = c("feature_id", "feature_type", "annotation_id"),
@@ -305,6 +305,7 @@ run_contrast <- function(contrast, counts_df, feature_meta, count_matrix, norm_m
       statistic = vapply(stats, fmt, character(1)),
       p_value = vapply(pvals, fmt, character(1)),
       padj = vapply(padj, fmt, character(1)),
+      correction_method = ifelse(!is.na(padj), "BH", "NA"),
       method = methods,
       status = status,
       message = message,

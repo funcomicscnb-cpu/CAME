@@ -1,0 +1,71 @@
+name: Publish CAME container
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare tags
+        id: meta
+        run: |
+          version="$(cat VERSION)"
+          image="ghcr.io/funcomicscnb-cpu/came"
+          tags="${image}:${version}"
+          if [ "${GITHUB_REF_TYPE}" = "branch" ]; then
+            tags="${tags},${image}:latest"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tags="${tags},${image}:${GITHUB_REF_NAME}"
+          fi
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Write release artifact metadata
+        run: |
+          mkdir -p container-metadata
+          python3 bin/print_versions.py > container-metadata/tool_versions.tsv || true
+          shasum -a 256 environment/conda-linux-64.lock > container-metadata/conda-linux-64.lock.sha256
+          {
+            echo "image=${{ steps.meta.outputs.image }}"
+            echo "version=${{ steps.meta.outputs.version }}"
+            echo "digest=${{ steps.build.outputs.digest }}"
+          } > container-metadata/container_image.tsv
+
+      - name: Upload release artifact metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: came-container-metadata
+          path: container-metadata/

@@ -13,15 +13,22 @@ include { CANDIDATE_PRIORITIZATION } from './workflows/candidate_prioritization'
 include { FUNCTIONAL_INTERPRETATION } from './workflows/functional_interpretation'
 include { FINAL_REPORT } from './workflows/final_report'
 include { REFERENCE_PREPARE } from './workflows/reference_prepare'
+include { WGS_VARIANTS } from './workflows/wgs_variants'
 include { COORDINATE_PROJECTION } from './workflows/coordinate_projection'
 include { RE_TO_GENE_INFERENCE } from './workflows/re_to_gene_inference'
 include { ADVANCED_STATISTICS } from './workflows/advanced_statistics'
 include { ALL } from './workflows/all'
-include { METADATA_VALIDATION; STUDY_PROFILE_VALIDATION; PHYLO_METADATA_VALIDATION } from './subworkflows/validation'
+include { METADATA_VALIDATION; STUDY_PROFILE_VALIDATION; PHYLO_METADATA_VALIDATION; REAL_MODE_REQUIREMENTS_VALIDATION } from './subworkflows/validation'
+include { REFERENCE_QUALITY } from './subworkflows/reference_quality'
 
 params.phenotype_samplesheet = null
 params.omics_samplesheet = null
 params.wgs_samplesheet = 'assets/example_samplesheets/wgs_samplesheet.csv'
+params.wgs_mode = 'stub'
+params.wgs_variant_mode = 'haplotypecaller'
+params.wgs_filtering_mode = 'hard_filter'
+params.require_known_sites = false
+params.allow_no_bqsr = true
 params.regulatory_regions = 'assets/example_samplesheets/regulatory_regions.tsv'
 params.genome_alignment_manifest = 'assets/example_samplesheets/genome_alignment_manifest.tsv'
 params.coordinate_projection_config = 'assets/example_samplesheets/coordinate_projection_config.tsv'
@@ -35,17 +42,31 @@ params.reference_prepare_config = 'assets/example_samplesheets/reference_prepare
 params.phylogeny_manifest = null
 params.study_design = null
 params.study_profile = null
+params.enable_real_mode_validation = false
+params.real_mode_metadata = null
 params.validate_only = false
 params.run_stage = 'validation'
 params.normalization = 'none'
 params.phylo_model_types = 'lm,pgls_brownian'
 params.hypothesis_model_types = ''
 params.omics_types = 'rnaseq,atacseq'
-params.omics_stub = true
-params.reference_stub = true
-params.coordinate_projection_stub = true
-params.re_to_gene_inference_stub = true
-params.advanced_statistics_stub = true
+params.omics_mode = null
+params.rna_backend = 'star'
+params.atac_backend = 'bowtie2'
+params.peak_caller = 'macs3'
+params.container_image = null
+params.came_version = params.came_version ?: (new File('VERSION').exists() ? new File('VERSION').text.trim() : '0.1.0')
+params.default_container_image = params.default_container_image ?: "ghcr.io/funcomicscnb-cpu/came:${params.came_version}"
+params.list_stages = false
+params.real_fail_on_missing_tools = true
+params.real_require_paired_atac = false
+params.threads = 8
+params.max_memory = '16 GB'
+params.reference_cache_dir = null
+params.check_paths = false
+params.reference_quality_strict = false
+params.allow_low_quality_reference = false
+params.reference_quality_assay = 'rna,atac'
 params.rnaseq_counts = null
 params.atacseq_counts = null
 params.differential_expression = null
@@ -101,16 +122,64 @@ params.alpha = 0.05
 params.differential_force_fallback = false
 params.hmmratac_jar = null
 params.resume_completed_stages = true
+params.slurm_queue = ''
+params.slurm_queue_high = ''
+params.slurm_account = ''
 params.outdir = 'results'
 
 workflow {
+    def stageCatalog = [
+        [run_stage: 'validation', maturity: 'validation', included_in_all: false, real_mode_scope: 'metadata and real-mode preflight', notes: 'Validates metadata, profiles, and optional real-mode requirements'],
+        [run_stage: 'phenotype_response', maturity: 'production', included_in_all: true, real_mode_scope: 'not assay-specific', notes: 'Phenotype processing'],
+        [run_stage: 'phylo_hypothesis', maturity: 'production', included_in_all: true, real_mode_scope: 'not assay-specific', notes: 'LM/PGLS hypothesis testing'],
+        [run_stage: 'bulk_omics', maturity: 'production', included_in_all: true, real_mode_scope: 'RNA-seq and ATAC-seq', notes: 'Stub or real RNA/ATAC bulk omics'],
+        [run_stage: 'differential_omics', maturity: 'production', included_in_all: true, real_mode_scope: 'RNA-seq and ATAC-seq counts', notes: 'Differential expression/accessibility'],
+        [run_stage: 'orthology_projection', maturity: 'production', included_in_all: true, real_mode_scope: 'precomputed orthology', notes: 'Projects features to orthogroups'],
+        [run_stage: 'gra_analysis', maturity: 'production', included_in_all: true, real_mode_scope: 'promoter-proximity links', notes: 'Gene regulatory architecture analysis'],
+        [run_stage: 'phenotype_omics_integration', maturity: 'production', included_in_all: true, real_mode_scope: 'summary tables', notes: 'Phenotype-omics association models'],
+        [run_stage: 'candidate_prioritization', maturity: 'production', included_in_all: true, real_mode_scope: 'summary tables', notes: 'Candidate ranking'],
+        [run_stage: 'functional_interpretation', maturity: 'production', included_in_all: true, real_mode_scope: 'summary tables', notes: 'Gene-set interpretation'],
+        [run_stage: 'final_report', maturity: 'production', included_in_all: true, real_mode_scope: 'reporting', notes: 'Final HTML/Markdown report'],
+        [run_stage: 'reference_prepare', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'reference assets', notes: 'Optional scaffold; not production reference preparation'],
+        [run_stage: 'wgs_variants', maturity: 'production', included_in_all: false, real_mode_scope: 'WGS per-sample SNP/indel calling', notes: 'Optional; per-sample only, no joint genotyping'],
+        [run_stage: 'reference_quality', maturity: 'production', included_in_all: false, real_mode_scope: 'reference assets', notes: 'Optional reference-quality validation'],
+        [run_stage: 'coordinate_projection', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'comparative coordinates', notes: 'Optional scaffold; not production coordinate projection'],
+        [run_stage: 're_to_gene_inference', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'regulatory links', notes: 'Optional scaffold; not production RE-to-gene inference'],
+        [run_stage: 'advanced_statistics', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'advanced models', notes: 'Optional scaffold; not production advanced statistics'],
+        [run_stage: 'all', maturity: 'orchestration', included_in_all: false, real_mode_scope: 'stub/real as configured', notes: 'Runs the core production chain; excludes optional/scaffold stages']
+    ]
+    if (params.list_stages.toString().toBoolean()) {
+        log.info "run_stage\tmaturity\tincluded_in_all\treal_mode_scope\tnotes"
+        stageCatalog.each { row ->
+            log.info "${row.run_stage}\t${row.maturity}\t${row.included_in_all}\t${row.real_mode_scope}\t${row.notes}"
+        }
+        System.exit(0)
+    }
     def validateOnly = params.validate_only.toString().toBoolean()
-    def allowedStages = ['validation', 'phenotype_response', 'phylo_hypothesis', 'bulk_omics', 'differential_omics', 'orthology_projection', 'gra_analysis', 'phenotype_omics_integration', 'candidate_prioritization', 'functional_interpretation', 'final_report', 'reference_prepare', 'coordinate_projection', 're_to_gene_inference', 'advanced_statistics', 'all']
+    def realModeValidationEnabled = params.enable_real_mode_validation.toString().toBoolean()
+    def explicitOmicsMode = params.omics_mode ? params.omics_mode.toString().trim().toLowerCase() : ''
+    def effectiveOmicsMode = explicitOmicsMode ?: (params.omics_stub.toString().toBoolean() ? 'stub' : 'real')
+    if (!(effectiveOmicsMode in ['stub', 'real'])) {
+        error "Unsupported --omics_mode '${params.omics_mode}'. Supported values: stub, real."
+    }
+    def effectiveWgsMode = params.wgs_mode ? params.wgs_mode.toString().trim().toLowerCase() : 'stub'
+    if (!(effectiveWgsMode in ['stub', 'real'])) {
+        error "Unsupported --wgs_mode '${params.wgs_mode}'. Supported values: stub, real."
+    }
+    def allowedStages = stageCatalog.collect { it.run_stage }
     if (!allowedStages.contains(params.run_stage)) {
         error "Unsupported --run_stage '${params.run_stage}'. Supported values: ${allowedStages.join(', ')}."
     }
     if (!params.outdir.toString().startsWith('/')) {
         log.warn "CAME: --outdir '${params.outdir}' is a relative path. Outputs will be written relative to the Nextflow launch directory. Use an absolute path to ensure consistent output locations across stages."
+    }
+    def activeProfileText = workflow.profile ? workflow.profile.toString() : ''
+    if (['docker', 'apptainer', 'singularity'].any { activeProfileText.contains(it) }) {
+        if (params.container_image) {
+            log.info "CAME: using user-supplied container image '${params.container_image}'."
+        } else {
+            log.info "CAME: using default CAME container image '${params.default_container_image}'. Override with --container_image <uri>."
+        }
     }
 
     def isAllStage = params.run_stage == 'all'
@@ -124,6 +193,8 @@ workflow {
     def isFunctionalStage = params.run_stage == 'functional_interpretation'
     def isFinalReportStage = params.run_stage == 'final_report'
     def isReferencePrepareStage = params.run_stage == 'reference_prepare'
+    def isWgsVariantsStage = params.run_stage == 'wgs_variants'
+    def isReferenceQualityStage = params.run_stage == 'reference_quality'
     def isCoordinateProjectionStage = params.run_stage == 'coordinate_projection'
     def isReToGeneInferenceStage = params.run_stage == 're_to_gene_inference'
     def isAdvancedStatisticsStage = params.run_stage == 'advanced_statistics'
@@ -133,6 +204,13 @@ workflow {
     def existingIndexContrasts = file("${params.outdir}/phenotype/contrasts/phenotype_index_contrasts.tsv")
     def existingComponentContrasts = file("${params.outdir}/phenotype/contrasts/component_trait_contrasts.tsv")
     def useExistingPhenotypeOutputs = false
+    def realModeMetadataForValidation = isWgsVariantsStage ? params.wgs_samplesheet : params.real_mode_metadata
+    def realModeAssaysForValidation = isWgsVariantsStage ? 'wgs' : (params.omics_types ?: '')
+    def realModeRequirementsRequested = realModeValidationEnabled && (params.run_stage == 'validation' || (isBulkOmicsStage && effectiveOmicsMode == 'real') || (isWgsVariantsStage && effectiveWgsMode == 'real'))
+    def referenceQualityPreflightRequested = realModeValidationEnabled && ((isBulkOmicsStage && effectiveOmicsMode == 'real') || (isWgsVariantsStage && effectiveWgsMode == 'real'))
+    if (realModeRequirementsRequested && (!params.reference_manifest || !realModeMetadataForValidation)) {
+        error "Real-mode validation requires --reference_manifest and --real_mode_metadata, or --wgs_samplesheet for --run_stage wgs_variants."
+    }
     if (isAllStage) {
         if (!params.phenotype_samplesheet || !params.omics_samplesheet || !params.species_traits ||
             !params.reference_manifest || !params.phylogeny_manifest || !params.study_design ||
@@ -158,8 +236,15 @@ workflow {
             }
         }
     } else if (isBulkOmicsStage) {
-        if (!params.omics_samplesheet || !params.reference_manifest) {
-            error "Stage bulk_omics requires --omics_samplesheet and --reference_manifest."
+        if (!params.reference_manifest) {
+            error "Stage bulk_omics requires --reference_manifest."
+        }
+        if (effectiveOmicsMode == 'real') {
+            if (!params.real_mode_metadata && !params.omics_samplesheet) {
+                error "Stage bulk_omics real mode requires --real_mode_metadata or legacy --omics_samplesheet."
+            }
+        } else if (!params.omics_samplesheet) {
+            error "Stage bulk_omics stub mode requires --omics_samplesheet."
         }
     } else if (isDifferentialOmicsStage) {
         if (!params.omics_samplesheet) {
@@ -234,6 +319,20 @@ workflow {
         if (!params.wgs_samplesheet || !params.reference_manifest || !params.reference_prepare_config) {
             error "Stage reference_prepare requires --wgs_samplesheet, --reference_manifest, and --reference_prepare_config."
         }
+    } else if (isWgsVariantsStage) {
+        if (!params.wgs_samplesheet || !params.reference_manifest) {
+            error "Stage wgs_variants requires --wgs_samplesheet and --reference_manifest."
+        }
+        if (params.wgs_variant_mode.toString() != 'haplotypecaller') {
+            error "Unsupported --wgs_variant_mode '${params.wgs_variant_mode}'. Supported value: haplotypecaller."
+        }
+        if (!(params.wgs_filtering_mode.toString() in ['hard_filter', 'none'])) {
+            error "Unsupported --wgs_filtering_mode '${params.wgs_filtering_mode}'. Supported values: hard_filter, none."
+        }
+    } else if (isReferenceQualityStage) {
+        if (!params.reference_manifest) {
+            error "Stage reference_quality requires --reference_manifest."
+        }
     } else if (isCoordinateProjectionStage) {
         if (!params.regulatory_regions || !params.genome_alignment_manifest || !params.coordinate_projection_config) {
             error "Stage coordinate_projection requires --regulatory_regions, --genome_alignment_manifest, and --coordinate_projection_config."
@@ -249,42 +348,93 @@ workflow {
         if (!file(params.advanced_model_config).exists()) {
             error "Stage advanced_statistics could not find advanced_model_config at '${params.advanced_model_config}'."
         }
-    } else if (!params.phenotype_samplesheet || !params.omics_samplesheet || !params.species_traits ||
-        !params.reference_manifest || !params.phylogeny_manifest || !params.study_design) {
+    } else if (!realModeValidationEnabled && (!params.phenotype_samplesheet || !params.omics_samplesheet || !params.species_traits ||
+        !params.reference_manifest || !params.phylogeny_manifest || !params.study_design)) {
         error "Missing metadata input. Provide --phenotype_samplesheet, --omics_samplesheet, --species_traits, --reference_manifest, --phylogeny_manifest, and --study_design."
     }
 
     def hasFullMetadata = params.phenotype_samplesheet && params.omics_samplesheet && params.species_traits &&
         params.reference_manifest && params.phylogeny_manifest && params.study_design
     def metadataReport
-    if (!isAllStage && !isReferencePrepareStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && hasFullMetadata) {
-        METADATA_VALIDATION(
-            file(params.phenotype_samplesheet),
-            file(params.omics_samplesheet),
-            file(params.species_traits),
+    def activeReferenceManifest = params.reference_manifest ? file(params.reference_manifest) : null
+    def realModeDone = null
+    if (realModeRequirementsRequested) {
+        REAL_MODE_REQUIREMENTS_VALIDATION(
             file(params.reference_manifest),
-            file(params.phylogeny_manifest),
-            file(params.study_design)
+            file(realModeMetadataForValidation),
+            realModeAssaysForValidation
+        )
+        activeReferenceManifest = REAL_MODE_REQUIREMENTS_VALIDATION.out.reference_manifest
+        realModeDone = REAL_MODE_REQUIREMENTS_VALIDATION.out.done
+    }
+    if (referenceQualityPreflightRequested) {
+        REFERENCE_QUALITY(
+            activeReferenceManifest,
+            isWgsVariantsStage ? 'wgs' : (params.reference_quality_assay ?: 'rna,atac'),
+            params.check_paths ?: false,
+            params.reference_quality_strict ?: false,
+            params.allow_low_quality_reference ?: false
+        )
+        activeReferenceManifest = REFERENCE_QUALITY.out.reference_manifest
+        realModeDone = REFERENCE_QUALITY.out.done
+    }
+    def gateFile = { value -> realModeValidationEnabled ? realModeDone.map { file(value) } : file(value) }
+    def gateValue = { value -> realModeValidationEnabled ? realModeDone.map { value } : value }
+    def activePhenotypeSamplesheet = params.phenotype_samplesheet ? gateFile(params.phenotype_samplesheet) : null
+    def activeOmicsSamplesheet = params.omics_samplesheet ? gateFile(params.omics_samplesheet) : null
+    def activeBulkOmicsInput = activeOmicsSamplesheet ?: (params.real_mode_metadata ? gateFile(params.real_mode_metadata) : null)
+    def activeSpeciesTraits = params.species_traits ? gateFile(params.species_traits) : null
+    def activePhylogenyManifest = params.phylogeny_manifest ? gateFile(params.phylogeny_manifest) : null
+    def activeStudyDesign = params.study_design ? gateFile(params.study_design) : null
+    def activeStudyProfile = params.study_profile ? gateFile(params.study_profile) : null
+    def activeWgsSamplesheet = params.wgs_samplesheet ? gateFile(params.wgs_samplesheet) : null
+    def activeReferencePrepareConfig = params.reference_prepare_config ? gateFile(params.reference_prepare_config) : null
+    def activeRegulatoryRegions = params.regulatory_regions ? gateFile(params.regulatory_regions) : null
+    def activeGenomeAlignmentManifest = params.genome_alignment_manifest ? gateFile(params.genome_alignment_manifest) : null
+    def activeCoordinateProjectionConfig = params.coordinate_projection_config ? gateFile(params.coordinate_projection_config) : null
+    def activeGeneCoordinates = params.gene_coordinates ? gateFile(params.gene_coordinates) : null
+    def activeReToGeneInferenceConfig = params.re_to_gene_inference_config ? gateFile(params.re_to_gene_inference_config) : null
+    def activeAdvancedModelConfig = params.advanced_model_config ? gateFile(params.advanced_model_config) : null
+    def activeOrthologousGenes = params.orthologous_genes ? gateFile(params.orthologous_genes) : null
+    def activeOrthologousRes = params.orthologous_res ? gateFile(params.orthologous_res) : null
+    def activeReToGeneLinks = params.re_to_gene_links ? gateFile(params.re_to_gene_links) : null
+    def activeGeneAnnotations = params.gene_annotations ? gateFile(params.gene_annotations) : null
+    def activeGeneSets = params.gene_sets ? gateFile(params.gene_sets) : null
+    def activeCandidateScoringConfigValue = params.candidate_scoring_config ? gateValue(file(params.candidate_scoring_config).toString()) : null
+    if (!isAllStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && hasFullMetadata) {
+        METADATA_VALIDATION(
+            activePhenotypeSamplesheet,
+            activeOmicsSamplesheet,
+            activeSpeciesTraits,
+            activeReferenceManifest,
+            activePhylogenyManifest,
+            activeStudyDesign
         )
         metadataReport = METADATA_VALIDATION.out.report
-    } else if (!isAllStage && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage) {
+    } else if (!realModeValidationEnabled && !isAllStage && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage) {
         PHYLO_METADATA_VALIDATION(
-            file(params.phenotype_samplesheet),
-            file(params.species_traits),
-            file(params.phylogeny_manifest)
+            activePhenotypeSamplesheet,
+            activeSpeciesTraits,
+            activePhylogenyManifest
         )
         metadataReport = PHYLO_METADATA_VALIDATION.out.report
     } else if (isAllStage) {
         log.info "Stage all performs metadata and study profile validation inside the end-to-end workflow."
+    } else if (realModeValidationEnabled && params.run_stage == 'validation' && !hasFullMetadata) {
+        // Intentional path: --enable_real_mode_validation=true with --run_stage=validation but without
+        // a full samplesheet set. Stage 23 real-mode checks run below; Stage 1 phenotype/omics
+        // metadata validation is intentionally skipped because only downstream inputs were supplied.
+        // This is expected when callers validate reference assets independently of a full pipeline run.
+        log.info "Running Stage 23 real-mode validation without requiring the full Stage 1 metadata set."
     } else {
         log.info "Skipping full Stage 1 metadata validation for ${params.run_stage} because only downstream inputs were provided."
     }
 
-    if (!isAllStage && params.study_profile && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage) {
+    if (!isAllStage && params.study_profile && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage) {
         STUDY_PROFILE_VALIDATION(
-            file(params.study_profile),
-            file(params.phenotype_samplesheet),
-            file(params.species_traits)
+            activeStudyProfile,
+            activePhenotypeSamplesheet,
+            activeSpeciesTraits
         )
     }
 
@@ -293,15 +443,16 @@ workflow {
     }
 
     if (params.run_stage == 'all' && !validateOnly) {
+        log.warn "[CAME WARNING] --run_stage all excludes optional/scaffold stages: reference_prepare, reference_quality, wgs_variants, coordinate_projection, re_to_gene_inference, advanced_statistics. Run each explicitly with --run_stage <name>. Use --list_stages true for the full catalog."
         def functionalMinScore = params.functional_interpretation_min_score != null ? params.functional_interpretation_min_score.toString() : ''
         ALL(
-            file(params.phenotype_samplesheet),
-            file(params.omics_samplesheet),
-            file(params.species_traits),
-            file(params.reference_manifest),
-            file(params.phylogeny_manifest),
-            file(params.study_design),
-            file(params.study_profile),
+            activePhenotypeSamplesheet,
+            activeOmicsSamplesheet,
+            activeSpeciesTraits,
+            activeReferenceManifest,
+            activePhylogenyManifest,
+            activeStudyDesign,
+            activeStudyProfile,
             file(params.outdir).toString(),
             phylogenyBaseDir.toString(),
             params.normalization,
@@ -318,12 +469,12 @@ workflow {
             params.min_samples_per_group,
             params.alpha,
             params.differential_force_fallback,
-            file(params.orthologous_genes),
-            file(params.orthologous_res),
-            file(params.re_to_gene_links),
-            file(params.gene_annotations),
-            file(params.gene_sets),
-            file(params.candidate_scoring_config).toString(),
+            activeOrthologousGenes,
+            activeOrthologousRes,
+            activeReToGeneLinks,
+            activeGeneAnnotations,
+            activeGeneSets,
+            activeCandidateScoringConfigValue,
             params.candidate_linked_evidence_weight,
             params.candidate_score_cap,
             params.gra_activity_aggregation,     // workflow param: aggregation
@@ -340,31 +491,49 @@ workflow {
         )
     } else if (params.run_stage == 'bulk_omics' && !validateOnly) {
         BULK_OMICS(
-            file(params.omics_samplesheet),
-            file(params.reference_manifest),
+            activeBulkOmicsInput,
+            activeReferenceManifest,
             params.omics_types,
             params.omics_stub
         )
     } else if (params.run_stage == 'reference_prepare' && !validateOnly) {
         REFERENCE_PREPARE(
-            file(params.wgs_samplesheet),
-            file(params.reference_manifest),
-            file(params.reference_prepare_config),
+            activeWgsSamplesheet,
+            activeReferenceManifest,
+            activeReferencePrepareConfig,
             params.reference_stub
+        )
+    } else if (params.run_stage == 'wgs_variants' && !validateOnly) {
+        WGS_VARIANTS(
+            activeWgsSamplesheet,
+            activeReferenceManifest,
+            effectiveWgsMode,
+            params.wgs_variant_mode,
+            params.wgs_filtering_mode,
+            params.require_known_sites,
+            params.allow_no_bqsr
+        )
+    } else if (params.run_stage == 'reference_quality' && !validateOnly) {
+        REFERENCE_QUALITY(
+            activeReferenceManifest,
+            params.reference_quality_assay ?: 'rna,atac',
+            params.check_paths ?: false,
+            params.reference_quality_strict ?: false,
+            params.allow_low_quality_reference ?: false
         )
     } else if (params.run_stage == 'coordinate_projection' && !validateOnly) {
         COORDINATE_PROJECTION(
-            file(params.regulatory_regions),
-            file(params.genome_alignment_manifest),
-            file(params.coordinate_projection_config),
+            activeRegulatoryRegions,
+            activeGenomeAlignmentManifest,
+            activeCoordinateProjectionConfig,
             params.coordinate_projection_stub
         )
     } else if (params.run_stage == 're_to_gene_inference' && !validateOnly) {
         RE_TO_GENE_INFERENCE(
-            file(params.regulatory_regions),
-            file(params.gene_coordinates),
+            activeRegulatoryRegions,
+            activeGeneCoordinates,
             params.chromatin_contacts ? file(params.chromatin_contacts).toString() : '',
-            file(params.re_to_gene_inference_config),
+            activeReToGeneInferenceConfig,
             params.re_to_gene_inference_stub
         )
     } else if (params.run_stage == 'advanced_statistics' && !validateOnly) {
@@ -374,10 +543,10 @@ workflow {
         def advancedHypothesisModelResults = params.hypothesis_model_results ? file(params.hypothesis_model_results).toString() : ''
         def advancedPhenotypeOmicsModelTable = file("${params.outdir}/integration/input/phenotype_omics_model_table.tsv")
         ADVANCED_STATISTICS(
-            file(params.advanced_model_config),
+            activeAdvancedModelConfig,
             file(params.outdir).toString(),
-            params.species_traits ? file(params.species_traits).toString() : '',
-            params.phylogeny_manifest ? file(params.phylogeny_manifest).toString() : '',
+            params.species_traits ? gateValue(file(params.species_traits).toString()) : '',
+            params.phylogeny_manifest ? gateValue(file(params.phylogeny_manifest).toString()) : '',
             advancedPhenotypeIndexContrasts,
             advancedComponentTraitContrasts,
             advancedHypothesisModelTable.toString(),
@@ -396,8 +565,8 @@ workflow {
             error "Stage differential_omics could not find ATAC-seq counts at '${atacseqCountsFile}'. Run --run_stage bulk_omics first with the same --outdir or provide --atacseq_counts."
         }
         DIFFERENTIAL_OMICS(
-            file(params.omics_samplesheet),
-            params.study_profile ? file(params.study_profile).toString() : '',
+            activeOmicsSamplesheet,
+            params.study_profile ? gateValue(file(params.study_profile).toString()) : '',
             params.omics_types,
             requestedOmicsTypes.contains('rnaseq') ? rnaseqCountsFile.toString() : '',
             requestedOmicsTypes.contains('atacseq') ? atacseqCountsFile.toString() : '',
@@ -430,9 +599,9 @@ workflow {
             error "Stage orthology_projection could not find explicitly supplied differential accessibility table at '${differentialAccessibilityFile}'."
         }
         ORTHOLOGY_PROJECTION(
-            file(params.omics_samplesheet),
-            file(params.orthologous_genes),
-            file(params.orthologous_res),
+            activeOmicsSamplesheet,
+            activeOrthologousGenes,
+            activeOrthologousRes,
             params.omics_types,
             requestedOmicsTypes.contains('rnaseq') ? rnaseqCountsFile.toString() : '',
             requestedOmicsTypes.contains('atacseq') ? atacseqCountsFile.toString() : '',
@@ -458,14 +627,14 @@ workflow {
             }
         }
         GRA_ANALYSIS(
-            file(params.omics_samplesheet),
-            file(params.re_to_gene_links),
+            activeOmicsSamplesheet,
+            activeReToGeneLinks,
             geneOrthogroupCountsFile,
             reOrthogroupCountsFile,
             featureMapFile,
             differentialExpressionOrthogroupsFile,
             differentialAccessibilityOrthogroupsFile,
-            params.study_profile ? file(params.study_profile).toString() : '',
+            params.study_profile ? gateValue(file(params.study_profile).toString()) : '',
             params.baseline_condition ?: '',
             params.response_condition ?: '',
             params.baseline_timepoint ?: '',
@@ -504,9 +673,9 @@ workflow {
             differentialExpressionOrthogroupsFile,
             differentialAccessibilityOrthogroupsFile,
             differentialGraActivityFile,
-            file(params.species_traits),
-            file(params.phylogeny_manifest),
-            file(params.study_profile),
+            activeSpeciesTraits,
+            activePhylogenyManifest,
+            activeStudyProfile,
             phylogenyBaseDir.toString(),
             params.phenotype_response_metric,
             params.molecular_response_metric,
@@ -536,7 +705,7 @@ workflow {
         def candidateScoringConfigFile = params.candidate_scoring_config ? file(params.candidate_scoring_config) : defaultCandidateScoringConfig
         def candidateScoringConfigPath = params.candidate_scoring_config ? candidateScoringConfigFile.toString() : (candidateScoringConfigFile.exists() ? candidateScoringConfigFile.toString() : '')
         CANDIDATE_PRIORITIZATION(
-            phenotypeIndexContrastsFile.toString(),
+            gateValue(phenotypeIndexContrastsFile.toString()),
             hypothesisModelResultsFile.toString(),
             differentialExpressionCandidatesFile.toString(),
             differentialAccessibilityCandidatesFile.toString(),
@@ -551,7 +720,7 @@ workflow {
             responseClustersAccessibilityFile.toString(),
             responseClustersGraActivityFile.toString(),
             pairwiseSpeciesMolecularContrastsFile.toString(),
-            candidateScoringConfigPath,
+            gateValue(candidateScoringConfigPath),
             params.candidate_linked_evidence_weight,
             params.candidate_score_cap
         )
@@ -565,27 +734,27 @@ workflow {
         def graReMembershipFile = params.gra_re_membership ? file(params.gra_re_membership) : file("${params.outdir}/gra/tables/gra_re_membership.tsv")
         def functionalMinScore = params.functional_interpretation_min_score != null ? params.functional_interpretation_min_score.toString() : ''
         FUNCTIONAL_INTERPRETATION(
-            candidateGenesFile,
+            gateFile(candidateGenesFile.toString()),
             candidateResFile,
             candidateGrasFile,
             candidateAllFile,
             featureMapFile,
             geneRegulatoryArchitecturesFile,
             graReMembershipFile,
-            file(params.gene_annotations),
-            file(params.gene_sets),
+            activeGeneAnnotations,
+            activeGeneSets,
             params.functional_interpretation_top_n,
             functionalMinScore
         )
     } else if (params.run_stage == 'final_report' && !validateOnly) {
         FINAL_REPORT(
-            file(params.study_profile),
+            activeStudyProfile,
             file(params.outdir).toString()
         )
     } else if (params.run_stage == 'phenotype_response' && !validateOnly) {
         PHENOTYPE_RESPONSE(
-            file(params.phenotype_samplesheet),
-            file(params.study_profile),
+            activePhenotypeSamplesheet,
+            activeStudyProfile,
             params.normalization,
             metadataReport,
             STUDY_PROFILE_VALIDATION.out.report
@@ -593,9 +762,9 @@ workflow {
     } else if (params.run_stage == 'phylo_hypothesis' && !validateOnly) {
         if (useExistingPhenotypeOutputs) {
             PHYLO_HYPOTHESIS(
-                file(params.species_traits),
-                file(params.phylogeny_manifest),
-                file(params.study_profile),
+                activeSpeciesTraits,
+                activePhylogenyManifest,
+                activeStudyProfile,
                 existingIndexByGroup,
                 existingIndexContrasts,
                 existingComponentContrasts,
@@ -607,16 +776,16 @@ workflow {
             )
         } else {
             PHENOTYPE_RESPONSE(
-                file(params.phenotype_samplesheet),
-                file(params.study_profile),
+                activePhenotypeSamplesheet,
+                activeStudyProfile,
                 params.normalization,
                 metadataReport,
                 STUDY_PROFILE_VALIDATION.out.report
             )
             PHYLO_HYPOTHESIS(
-                file(params.species_traits),
-                file(params.phylogeny_manifest),
-                file(params.study_profile),
+                activeSpeciesTraits,
+                activePhylogenyManifest,
+                activeStudyProfile,
                 PHENOTYPE_RESPONSE.out.index_by_group,
                 PHENOTYPE_RESPONSE.out.index_contrasts,
                 PHENOTYPE_RESPONSE.out.component_contrasts,

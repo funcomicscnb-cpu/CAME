@@ -9,6 +9,7 @@ dependencies:
   - pandas
   - numpy
   - scipy
+  - openjdk=17
   - nextflow>=22.10.0
   - r-base>=4.2
   - r-yaml
@@ -19,7 +20,11 @@ dependencies:
   - fastqc
   - star
   - subread
+  - bowtie2
+  - macs3
   - bwa
+  - bwa-mem2
   - samtools
+  - gatk4
   - bedtools
   - multiqc

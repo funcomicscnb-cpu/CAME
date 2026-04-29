@@ -4,7 +4,7 @@ suppressWarnings(options(stringsAsFactors = FALSE))
 
 result_fields <- c(
   "gra_id", "gene_orthogroup_id", "contrast_name", "baseline_label", "response_label",
-  "log2_fold_change", "statistic", "p_value", "padj", "mean_baseline", "mean_response",
+  "log2_fold_change", "statistic", "p_value", "padj", "correction_method", "mean_baseline", "mean_response",
   "n_baseline", "n_response", "method", "status", "message", "species"
 )
 normalized_prefix <- c("gra_id", "gene_orthogroup_id", "feature_type")
@@ -400,6 +400,7 @@ run_contrast <- function(contrast, feature_meta, raw_matrix, norm_matrix, args, 
     statistic = vapply(stats, fmt, character(1)),
     p_value = vapply(pvals, fmt, character(1)),
     padj = vapply(padj, fmt, character(1)),
+    correction_method = ifelse(!is.na(padj), "BH", "NA"),
     mean_baseline = vapply(baseline_mean, fmt, character(1)),
     mean_response = vapply(response_mean, fmt, character(1)),
     n_baseline = as.character(length(baseline_ids)),

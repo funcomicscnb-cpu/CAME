@@ -15,15 +15,15 @@ The inventory script checks:
 - MultiQC
 - STAR
 - featureCounts
+- Bowtie2 and bowtie2-build
+- MACS3
 - bwa
 - samtools
 - bedtools
 - Java
 - `HMMRATAC`, `hmmratac`, or a HMMRATAC jar
 
-RNA direct smoke requires FastQC, STAR, and featureCounts. ATAC direct smoke
-requires FastQC, bwa, samtools, and bedtools. MultiQC is needed only for the
-optional RNA Nextflow real-mode smoke.
+RNA direct smoke requires FastQC, STAR, and featureCounts. The legacy ATAC direct smoke still checks bwa, samtools, and bedtools. Stage 24 ATAC real mode requires FastQC, Bowtie2, MACS3, samtools, and bedtools. MultiQC is needed for Nextflow real-mode smoke runs.
 
 ## Soft And Strict Modes
 
@@ -92,14 +92,14 @@ real-mode run with `--run_stage bulk_omics`, `--omics_stub false`, and
 
 ## ATAC Real-Mode Smoke
 
-When FastQC, bwa, samtools, and bedtools are available, the shell test runs:
+When FastQC, bwa, samtools, and bedtools are available, the legacy shell test runs:
 
 - FastQC on one tiny ATAC FASTQ
 - `bwa index` and `bwa mem`
 - `samtools view`, `sort`, `index`, and `quickcheck`
 - `bedtools coverage` over a tiny BED interval
 
-HMMRATAC is resolved but not biologically peak-called on the tiny fixture.
+HMMRATAC is resolved for legacy compatibility but not biologically peak-called on the tiny fixture. Stage 24 ATAC production mode uses Bowtie2 and MACS3 instead; see [atac_real_mode.md](atac_real_mode.md).
 
 ## HMMRATAC Jar Handling
 

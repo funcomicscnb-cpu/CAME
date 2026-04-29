@@ -1,26 +1,29 @@
 tool	category	status	version	path
-platform	system	present	macOS-14.5-arm64-arm-64bit-Mach-O	
-python	cli	present	Python 3.14.4	/opt/anaconda3/envs/came/bin/python3
-java	cli	present	openjdk version \"23.0.2\" 2025-01-21	/usr/bin/java
-nextflow	cli	present	version 25.10.4 build 11173	/opt/anaconda3/envs/came/bin/nextflow
-Rscript	cli	present	Rscript (R) version 4.4.2 (2024-10-31)	/opt/anaconda3/envs/came/bin/Rscript
-fastqc	cli	present	FastQC v0.12.1	/opt/anaconda3/envs/came/bin/fastqc
-multiqc	cli	present	multiqc, version 1.34	/opt/anaconda3/envs/came/bin/multiqc
-bwa	cli	present	Program: bwa (alignment via Burrows-Wheeler transformation)	/opt/anaconda3/envs/came/bin/bwa
-samtools	cli	present	samtools 1.22.1	/opt/anaconda3/envs/came/bin/samtools
-bedtools	cli	present	bedtools v2.31.1	/opt/anaconda3/envs/came/bin/bedtools
-STAR	cli	present	2.7.11b	/opt/anaconda3/envs/came/bin/STAR
-featureCounts	cli	present	featureCounts v2.1.1	/opt/anaconda3/envs/came/bin/featureCounts
-HMMRATAC	cli	missing		
-hmmratac	cli	missing		
+platform	system	present	macOS-14.5-arm64-arm-64bit-Mach-O
+python	cli	present	Python 3.13.3	/opt/homebrew/opt/python@3.13/bin/python3.13
+java	cli	present	openjdk version \"17.0.7\" 2023-04-18 LTS	/usr/bin/java
+nextflow	cli	present	version 23.04.1 build 5866	/usr/local/bin/nextflow
+Rscript	cli	present	Rscript (R) version 4.2.1 (2022-06-23)	/usr/local/bin/Rscript
+fastqc	cli	missing
+multiqc	cli	missing
+bowtie2	cli	missing
+bowtie2-build	cli	missing
+macs3	cli	missing
+bwa	cli	missing
+samtools	cli	present	samtools 1.17	/opt/homebrew/bin/samtools
+bedtools	cli	present	bedtools v2.31.0	/opt/homebrew/bin/bedtools
+STAR	cli	missing
+featureCounts	cli	missing
+HMMRATAC	cli	missing
+hmmratac	cli	missing
 pyyaml	python_package	present	6.0.3	
 jsonschema	python_package	present	4.26.0	
 pandas	python_package	present	3.0.2	
-numpy	python_package	present	2.4.3	
+numpy	python_package	present	2.4.4
 scipy	python_package	present	1.17.1	
-yaml	r_package	present	2.3.12	
-ape	r_package	present	5.8.1	
-nlme	r_package	present	3.1.169	
-data.table	r_package	present	1.17.8	
-DESeq2	r_package	present	1.46.0	
-hmmratac_jar	jar	optional_missing		
+yaml	r_package	present	2.3.8
+ape	r_package	present	5.7.1
+nlme	r_package	present	3.1.159
+data.table	r_package	present	1.14.2
+DESeq2	r_package	present	1.36.0
+hmmratac_jar	jar	optional_missing

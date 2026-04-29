@@ -44,14 +44,16 @@ jobs:
       - name: Install minimal R dependencies
         run: Rscript environment/install_r_packages.R --install-core --skip-deseq2
 
-      - name: Stage 14 packaging checks
+      - name: Stage 22 packaging checks
         run: |
           python3 bin/print_versions.py
           python3 bin/validate_release_bundle.py
           bash tests/test_release_packaging.sh
 
       - name: Real-mode unit tests
-        run: bash tests/test_real_mode_unit.sh
+        run: |
+          bash tests/test_real_mode_unit.sh
+          bash tests/test_real_mode_fixtures.sh --soft
 
       - name: Lightweight regression tests
         run: |
@@ -106,6 +108,25 @@ jobs:
 
       - name: Stage 13 all-run stub test
         run: CAME_STAGE13_SKIP_REGRESSION=true bash tests/test_end_to_end_orchestration.sh
+
+  real-mode-ci:
+    name: Real-tool fixture execution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build local CAME image
+        run: docker build -t came-test:pr .
+
+      - name: Verify Nextflow in image
+        run: docker run --rm came-test:pr nextflow -version
+
+      - name: Verify real-mode tools in image
+        run: docker run --rm came-test:pr python3 bin/check_real_mode_tools.py --mode strict --omics-types rnaseq,atacseq,wgs
+
+      - name: Run strict real-mode fixtures
+        run: docker run --rm -v "$PWD:/came" -w /came came-test:pr bash tests/test_real_mode_fixtures.sh --strict
 
   deseq2-validation:
     name: Optional DESeq2 differential validation

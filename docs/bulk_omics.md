@@ -8,7 +8,7 @@ This stage remains phenotype-agnostic. It does not implement phenotype-omics ass
 
 `--omics_stub true` is the default. Stub mode does not require real FASTQ files, reference genomes, indexes, or bioinformatics executables. It creates small deterministic placeholder QC, alignment, peak, count, summary, and MultiQC-style files.
 
-`--omics_stub false` enables real-mode interfaces. Real mode checks required executables before each process and fails clearly if tools or required reference assets are unavailable. CAME does not install FastQC, STAR, featureCounts, BWA, samtools, HMMRATAC, bedtools, or MultiQC.
+`--omics_mode real` enables the Stage 24 production-oriented baseline for bulk RNA-seq and ATAC-seq. `--omics_stub false` is retained as a compatibility alias for real mode unless `--omics_mode stub` is explicitly set. Real mode checks required executables and fails clearly if tools, FASTQ files, or required reference assets are unavailable. CAME does not install FastQC, STAR, featureCounts, Bowtie2, MACS3, samtools, bedtools, or MultiQC.
 
 ## Inputs
 
@@ -20,7 +20,13 @@ Required for `--run_stage bulk_omics`:
 Useful parameters:
 
 - `--omics_types rnaseq,atacseq`
+- `--omics_mode stub|real`
 - `--omics_stub true|false`
+- `--real_mode_metadata` for Stage 23 real-mode metadata
+- `--rna_backend star`
+- `--atac_backend bowtie2`
+- `--peak_caller macs3`
+- `--reference_cache_dir results/reference_cache`
 - `--outdir results`
 
 Required omics columns:
@@ -33,7 +39,9 @@ Required reference columns:
 
 `reference_id`, `species`, `genome_fasta`
 
-Real-mode RNA-seq also requires `gtf` and `star_index`. Real-mode ATAC-seq also requires `bwa_index` and `chrom_sizes`.
+Real-mode RNA-seq requires a FASTA and annotation through Stage 23 `fasta` and `annotation_file`, or legacy aliases `genome_fasta` and `gtf`. `star_index` is reused when present; otherwise CAME attempts `STAR --runMode genomeGenerate` under `--reference_cache_dir`.
+
+Real-mode ATAC-seq requires a FASTA through `fasta` or `genome_fasta`. `bowtie2_index` is reused when present; otherwise CAME attempts `bowtie2-build` under `--reference_cache_dir`.
 
 ## Workflow
 
@@ -47,6 +55,18 @@ nextflow run . \
 ```
 
 The workflow prepares joined manifests, runs RNA-seq and ATAC-seq interfaces, creates a MultiQC-style report, and summarizes expected outputs.
+
+Stage 24 real-mode example:
+
+```bash
+nextflow run . \
+  --run_stage bulk_omics \
+  --omics_mode real \
+  --omics_types rnaseq,atacseq \
+  --real_mode_metadata assets/test_data/real_mode_smoke/real_mode_metadata.tsv \
+  --reference_manifest assets/test_data/real_mode_smoke/reference_manifest.tsv \
+  --outdir results
+```
 
 ## Outputs
 
@@ -63,6 +83,8 @@ RNA-seq:
 - `results/rnaseq/bam/`
 - `results/rnaseq/counts/gene_counts.tsv`
 - `results/rnaseq/logs/`
+- `results/rnaseq/qc/alignment_qc.tsv`
+- `results/rnaseq/validation/rna_real_validation.tsv`
 - `results/rnaseq/summary/rnaseq_summary.tsv`
 
 RNA count table columns are:
@@ -75,7 +97,11 @@ ATAC-seq:
 - `results/atacseq/bam/`
 - `results/atacseq/peaks/`
 - `results/atacseq/counts/re_counts.tsv`
+- `results/atacseq/counts/peak_counts.tsv`
+- `results/atacseq/counts/peak_consensus.bed`
 - `results/atacseq/logs/`
+- `results/atacseq/qc/atac_qc.tsv`
+- `results/atacseq/validation/atac_real_validation.tsv`
 - `results/atacseq/summary/atacseq_summary.tsv`
 
 ATAC count table columns are:
@@ -102,3 +128,5 @@ Stage 6 and later workflows should consume the raw count matrices and prepared m
 | Real-mode FASTQ path missing | Provide existing FASTQ files or run with `--omics_stub true`. |
 | Real-mode reference asset missing | Fill and create the required reference path for the requested assay. |
 | Real-mode executable missing | Install the tool externally and make it available on `PATH`. |
+| Real-mode ATAC emits no peaks | Inspect MACS3 logs, alignment quality, genome size, and whether the fixture/data have enough usable reads. |
+| Real-mode count validation fails | Inspect `rna_real_validation.tsv` or `atac_real_validation.tsv` for empty BAMs, missing indexes, malformed BED intervals, or non-integer counts. |

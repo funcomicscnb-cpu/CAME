@@ -59,6 +59,7 @@ REQUIRED_EXISTING_TESTS = [
     "tests/test_candidate_prioritization.sh",
     "tests/test_functional_interpretation.sh",
     "tests/test_end_to_end_orchestration.sh",
+    "tests/test_real_mode_fixtures.sh",
 ]
 
 REQUIRED_EXISTING_DOCS = [
@@ -75,6 +76,7 @@ REQUIRED_EXISTING_DOCS = [
     "docs/candidate_prioritization.md",
     "docs/functional_interpretation.md",
     "docs/end_to_end_run.md",
+    "docs/real_mode_fixture_strategy.md",
 ]
 
 REQUIRED_ENVIRONMENT = [
@@ -122,6 +124,21 @@ ABSOLUTE_PATH_PATTERNS = [
     re.compile(r"(^|[^A-Za-z0-9_])/" + "tmp" + r"/[^ \t\n:'\"]+"),
     re.compile(r"(^|[^A-Za-z0-9_])/" + "var/folders" + r"/[^ \t\n:'\"]+"),
     re.compile(r"[A-Za-z]:\\Users\\[^ \t\n:'\"]+"),
+]
+
+REQUIRED_STAGE28_FIXTURES = [
+    "bin/make_real_mode_fixtures.py",
+    "bin/validate_real_mode_fixtures.py",
+    "assets/test_data/real_mode_fixtures/README.md",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.fa",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.fa.fai",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.dict",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.gtf",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.gff3",
+    "assets/test_data/real_mode_fixtures/manifests/reference_manifest.tsv",
+    "assets/test_data/real_mode_fixtures/manifests/real_mode_metadata.tsv",
+    "assets/test_data/real_mode_fixtures/manifests/wgs_samplesheet.csv",
+    "assets/test_data/real_mode_fixtures/manifests/expected_output_contracts.tsv",
 ]
 
 
@@ -267,6 +284,40 @@ def check_absolute_paths(rows, project_dir):
         record(rows, "absolute_path_scan", "PASS", "core logic", "No obvious local absolute paths found in core logic paths.")
 
 
+def check_stage28_fixtures(rows, project_dir):
+    missing = [path for path in REQUIRED_STAGE28_FIXTURES if not (project_dir / path).is_file()]
+    if missing:
+        for path in missing:
+            record(rows, "stage28_fixture_files", "ERROR", path, "Missing required Stage 28 fixture file.", "Generate fixtures or update release checks.")
+        return
+    fixture_root = project_dir / "assets/test_data/real_mode_fixtures"
+    total = 0
+    problems = 0
+    for path in sorted(fixture_root.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(project_dir).as_posix()
+        size = path.stat().st_size
+        total += size
+        if size > 100_000:
+            problems += 1
+            record(rows, "stage28_fixture_files", "ERROR", rel, f"Fixture file is too large: {size} bytes.", "Keep Stage 28 fixtures tiny.")
+        if path.name.lower().endswith((".bam", ".bai", ".bt2", ".bt2l", ".bwt", ".pac", ".sa", ".tbi", ".idx", ".vcf.gz", ".bcf.gz")):
+            problems += 1
+            record(rows, "stage28_fixture_files", "ERROR", rel, "Binary or generated index-like fixture file found.", "Do not commit generated real-mode outputs or aligner indexes.")
+        text = read_text(path)
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if any(pattern.search(line) for pattern in ABSOLUTE_PATH_PATTERNS):
+                problems += 1
+                record(rows, "stage28_fixture_files", "ERROR", f"{rel}:{line_number}", "Local absolute path found in fixture content.", "Use manifest-relative fixture paths.")
+                break
+    if total > 1_000_000:
+        problems += 1
+        record(rows, "stage28_fixture_files", "ERROR", fixture_root.relative_to(project_dir).as_posix(), f"Fixture tree is too large: {total} bytes.", "Keep Stage 28 fixtures compact.")
+    if problems == 0:
+        record(rows, "stage28_fixture_files", "PASS", fixture_root.relative_to(project_dir).as_posix(), f"Stage 28 fixtures are present and compact ({total} bytes).")
+
+
 def check_results_presence(rows, results_dir):
     path = Path(results_dir)
     if path.exists():
@@ -310,6 +361,7 @@ def main(argv=None):
     check_run_stage_discovery(rows, project_dir)
     check_absolute_paths(rows, project_dir)
     check_profile_terms(rows, project_dir)
+    check_stage28_fixtures(rows, project_dir)
 
     output_dir = Path(args.output_dir).resolve()
     write_tsv(output_dir / "came_release_checks.tsv", CHECK_FIELDS, rows)

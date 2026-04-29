@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 import re
 import sys
@@ -49,6 +50,7 @@ REQUIRED_TESTS = [
     "tests/test_end_to_end_orchestration.sh",
     "tests/test_release_packaging.sh",
     "tests/test_real_mode_smoke.sh",
+    "tests/test_real_mode_fixtures.sh",
     "tests/test_reference_preparation.sh",
 ]
 
@@ -75,6 +77,7 @@ REQUIRED_DOCS = [
     "docs/release_checklist.md",
     "docs/release_notes_v0.1.md",
     "docs/real_mode_smoke_tests.md",
+    "docs/real_mode_fixture_strategy.md",
     "docs/reference_preparation.md",
     "docs/versioning.md",
 ]
@@ -83,6 +86,7 @@ REQUIRED_BIN = [
     "bin/collect_run_outputs.py",
     "bin/collect_run_provenance.py",
     "bin/check_real_mode_tools.py",
+    "bin/make_real_mode_fixtures.py",
     "bin/make_report_assets.py",
     "bin/make_real_mode_smoke_data.py",
     "bin/make_synthetic_coordinate_projection_outputs.py",
@@ -92,6 +96,7 @@ REQUIRED_BIN = [
     "bin/render_final_report.py",
     "bin/summarize_coordinate_projection.py",
     "bin/summarize_reference_prepare.py",
+    "bin/validate_real_mode_fixtures.py",
 ]
 
 REQUIRED_TEMPLATES = [
@@ -102,14 +107,23 @@ REQUIRED_TEMPLATES = [
 
 REQUIRED_ENVIRONMENT = [
     "environment/came_environment.yml",
+    "environment/conda-linux-64.lock",
     "environment/requirements.txt",
     "environment/install_local.sh",
     "environment/install_r_packages.R",
     "environment/tool_versions.tsv",
 ]
 
+REQUIRED_SCHEMAS = [
+    "schemas/reference_manifest.schema.json",
+    "schemas/real_mode_metadata.schema.json",
+    "assets/schema/reference_manifest.schema.json",
+    "assets/schema/reference_manifest_legacy.schema.json",
+]
+
 REQUIRED_RELEASE_FILES = [
     ".github/workflows/ci.yml",
+    ".github/workflows/publish_container.yml",
     ".github/ISSUE_TEMPLATE/bug_report.md",
     ".github/ISSUE_TEMPLATE/feature_request.md",
     ".github/PULL_REQUEST_TEMPLATE.md",
@@ -118,6 +132,8 @@ REQUIRED_RELEASE_FILES = [
     "LICENSE",
     "VERSION",
     "CHANGELOG.md",
+    "Dockerfile",
+    ".dockerignore",
 ]
 
 REQUIRED_EXAMPLES = [
@@ -145,6 +161,28 @@ REQUIRED_EXAMPLES = [
     "assets/test_data/real_mode_smoke/rnaseq/.gitkeep",
     "assets/test_data/real_mode_smoke/atacseq/.gitkeep",
     "assets/test_data/real_mode_smoke/reference/.gitkeep",
+    "assets/test_data/real_mode_fixtures/README.md",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.fa",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.fa.fai",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.dict",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.gtf",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.gff3",
+    "assets/test_data/real_mode_fixtures/tiny_reference/assembly_report.txt",
+    "assets/test_data/real_mode_fixtures/tiny_reference/alias_map.tsv",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.chrom.sizes",
+    "assets/test_data/real_mode_fixtures/tiny_reference/repeatmasker.bed",
+    "assets/test_data/real_mode_fixtures/tiny_reference/mappability.bed",
+    "assets/test_data/real_mode_fixtures/tiny_reference/blacklist.bed",
+    "assets/test_data/real_mode_fixtures/tiny_rna/tiny_rna_1_R1.fastq",
+    "assets/test_data/real_mode_fixtures/tiny_rna/tiny_rna_1_R2.fastq",
+    "assets/test_data/real_mode_fixtures/tiny_atac/tiny_atac_1_R1.fastq",
+    "assets/test_data/real_mode_fixtures/tiny_atac/tiny_atac_1_R2.fastq",
+    "assets/test_data/real_mode_fixtures/tiny_wgs/tiny_wgs_1_R1.fastq",
+    "assets/test_data/real_mode_fixtures/tiny_wgs/tiny_wgs_1_R2.fastq",
+    "assets/test_data/real_mode_fixtures/manifests/reference_manifest.tsv",
+    "assets/test_data/real_mode_fixtures/manifests/real_mode_metadata.tsv",
+    "assets/test_data/real_mode_fixtures/manifests/wgs_samplesheet.csv",
+    "assets/test_data/real_mode_fixtures/manifests/expected_output_contracts.tsv",
 ]
 
 CORE_SCAN_ROOTS = ["main.nf", "nextflow.config", "lib", "bin", "workflows", "subworkflows", "modules"]
@@ -213,6 +251,21 @@ NANOSEQ_OVERCLAIM_PATTERNS = [
     re.compile(r"\bmutation profiling\b[^.\n]*has\s+been\s+implemented", re.IGNORECASE),
     re.compile(r"\bimplemented\b[^.\n]*\bmutation profiling\b", re.IGNORECASE),
 ]
+
+FIXTURE_FORBIDDEN_SUFFIXES = {
+    ".bam",
+    ".bai",
+    ".bt2",
+    ".bt2l",
+    ".bwt",
+    ".pac",
+    ".sa",
+    ".tbi",
+    ".idx",
+    ".cram",
+    ".crai",
+}
+FIXTURE_FORBIDDEN_COMPOUND_SUFFIXES = {".vcf.gz", ".bcf.gz"}
 
 
 def project_root() -> Path:
@@ -419,9 +472,10 @@ def check_referenced_bin_scripts(rows: list[dict[str, str]], root: Path) -> None
 def allowed_stages(root: Path) -> list[str]:
     text = read_text(root / "main.nf")
     match = re.search(r"allowedStages\s*=\s*\[([^\]]+)\]", text, re.DOTALL)
-    if not match:
-        return []
-    return re.findall(r"['\"]([^'\"]+)['\"]", match.group(1))
+    if match:
+        return re.findall(r"['\"]([^'\"]+)['\"]", match.group(1))
+    stages = re.findall(r"run_stage\s*:\s*['\"]([^'\"]+)['\"]", text)
+    return list(dict.fromkeys(stages))
 
 
 def docs_text(root: Path) -> str:
@@ -529,6 +583,111 @@ def check_stub_all_run_outputs(rows: list[dict[str, str]], root: Path, results_d
         add(rows, "stub_all_run_outputs", "PASS", str(results_dir), "Stub all-run outputs and final report are present.")
 
 
+def fixture_file_forbidden(path: Path) -> bool:
+    lower = path.name.lower()
+    if any(lower.endswith(suffix) for suffix in FIXTURE_FORBIDDEN_COMPOUND_SUFFIXES):
+        return True
+    if path.suffix.lower() in FIXTURE_FORBIDDEN_SUFFIXES:
+        return True
+    return lower.endswith((".amb", ".ann"))
+
+
+def check_real_mode_fixtures(rows: list[dict[str, str]], root: Path) -> None:
+    fixture_root = root / "assets" / "test_data" / "real_mode_fixtures"
+    if not fixture_root.is_dir():
+        add(rows, "real_mode_fixture_files", "ERROR", fixture_root.as_posix(), "Stage 28 fixture directory is missing.", "Generate tiny fixtures with bin/make_real_mode_fixtures.py.")
+        return
+    files = sorted(path for path in fixture_root.rglob("*") if path.is_file())
+    if not files:
+        add(rows, "real_mode_fixture_files", "ERROR", fixture_root.as_posix(), "Stage 28 fixture directory has no files.", "Generate tiny fixtures with bin/make_real_mode_fixtures.py.")
+        return
+    max_file_bytes = 100_000
+    max_total_bytes = 1_000_000
+    total_bytes = 0
+    problems = 0
+    for path in files:
+        rel = path.relative_to(root).as_posix()
+        size = path.stat().st_size
+        total_bytes += size
+        if size == 0:
+            problems += 1
+            add(rows, "real_mode_fixture_files", "ERROR", rel, "Fixture file is empty.", "Regenerate the fixture or remove it from the required fixture set.")
+        if size > max_file_bytes:
+            problems += 1
+            add(rows, "real_mode_fixture_files", "ERROR", rel, f"Fixture file is too large ({size} bytes).", "Keep committed fixtures tiny and text-only.")
+        if fixture_file_forbidden(path):
+            problems += 1
+            add(rows, "real_mode_fixture_files", "ERROR", rel, "Generated binary/index-like fixture file is not allowed.", "Do not commit BAM, VCF index, aligner index, CRAM, or BCF outputs.")
+        data = path.read_bytes()
+        if b"\x00" in data:
+            problems += 1
+            add(rows, "real_mode_fixture_files", "ERROR", rel, "Fixture file contains NUL bytes.", "Store only tiny UTF-8 text fixtures.")
+            continue
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            problems += 1
+            add(rows, "real_mode_fixture_files", "ERROR", rel, "Fixture file is not UTF-8 text.", "Store only tiny UTF-8 text fixtures.")
+            continue
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if any(pattern.search(line) for pattern in ABSOLUTE_PATH_PATTERNS):
+                problems += 1
+                add(rows, "real_mode_fixture_files", "ERROR", f"{rel}:{line_number}", "Local absolute path found in fixture content.", "Use manifest-relative fixture paths.")
+                break
+    if total_bytes > max_total_bytes:
+        problems += 1
+        add(rows, "real_mode_fixture_files", "ERROR", fixture_root.relative_to(root).as_posix(), f"Fixture tree is too large ({total_bytes} bytes).", "Keep committed Stage 28 fixtures compact.")
+    if problems == 0:
+        add(rows, "real_mode_fixture_files", "PASS", fixture_root.relative_to(root).as_posix(), f"Stage 28 fixtures are tiny text files with no local absolute paths ({len(files)} files, {total_bytes} bytes).")
+
+
+def check_schema_sync(rows: list[dict[str, str]], root: Path) -> None:
+    pairs = [
+        (
+            root / "schemas" / "reference_manifest.schema.json",
+            root / "assets" / "schema" / "reference_manifest.schema.json",
+        )
+    ]
+    for canonical, asset in pairs:
+        subject = f"{canonical.relative_to(root).as_posix()} vs {asset.relative_to(root).as_posix()}"
+        if not canonical.is_file() or not asset.is_file():
+            add(rows, "schema_sync", "ERROR", subject, "Canonical or asset schema file is missing.", "Restore both schema files.")
+            continue
+        try:
+            canonical_json = json.loads(read_text(canonical))
+            asset_json = json.loads(read_text(asset))
+        except json.JSONDecodeError as exc:
+            add(rows, "schema_sync", "ERROR", subject, f"Schema JSON could not be parsed: {exc}", "Fix malformed JSON.")
+            continue
+        if canonical_json != asset_json:
+            add(rows, "schema_sync", "ERROR", subject, "Same-named schemas diverge.", "Keep schemas/ as canonical and copy it to assets/schema/.")
+        else:
+            add(rows, "schema_sync", "PASS", subject, "Same-named reference manifest schemas are JSON-equivalent.")
+
+
+def check_conda_lock(rows: list[dict[str, str]], root: Path) -> None:
+    path = root / "environment" / "conda-linux-64.lock"
+    if not path.is_file():
+        add(rows, "conda_linux_lock", "ERROR", path.relative_to(root).as_posix(), "linux-64 explicit conda lock is missing.", "Generate it with conda-lock.")
+        return
+    text = read_text(path)
+    problems = []
+    if "# platform: linux-64" not in text:
+        problems.append("missing linux-64 platform marker")
+    if "@EXPLICIT" not in text:
+        problems.append("missing @EXPLICIT marker")
+    if "/t/" in text or "**********" in text:
+        problems.append("contains auth-token URL segment")
+    if "osx-arm64" in text or "osx-64" in text:
+        problems.append("contains macOS package URLs")
+    if "openjdk-" not in text:
+        problems.append("missing openjdk package")
+    if problems:
+        add(rows, "conda_linux_lock", "ERROR", path.relative_to(root).as_posix(), "; ".join(problems), "Regenerate the linux-64 explicit lock and strip auth tokens.")
+    else:
+        add(rows, "conda_linux_lock", "PASS", path.relative_to(root).as_posix(), "linux-64 explicit lock is present, auth-free, and includes OpenJDK.")
+
+
 def main(argv: list[str] | None = None) -> int:
     root = project_root()
     parser = argparse.ArgumentParser(description=__doc__)
@@ -548,6 +707,7 @@ def main(argv: list[str] | None = None) -> int:
     check_files(rows, project_dir, "bin_scripts", REQUIRED_BIN, "bin script")
     check_files(rows, project_dir, "report_templates", REQUIRED_TEMPLATES, "report template")
     check_files(rows, project_dir, "environment_files", REQUIRED_ENVIRONMENT, "environment")
+    check_files(rows, project_dir, "schema_files", REQUIRED_SCHEMAS, "schema")
     check_files(rows, project_dir, "release_metadata_files", REQUIRED_RELEASE_FILES, "release metadata")
     check_files(rows, project_dir, "example_assets", REQUIRED_EXAMPLES, "example asset")
     check_license(rows, project_dir)
@@ -561,6 +721,9 @@ def main(argv: list[str] | None = None) -> int:
     check_profile_terms(rows, project_dir)
     check_nanoseq_claims(rows, project_dir)
     check_scaffold_docs(rows, project_dir)
+    check_real_mode_fixtures(rows, project_dir)
+    check_schema_sync(rows, project_dir)
+    check_conda_lock(rows, project_dir)
     check_stub_all_run_outputs(rows, project_dir, results_dir)
 
     output = Path(args.output)

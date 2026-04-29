@@ -126,6 +126,7 @@ if have_phylo_packages; then
     --study_profile "$DDR_PROFILE" \
     --output_dir "$DDR_HYP_PHYLO" > "$DDR_HYP_PHYLO.out" 2>&1
   assert_grep 'pgls_brownian' "$DDR_HYP_PHYLO/hypothesis_test_summary.tsv" "PGLS hypothesis result missing"
+  assert_grep 'fewer than 6 species' "$DDR_HYP_PHYLO/hypothesis_warnings.tsv" "PGLS small-n hypothesis warning missing"
 
   TREE_DIR="$TMP_DIR/trees"
   mkdir -p "$TREE_DIR"

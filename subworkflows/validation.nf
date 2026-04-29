@@ -135,6 +135,65 @@ PY
     """
 }
 
+process VALIDATE_REAL_MODE_REQUIREMENTS {
+    publishDir { "${params.outdir}/validation" }, mode: 'copy', pattern: '*validation_report.tsv'
+
+    input:
+    path reference_manifest
+    path real_mode_metadata
+    val assays
+
+    output:
+    path 'reference_manifest_real_mode_validation_report.tsv', emit: reference_report
+    path 'real_mode_metadata_validation_report.tsv', emit: metadata_report
+    path 'real_mode_validation_status.tsv', emit: status
+    path 'validated_reference_manifest.tsv', emit: reference_manifest
+    path 'validated_real_mode_metadata.tsv', emit: metadata
+
+    script:
+    """
+    ref_status=0
+    python3 ${projectDir}/bin/validate_reference_manifest.py \\
+      --manifest "${reference_manifest}" \\
+      --assays "${assays}" \\
+      --report reference_manifest_real_mode_validation_report.tsv || ref_status=\$?
+
+    metadata_status=0
+    python3 ${projectDir}/bin/validate_real_mode_metadata.py \\
+      --metadata "${real_mode_metadata}" \\
+      --reference_manifest "${reference_manifest}" \\
+      --report real_mode_metadata_validation_report.tsv || metadata_status=\$?
+
+    printf 'validator\\texit_status\\nreference_manifest\\t%s\\nreal_mode_metadata\\t%s\\n' "\$ref_status" "\$metadata_status" > real_mode_validation_status.tsv
+    if [ "\$(basename "${reference_manifest}")" != "validated_reference_manifest.tsv" ]; then
+      cp "${reference_manifest}" validated_reference_manifest.tsv
+    fi
+    if [ "\$(basename "${real_mode_metadata}")" != "validated_real_mode_metadata.tsv" ]; then
+      cp "${real_mode_metadata}" validated_real_mode_metadata.tsv
+    fi
+    """
+}
+
+process CHECK_REAL_MODE_REQUIREMENTS {
+    input:
+    path status
+    path reference_report
+    path metadata_report
+    path reference_manifest
+    path real_mode_metadata
+
+    output:
+    path 'validated_reference_manifest.tsv', emit: reference_manifest
+    path 'validated_real_mode_metadata.tsv', emit: metadata
+    path 'real_mode_validation_done.txt', emit: done
+
+    script:
+    """
+    awk -F '\\t' 'NR > 1 && \$2 != 0 { bad = 1 } END { exit bad ? 1 : 0 }' ${status}
+    printf 'real_mode_validation\\tPASS\\n' > real_mode_validation_done.txt
+    """
+}
+
 workflow METADATA_VALIDATION {
     take:
     phenotype_samplesheet
@@ -182,4 +241,29 @@ workflow PHYLO_METADATA_VALIDATION {
 
     emit:
     report = VALIDATE_PHYLO_METADATA.out.report
+}
+
+workflow REAL_MODE_REQUIREMENTS_VALIDATION {
+    take:
+    reference_manifest
+    real_mode_metadata
+    assays
+
+    main:
+    VALIDATE_REAL_MODE_REQUIREMENTS(reference_manifest, real_mode_metadata, assays)
+    CHECK_REAL_MODE_REQUIREMENTS(
+        VALIDATE_REAL_MODE_REQUIREMENTS.out.status,
+        VALIDATE_REAL_MODE_REQUIREMENTS.out.reference_report,
+        VALIDATE_REAL_MODE_REQUIREMENTS.out.metadata_report,
+        VALIDATE_REAL_MODE_REQUIREMENTS.out.reference_manifest,
+        VALIDATE_REAL_MODE_REQUIREMENTS.out.metadata
+    )
+
+    emit:
+    reference_report = VALIDATE_REAL_MODE_REQUIREMENTS.out.reference_report
+    metadata_report = VALIDATE_REAL_MODE_REQUIREMENTS.out.metadata_report
+    status = VALIDATE_REAL_MODE_REQUIREMENTS.out.status
+    reference_manifest = CHECK_REAL_MODE_REQUIREMENTS.out.reference_manifest
+    metadata = CHECK_REAL_MODE_REQUIREMENTS.out.metadata
+    done = CHECK_REAL_MODE_REQUIREMENTS.out.done
 }
