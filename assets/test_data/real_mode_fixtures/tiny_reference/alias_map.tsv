@@ -1,0 +1,3 @@
+sequence_name	sequence_role	assigned_molecule	genbank_accession	refseq_accession	ucsc_style_name
+chrTiny	assembled-molecule	chrTiny	CMSTAGE280001.1	NCSTAGE280001.1	chrTiny
+chrM	assembled-molecule	chrM	CMSTAGE280002.1	NCSTAGE280002.1	chrM

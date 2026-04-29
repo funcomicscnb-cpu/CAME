@@ -1,0 +1,3 @@
+# Sequence-Name	Sequence-Role	Assigned-Molecule	Assigned-Molecule-Location/Type	GenBank-Accn	Relationship	RefSeq-Accn	Assembly-Unit	Sequence-Length	UCSC-style-name
+1	assembled-molecule	1	Chromosome	CM000001.1	=	NC_000001.1	Primary Assembly	16	chr1
+MT	assembled-molecule	MT	Mitochondrion	CM000002.1	=	NC_000002.1	non-nuclear	8	chrM

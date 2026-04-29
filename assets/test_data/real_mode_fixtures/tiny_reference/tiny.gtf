@@ -1,0 +1,4 @@
+chrTiny	CAME	gene	101	520	.	+	.	gene_id "tiny_gene_1"; gene_name "tiny_gene_1";
+chrTiny	CAME	transcript	101	520	.	+	.	gene_id "tiny_gene_1"; transcript_id "tiny_tx_1";
+chrTiny	CAME	exon	101	260	.	+	.	gene_id "tiny_gene_1"; transcript_id "tiny_tx_1"; exon_number "1";
+chrTiny	CAME	exon	321	520	.	+	.	gene_id "tiny_gene_1"; transcript_id "tiny_tx_1"; exon_number "2";

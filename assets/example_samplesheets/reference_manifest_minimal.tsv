@@ -1,0 +1,3 @@
+reference_id	species	species_name	assembly_name	assembly_accession	assembly_source	assembly_release	assembly_report	fasta	fai	annotation_file	annotation_format	annotation_source	annotation_release	seqname_style	mitochondrial_name
+mmus_ref	Mus_musculus	Mus musculus	GRCm39	GCF_000001635.27	NCBI	GRCm39	references/mouse/assembly_report.txt	references/mouse/genome.fa	references/mouse/genome.fa.fai	references/mouse/genes.gtf	gtf	Ensembl	110	ensembl	MT
+drer_ref	Danio_rerio	Danio rerio	GRCz11	GCF_000002035.6	NCBI	GRCz11	references/zebrafish/assembly_report.txt	references/zebrafish/genome.fa	references/zebrafish/genome.fa.fai	references/zebrafish/genes.gtf	gtf	Ensembl	110	ensembl	MT

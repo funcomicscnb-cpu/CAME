@@ -1,0 +1,5 @@
+assay	artifact	required_pattern	mode	assertion
+rna	gene_counts	rnaseq/counts/gene_counts.tsv	real	header contains tiny_rna_1 and at least one feature row
+atac	re_counts	atacseq/counts/re_counts.tsv	real	header contains tiny_atac_1 and intervals are valid BED-like rows
+wgs	vcf	wgs/variants/tiny_wgs_1.vcf.gz	real	VCF header contains tiny_wgs_1 and validation has no ERROR rows
+reference_quality	summary	reference_quality/reference_quality_summary.tsv	contract	overall_status is not ERROR

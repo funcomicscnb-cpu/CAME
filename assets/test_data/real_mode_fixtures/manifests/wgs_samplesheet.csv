@@ -1,0 +1,2 @@
+sample_id,species,individual_id,reference_id,fastq_1,fastq_2,read_layout,batch,platform,library_id,coverage_estimate,notes,study_id,biological_replicate,assay,library_protocol,tissue,condition,timepoint
+tiny_wgs_1,Tiny_mammal,tiny_individual_3,tiny_real_ref,../tiny_wgs/tiny_wgs_1_R1.fastq,../tiny_wgs/tiny_wgs_1_R2.fastq,paired,stage28_batch,Illumina,tiny_wgs_lib,0.01,synthetic contract fixture; not biological validation,stage28_fixture,rep1,wgs,short_read_wgs,synthetic_tissue,control,0h

@@ -1,0 +1,3 @@
+##gff-version 3
+1	CAME	gene	1	8	.	+	.	ID=gene1
+MT	CAME	gene	1	4	.	+	.	ID=gene_mt

@@ -1,0 +1,2 @@
+# malformed report with too few columns
+1	assembled-molecule

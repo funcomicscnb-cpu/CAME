@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CAME reference_manifest",
+  "type": "object",
+  "required": ["reference_id", "species", "genome_fasta"],
+  "properties": {
+    "reference_id": {"type": "string", "minLength": 1},
+    "species": {"type": "string", "minLength": 1},
+    "genome_fasta": {"type": "string", "minLength": 1},
+    "gtf": {"type": ["string", "null"]},
+    "transcript_fasta": {"type": ["string", "null"]},
+    "star_index": {"type": ["string", "null"]},
+    "bwa_index": {"type": ["string", "null"]},
+    "chrom_sizes": {"type": ["string", "null"]},
+    "blacklist_bed": {"type": ["string", "null"]},
+    "repeatmasker_bed": {"type": ["string", "null"]},
+    "mappability_bed": {"type": ["string", "null"]},
+    "annotation_version": {"type": ["string", "null"]},
+    "source": {"type": ["string", "null"]},
+    "notes": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

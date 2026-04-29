@@ -1,0 +1,2 @@
+reference_id	species	species_name	assembly_name	assembly_accession	assembly_source	assembly_release	assembly_report	fasta	fai	annotation_file	annotation_format	annotation_source	annotation_release	seqname_style	mitochondrial_name
+tiny_ref	Tiny_mammal	Tiny mammal	TinyAsm1	GCA_000000001.1	Custom	1	assembly_report.txt	valid.fa	mismatched.fa.fai	valid.gtf	gtf	CAME	1	custom	MT

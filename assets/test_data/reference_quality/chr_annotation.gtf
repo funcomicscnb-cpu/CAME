@@ -1,0 +1,3 @@
+# Deliberate chr-prefix mismatch fixture
+chr1	CAME	gene	1	8	.	+	.	gene_id "gene1";
+chrM	CAME	gene	1	4	.	+	.	gene_id "gene_mt";

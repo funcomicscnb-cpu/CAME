@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CAME Stage 23 real-mode metadata row",
+  "type": "object",
+  "required": [
+    "sample_id",
+    "study_id",
+    "species",
+    "individual_id",
+    "biological_replicate",
+    "assay",
+    "tissue",
+    "condition",
+    "platform",
+    "library_protocol",
+    "read_layout",
+    "fastq_1",
+    "reference_id"
+  ],
+  "properties": {
+    "sample_id": {"type": "string", "minLength": 1},
+    "study_id": {"type": "string", "minLength": 1},
+    "species": {"type": "string", "minLength": 1},
+    "individual_id": {"type": "string", "minLength": 1},
+    "biological_replicate": {"type": "string", "minLength": 1},
+    "assay": {"type": "string", "enum": ["rna", "atac", "wgs", "wes", "chip_tf", "chip_histone", "other"]},
+    "tissue": {"type": "string", "minLength": 1},
+    "condition": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "library_protocol": {"type": "string", "minLength": 1},
+    "read_layout": {"type": "string", "enum": ["single", "paired"]},
+    "fastq_1": {"type": "string", "minLength": 1},
+    "fastq_2": {"type": ["string", "null"]},
+    "reference_id": {"type": "string", "minLength": 1},
+    "strandedness": {"type": ["string", "null"], "enum": ["forward", "reverse", "unstranded", "unknown", null]},
+    "antibody": {"type": ["string", "null"]},
+    "target_bed": {"type": ["string", "null"]},
+    "batch": {"type": ["string", "null"]},
+    "read_length": {"type": ["number", "string", "null"]},
+    "library_id": {"type": ["string", "null"]},
+    "run_id": {"type": ["string", "null"]},
+    "lane": {"type": ["string", "null"]},
+    "timepoint": {"type": ["string", "null"]},
+    "notes": {"type": ["string", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"read_layout": {"const": "paired"}}, "required": ["read_layout"]},
+      "then": {"required": ["fastq_2"], "properties": {"fastq_2": {"type": "string", "minLength": 1}}}
+    },
+    {
+      "if": {"properties": {"assay": {"const": "rna"}}, "required": ["assay"]},
+      "then": {"required": ["strandedness"], "properties": {"strandedness": {"type": "string", "enum": ["forward", "reverse", "unstranded", "unknown"]}}}
+    },
+    {
+      "if": {"properties": {"assay": {"enum": ["chip_tf", "chip_histone"]}}, "required": ["assay"]},
+      "then": {"required": ["antibody"], "properties": {"antibody": {"type": "string", "minLength": 1}}}
+    },
+    {
+      "if": {"properties": {"assay": {"const": "wes"}}, "required": ["assay"]},
+      "then": {"required": ["target_bed"], "properties": {"target_bed": {"type": "string", "minLength": 1}}}
+    }
+  ],
+  "additionalProperties": true
+}
