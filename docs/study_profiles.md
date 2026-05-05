@@ -53,12 +53,58 @@ reporting:
 ```
 
 Optional sections include `derived_variables`, `external_traits`, `covariates`, `mechanistic_proxies`, `condition_ranking`, `feature_association_targets`, and `notes`.
+Profiles may also include optional `phenotype_indexes` and `phenotype_qc` sections.
 
 ## Formula Rules
 
 `phenotype_index.formula` supports simple arithmetic over component names: `+`, `-`, `*`, `/`, unary signs, numbers, parentheses, and safe `abs`, `min`, and `max` calls.
 
 The validator rejects exponentiation, attribute access, string constants, imports, and other executable syntax. It never evaluates the formula. Every variable used in the formula must be listed in `phenotype_index.components`, and every component must appear as a `measurement` or `assay` value in the phenotype samplesheet.
+
+## Multiple Phenotype Indexes
+
+`phenotype_index` remains the compatibility definition consumed by existing downstream workflows. A profile can additionally define `phenotype_indexes` to calculate several indexes in one phenotype-processing run:
+
+```yaml
+phenotype_indexes:
+  - name: secondary_index
+    formula: "component_a + component_b"
+    components: [component_a, component_b]
+    aggregation: mean
+    contrasts:
+      - name: baseline_vs_response
+        type: baseline_vs_response
+        baseline_condition: baseline
+        response_condition: response
+        baseline_timepoint: t0
+        response_timepoint: t1
+  - name: primary_index
+    primary: true
+    formula: "(component_a - component_b) / component_c"
+    components: [component_a, component_b, component_c]
+    aggregation: mean
+    contrasts:
+      - name: baseline_vs_response
+        type: baseline_vs_response
+        baseline_condition: baseline
+        response_condition: response
+        baseline_timepoint: t0
+        response_timepoint: t1
+```
+
+If `phenotype_indexes` is present, at most one entry may set `primary: true`. If no primary is marked, the first entry is primary. The top-level `phenotype_index` must duplicate the selected primary index definition so compatibility consumers see the same formula, components, aggregation, and contrasts.
+
+## Phenotype QC Gates
+
+Optional `phenotype_qc` settings can promote selected QC warnings to errors:
+
+```yaml
+phenotype_qc:
+  min_replicates_per_group: 2
+  fail_on_missing_components: false
+  fail_on_sparse_groups: false
+  fail_on_unit_inconsistency: false
+```
 
 ## Derived Variables
 

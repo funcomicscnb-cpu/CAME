@@ -178,6 +178,26 @@ def as_list(value):
     return [value]
 
 
+def profile_indexes(profile):
+    indexes = profile.get("phenotype_indexes")
+    if indexes is not None:
+        if not isinstance(indexes, list):
+            return []
+        return [index for index in indexes if isinstance(index, dict)]
+    index = profile.get("phenotype_index")
+    return [index] if isinstance(index, dict) else []
+
+
+def primary_index(profile):
+    indexes = profile_indexes(profile)
+    if not indexes:
+        return {}
+    for index in indexes:
+        if index.get("primary") is True:
+            return index
+    return indexes[0]
+
+
 def declared_names(profile, section):
     names = set()
     for item in as_list(profile.get(section)):
@@ -200,6 +220,34 @@ def check_required_mapping(mapping, keys, source, records):
             add(records, "ERROR", source, key, "", "Missing required field")
 
 
+def normalized_contrasts(value):
+    contrasts = value
+    if isinstance(contrasts, dict):
+        contrasts = [contrasts]
+    if not isinstance(contrasts, list):
+        return []
+    output = []
+    for contrast in contrasts:
+        if not isinstance(contrast, dict):
+            output.append({})
+            continue
+        output.append({key: norm(contrast.get(key)) for key in sorted(contrast)})
+    return output
+
+
+def normalized_index_definition(index):
+    if not isinstance(index, dict):
+        return {}
+    return {
+        "name": norm(index.get("name")),
+        "formula": norm(index.get("formula")),
+        "components": sorted(norm(item) for item in as_list(index.get("components")) if norm(item)),
+        "aggregation": norm(index.get("aggregation")),
+        "contrasts": normalized_contrasts(index.get("contrasts")),
+        "response_metric": norm(index.get("response_metric")),
+    }
+
+
 def structural_validation(profile, records, skip_schema_covered=False):
     if not skip_schema_covered:
         for section in REQUIRED_TOP:
@@ -219,6 +267,76 @@ def structural_validation(profile, records, skip_schema_covered=False):
                 add(records, "ERROR", "phenotype_index", "components", "", "Each component must be a non-empty string")
     if not isinstance(index.get("formula"), str) or not norm(index.get("formula")):
         add(records, "ERROR", "phenotype_index", "formula", "", "formula must be a non-empty string")
+
+    if "phenotype_indexes" in profile:
+        indexes = profile.get("phenotype_indexes")
+        if not isinstance(indexes, list) or not indexes:
+            add(
+                records,
+                "ERROR",
+                "phenotype_indexes",
+                "",
+                "",
+                "phenotype_indexes must be a non-empty array when present",
+                rule_id="PROFILE_INDEXES_EMPTY",
+            )
+        else:
+            names = Counter()
+            primary_count = 0
+            for idx, index_def in enumerate(indexes, start=1):
+                if not isinstance(index_def, dict):
+                    add(records, "ERROR", "phenotype_indexes", "", idx, "Each phenotype_indexes item must be a mapping")
+                    continue
+                check_required_mapping(index_def, REQUIRED_INDEX, "phenotype_indexes", records)
+                name = norm(index_def.get("name"))
+                if name:
+                    names[name] += 1
+                if index_def.get("primary") is True:
+                    primary_count += 1
+            for name, count in sorted(names.items()):
+                if count > 1:
+                    add(
+                        records,
+                        "ERROR",
+                        "phenotype_indexes",
+                        "name",
+                        "",
+                        f"Duplicate phenotype index name: {name}",
+                        rule_id="PROFILE_DUPLICATE_INDEX_NAME",
+                    )
+            if primary_count > 1:
+                add(
+                    records,
+                    "ERROR",
+                    "phenotype_indexes",
+                    "primary",
+                    "",
+                    "Only one phenotype index may set primary: true",
+                    rule_id="PROFILE_MULTIPLE_PRIMARY",
+                )
+            primary = primary_index(profile)
+            top_name = norm(index.get("name"))
+            primary_name = norm(primary.get("name"))
+            if top_name and primary_name and top_name != primary_name:
+                add(
+                    records,
+                    "ERROR",
+                    "phenotype_indexes",
+                    "name",
+                    "",
+                    f"Primary phenotype index name '{primary_name}' does not match top-level phenotype_index.name '{top_name}'",
+                    rule_id="PROFILE_PRIMARY_INDEX_MISMATCH",
+                )
+            elif normalized_index_definition(index) != normalized_index_definition(primary):
+                add(
+                    records,
+                    "ERROR",
+                    "phenotype_indexes",
+                    "phenotype_index",
+                    "",
+                    "Top-level phenotype_index must duplicate the selected primary phenotype_indexes entry",
+                    rule_id="PROFILE_PRIMARY_INDEX_MISMATCH",
+                )
 
     hypotheses = profile.get("hypotheses")
     if not isinstance(hypotheses, list) or not hypotheses:
@@ -249,11 +367,11 @@ def structural_validation(profile, records, skip_schema_covered=False):
                 add(records, "ERROR", "hypotheses", "phylogenetic", idx, "phylogenetic must be boolean")
 
 
-def parse_formula(formula, records):
+def parse_formula(formula, records, source="phenotype_index", field="formula", row=""):
     try:
         tree = ast.parse(formula, mode="eval")
     except SyntaxError as exc:
-        add(records, "ERROR", "phenotype_index", "formula", "", f"Unsupported formula syntax: {exc.msg}")
+        add(records, "ERROR", source, field, row, f"Unsupported formula syntax: {exc.msg}")
         return set()
     names = set()
     function_name_nodes = {
@@ -263,23 +381,23 @@ def parse_formula(formula, records):
     }
     for node in ast.walk(tree):
         if not isinstance(node, ALLOWED_AST):
-            add(records, "ERROR", "phenotype_index", "formula", "", f"Unsafe or unsupported formula element: {type(node).__name__}")
+            add(records, "ERROR", source, field, row, f"Unsafe or unsupported formula element: {type(node).__name__}")
             continue
         if isinstance(node, ast.Call):
             if not isinstance(node.func, ast.Name) or node.func.id not in ALLOWED_FUNCTIONS:
-                add(records, "ERROR", "phenotype_index", "formula", "", "Unsafe or unsupported formula element: Call")
+                add(records, "ERROR", source, field, row, "Unsafe or unsupported formula element: Call")
             if node.keywords:
-                add(records, "ERROR", "phenotype_index", "formula", "", "Formula functions do not support keyword arguments")
+                add(records, "ERROR", source, field, row, "Formula functions do not support keyword arguments")
             if not node.args:
-                add(records, "ERROR", "phenotype_index", "formula", "", "Formula functions require at least one argument")
+                add(records, "ERROR", source, field, row, "Formula functions require at least one argument")
         if isinstance(node, ast.Name):
             if id(node) in function_name_nodes:
                 continue
             if not SAFE_NAME.match(node.id):
-                add(records, "ERROR", "phenotype_index", "formula", "", f"Unsafe variable name: {node.id}")
+                add(records, "ERROR", source, field, row, f"Unsafe variable name: {node.id}")
             names.add(node.id)
         if isinstance(node, ast.Constant) and (isinstance(node.value, bool) or not isinstance(node.value, (int, float))):
-            add(records, "ERROR", "phenotype_index", "formula", "", "Formula constants must be numeric")
+            add(records, "ERROR", source, field, row, "Formula constants must be numeric")
     return names
 
 
@@ -304,18 +422,20 @@ def trait_symbols(fields, rows):
 
 
 def formula_validation(profile, pheno_fields, pheno_rows, records):
-    index = profile.get("phenotype_index") if isinstance(profile.get("phenotype_index"), dict) else {}
-    formula = norm(index.get("formula"))
-    components = set(norm(x) for x in as_list(index.get("components")) if norm(x))
-    if not formula:
-        return
-    names = parse_formula(formula, records)
-    for name in sorted(names - components):
-        add(records, "ERROR", "phenotype_index", "formula", "", f"Formula variable is not listed in components: {name}")
     available = phenotype_symbols(pheno_fields, pheno_rows)
-    for component in sorted(components):
-        if component not in available:
-            add(records, "ERROR", "phenotype_samplesheet", "measurement/assay", "", f"Profile component is absent from phenotype metadata: {component}")
+    for idx, index in enumerate(profile_indexes(profile), start=1):
+        formula = norm(index.get("formula"))
+        components = set(norm(x) for x in as_list(index.get("components")) if norm(x))
+        source = "phenotype_indexes" if "phenotype_indexes" in profile else "phenotype_index"
+        row = idx if source == "phenotype_indexes" else ""
+        if not formula:
+            continue
+        names = parse_formula(formula, records, source=source, field="formula", row=row)
+        for name in sorted(names - components):
+            add(records, "ERROR", source, "formula", row, f"Formula variable is not listed in components: {name}")
+        for component in sorted(components):
+            if component not in available:
+                add(records, "ERROR", "phenotype_samplesheet", "measurement/assay", row, f"Profile component is absent from phenotype metadata for index {norm(index.get('name'))}: {component}")
 
 
 def contrast_group_specs(contrast):
@@ -403,7 +523,7 @@ def contrast_pair_specs(contrast, pheno_rows):
     return None
 
 
-def validate_contrast_executability(contrast, idx, components, pheno_rows, records):
+def validate_contrast_executability(contrast, idx, components, pheno_rows, records, source="phenotype_index"):
     if not components:
         return
     all_pair_specs = contrast_pair_specs(contrast, pheno_rows)
@@ -411,7 +531,7 @@ def validate_contrast_executability(contrast, idx, components, pheno_rows, recor
         add(
             records,
             "ERROR",
-            "phenotype_index",
+            source,
             "contrasts",
             idx,
             f"Contrast lacks enough condition/timepoint fields to derive two groups: {norm(contrast.get('name'))}",
@@ -447,7 +567,7 @@ def validate_contrast_executability(contrast, idx, components, pheno_rows, recor
             add(
                 records,
                 "ERROR",
-                "phenotype_index",
+                source,
                 "contrasts",
                 idx,
                 f"Contrast lacks enough condition/timepoint fields to derive two groups: {norm(contrast.get('name'))}",
@@ -534,48 +654,50 @@ def validate_contrast_executability(contrast, idx, components, pheno_rows, recor
 
 
 def contrast_validation(profile, pheno_rows, records):
-    index = profile.get("phenotype_index") if isinstance(profile.get("phenotype_index"), dict) else {}
-    components = set(norm(x) for x in as_list(index.get("components")) if norm(x))
-    contrasts = index.get("contrasts")
-    if isinstance(contrasts, dict):
-        contrasts = [contrasts]
-    if not isinstance(contrasts, list):
-        add(records, "ERROR", "phenotype_index", "contrasts", "", "contrasts must be an array or object")
-        return
-    if not contrasts:
-        add(records, "ERROR", "phenotype_index", "contrasts", "", "contrasts must not be empty")
-        return
     conditions = {norm(row.get("condition")) for row in pheno_rows if norm(row.get("condition"))}
     timepoints = {norm(row.get("timepoint")) for row in pheno_rows if norm(row.get("timepoint"))}
-    for idx, contrast in enumerate(contrasts, start=1):
-        if not isinstance(contrast, dict):
-            add(records, "ERROR", "phenotype_index", "contrasts", idx, "Contrast must be a mapping")
+    source = "phenotype_indexes" if "phenotype_indexes" in profile else "phenotype_index"
+    for index_number, index in enumerate(profile_indexes(profile), start=1):
+        components = set(norm(x) for x in as_list(index.get("components")) if norm(x))
+        contrasts = index.get("contrasts")
+        if isinstance(contrasts, dict):
+            contrasts = [contrasts]
+        if not isinstance(contrasts, list):
+            add(records, "ERROR", source, "contrasts", index_number if source == "phenotype_indexes" else "", "contrasts must be an array or object")
             continue
-        ctype = norm(contrast.get("type"))
-        if not norm(contrast.get("name")):
-            add(records, "ERROR", "phenotype_index", "contrasts.name", idx, "Contrast name is required")
-        if ctype not in CONTRAST_TYPES:
-            add(records, "ERROR", "phenotype_index", "contrasts.type", idx, f"Unsupported contrast type: {ctype}")
-        for field in ["baseline_condition", "response_condition", "control_condition", "treated_condition"]:
-            value = norm(contrast.get(field))
-            if value and value not in conditions:
-                add(records, "ERROR", "phenotype_samplesheet", field, idx, f"Contrast condition not found in phenotype metadata: {value}")
-        for field in ["baseline_timepoint", "response_timepoint", "from_timepoint", "to_timepoint"]:
-            value = norm(contrast.get(field))
-            if value and value not in timepoints:
-                add(records, "ERROR", "phenotype_samplesheet", field, idx, f"Contrast timepoint not found in phenotype metadata: {value}")
-        if ctype in CONTRAST_TYPES:
-            validate_contrast_executability(contrast, idx, components, pheno_rows, records)
+        if not contrasts:
+            add(records, "ERROR", source, "contrasts", index_number if source == "phenotype_indexes" else "", "contrasts must not be empty")
+            continue
+        for contrast_number, contrast in enumerate(contrasts, start=1):
+            row_id = f"{index_number}.{contrast_number}" if source == "phenotype_indexes" else contrast_number
+            if not isinstance(contrast, dict):
+                add(records, "ERROR", source, "contrasts", row_id, "Contrast must be a mapping")
+                continue
+            ctype = norm(contrast.get("type"))
+            if not norm(contrast.get("name")):
+                add(records, "ERROR", source, "contrasts.name", row_id, "Contrast name is required")
+            if ctype not in CONTRAST_TYPES:
+                add(records, "ERROR", source, "contrasts.type", row_id, f"Unsupported contrast type: {ctype}")
+            for field in ["baseline_condition", "response_condition", "control_condition", "treated_condition"]:
+                value = norm(contrast.get(field))
+                if value and value not in conditions:
+                    add(records, "ERROR", "phenotype_samplesheet", field, row_id, f"Contrast condition not found in phenotype metadata: {value}")
+            for field in ["baseline_timepoint", "response_timepoint", "from_timepoint", "to_timepoint"]:
+                value = norm(contrast.get(field))
+                if value and value not in timepoints:
+                    add(records, "ERROR", "phenotype_samplesheet", field, row_id, f"Contrast timepoint not found in phenotype metadata: {value}")
+            if ctype in CONTRAST_TYPES:
+                validate_contrast_executability(contrast, row_id, components, pheno_rows, records, source=source)
 
 
 def hypothesis_validation(profile, pheno_fields, pheno_rows, trait_fields, trait_rows, records):
-    index = profile.get("phenotype_index") if isinstance(profile.get("phenotype_index"), dict) else {}
     allowed = set()
     allowed |= phenotype_symbols(pheno_fields, pheno_rows)
     allowed |= trait_symbols(trait_fields, trait_rows)
-    allowed |= set(norm(x) for x in as_list(index.get("components")) if norm(x))
-    if norm(index.get("name")):
-        allowed.add(norm(index.get("name")))
+    for index in profile_indexes(profile):
+        allowed |= set(norm(x) for x in as_list(index.get("components")) if norm(x))
+        if norm(index.get("name")):
+            allowed.add(norm(index.get("name")))
     for section in ["derived_variables", "external_traits", "covariates", "mechanistic_proxies", "feature_association_targets"]:
         allowed |= declared_names(profile, section)
 

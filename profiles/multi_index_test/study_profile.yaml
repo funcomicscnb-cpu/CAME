@@ -1,0 +1,86 @@
+study:
+  profile_id: multi_index_test
+  name: Multi-index test profile
+  description: Minimal profile for testing multi-index phenotype processing.
+  version: "1.0"
+
+phenotype_index:
+  name: primary_response_index
+  formula: "(component_a - component_b) / component_c"
+  components:
+    - component_a
+    - component_b
+    - component_c
+  aggregation: mean
+  contrasts:
+    - name: test_contrast
+      type: baseline_vs_response
+      baseline_condition: baseline
+      response_condition: response
+      baseline_timepoint: t0
+      response_timepoint: t1
+
+phenotype_indexes:
+  - name: secondary_sum_index
+    formula: "component_a + component_b"
+    components:
+      - component_a
+      - component_b
+    aggregation: mean
+    contrasts:
+      - name: test_contrast
+        type: baseline_vs_response
+        baseline_condition: baseline
+        response_condition: response
+        baseline_timepoint: t0
+        response_timepoint: t1
+  - name: primary_response_index
+    primary: true
+    formula: "(component_a - component_b) / component_c"
+    components:
+      - component_a
+      - component_b
+      - component_c
+    aggregation: mean
+    contrasts:
+      - name: test_contrast
+        type: baseline_vs_response
+        baseline_condition: baseline
+        response_condition: response
+        baseline_timepoint: t0
+        response_timepoint: t1
+
+phenotype_qc:
+  min_replicates_per_group: 2
+  fail_on_missing_components: false
+  fail_on_sparse_groups: false
+  fail_on_unit_inconsistency: false
+
+derived_variables:
+  - phenotype_index_response
+
+external_traits:
+  - external_trait_alpha
+
+covariates:
+  - covariate_alpha
+
+hypotheses:
+  - name: secondary_index_hypothesis
+    description: Test that secondary index names are resolvable.
+    model_type: regression
+    response: external_trait_alpha
+    predictors:
+      - phenotype_index_response
+      - secondary_sum_index
+    covariates:
+      - covariate_alpha
+    phylogenetic: false
+    stratify_by: []
+
+reporting:
+  phenotype_label: Primary response index
+  condition_label: Condition
+  response_label: Response
+  external_trait_label: External trait
+  candidate_mechanism_label: Candidate mechanism

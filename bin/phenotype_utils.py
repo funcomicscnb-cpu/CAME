@@ -100,11 +100,34 @@ def profile_id(profile):
     return norm(study.get("profile_id"))
 
 
-def phenotype_index(profile):
+def raw_phenotype_index(profile):
     index = profile.get("phenotype_index")
     if not isinstance(index, dict):
         raise RuntimeError("Study profile is missing phenotype_index mapping")
     return index
+
+
+def profile_indexes(profile):
+    indexes = profile.get("phenotype_indexes")
+    if indexes is not None:
+        if not isinstance(indexes, list) or not indexes:
+            return []
+        return [index for index in indexes if isinstance(index, dict)]
+    return [raw_phenotype_index(profile)]
+
+
+def primary_index(profile):
+    indexes = profile_indexes(profile)
+    if not indexes:
+        raise RuntimeError("No phenotype indexes found in study profile")
+    for index in indexes:
+        if index.get("primary") is True:
+            return index
+    return indexes[0]
+
+
+def phenotype_index(profile):
+    return primary_index(profile)
 
 
 def profile_components(profile):
@@ -118,6 +141,38 @@ def profile_contrasts(profile):
     if not isinstance(contrasts, list):
         raise RuntimeError("phenotype_index.contrasts must be a list or mapping")
     return contrasts
+
+
+def parse_bool(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    text = norm(value).lower()
+    if text in {"1", "true", "yes", "y"}:
+        return True
+    if text in {"0", "false", "no", "n"}:
+        return False
+    raise RuntimeError(f"Expected boolean value, found: {value}")
+
+
+def profile_qc_policy(profile):
+    policy = profile.get("phenotype_qc")
+    if not isinstance(policy, dict):
+        policy = {}
+    min_replicates = policy.get("min_replicates_per_group", 2)
+    try:
+        min_replicates = int(min_replicates)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("phenotype_qc.min_replicates_per_group must be an integer") from exc
+    if min_replicates < 1:
+        raise RuntimeError("phenotype_qc.min_replicates_per_group must be at least 1")
+    return {
+        "min_replicates_per_group": min_replicates,
+        "fail_on_missing_components": parse_bool(policy.get("fail_on_missing_components"), False),
+        "fail_on_unit_inconsistency": parse_bool(policy.get("fail_on_unit_inconsistency"), False),
+        "fail_on_sparse_groups": parse_bool(policy.get("fail_on_sparse_groups"), False),
+    }
 
 
 def normalize_aggregation(value):

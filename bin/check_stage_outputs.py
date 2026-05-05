@@ -31,8 +31,12 @@ EXPECTED_OUTPUTS = {
         "phenotype/qc/phenotype_qc_metrics.tsv",
         "phenotype/index/phenotype_index_by_sample.tsv",
         "phenotype/index/phenotype_index_by_group.tsv",
+        "phenotype/index/phenotype_indexes_by_sample.tsv",
+        "phenotype/index/phenotype_indexes_by_group.tsv",
         "phenotype/contrasts/phenotype_index_contrasts.tsv",
         "phenotype/contrasts/component_trait_contrasts.tsv",
+        "phenotype/contrasts/phenotype_index_contrasts_long.tsv",
+        "phenotype/summary/phenotype_processing_manifest.tsv",
     ],
     "phylo_hypothesis": [
         "phylo/input/species_traits_wide.tsv",

@@ -45,6 +45,21 @@
         }
       }
     },
+    "phenotype_indexes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/index_definition"}
+    },
+    "phenotype_qc": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_replicates_per_group": {"type": "integer", "minimum": 1},
+        "fail_on_missing_components": {"type": "boolean"},
+        "fail_on_unit_inconsistency": {"type": "boolean"},
+        "fail_on_sparse_groups": {"type": "boolean"}
+      }
+    },
     "derived_variables": {
       "type": "array",
       "items": {"type": "string", "minLength": 1}
@@ -116,6 +131,36 @@
     }
   },
   "$defs": {
+    "index_definition": {
+      "type": "object",
+      "required": ["name", "formula", "components", "aggregation", "contrasts"],
+      "additionalProperties": true,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "formula": {"type": "string", "minLength": 1},
+        "primary": {"type": "boolean"},
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "aggregation": {"type": "string", "minLength": 1},
+        "contrasts": {
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/contrast"}
+            },
+            {
+              "type": "object",
+              "required": ["name", "type"],
+              "additionalProperties": true
+            }
+          ]
+        }
+      }
+    },
     "contrast": {
       "type": "object",
       "required": ["name", "type"],

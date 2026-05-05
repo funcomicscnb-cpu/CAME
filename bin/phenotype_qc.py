@@ -12,6 +12,8 @@ from phenotype_utils import (
     format_value,
     load_profile,
     parse_float,
+    profile_indexes,
+    profile_qc_policy,
     profile_components,
     read_table,
     replicate_id_for_row,
@@ -110,7 +112,7 @@ def outlier_rows(rows):
     return output
 
 
-def build_metrics(fields, rows, components):
+def build_metrics(fields, rows, index_components, qc_policy):
     metrics = []
     metric(metrics, "INFO", "row_count", len(rows), "Rows available for phenotype QC")
 
@@ -133,23 +135,27 @@ def build_metrics(fields, rows, components):
     for row in rows:
         key = (row.get("species", ""), row.get("condition", ""), row.get("timepoint", ""))
         units_by_group[key].add(replicate_id_for_row(row))
+    min_rep = qc_policy["min_replicates_per_group"]
     for (species, condition, timepoint), units in sorted(units_by_group.items()):
         replicate_n = len([unit for unit in units if unit.strip("|")])
         metric(metrics, "INFO", "replicate_count", replicate_n, "Replicate units in species/condition/timepoint group", species=species, condition=condition, timepoint=timepoint)
-        if replicate_n < 2:
-            metric(metrics, "WARNING", "sparse_group", replicate_n, "Fewer than two replicate units in group", species=species, condition=condition, timepoint=timepoint)
+        if replicate_n < min_rep:
+            severity = "ERROR" if qc_policy["fail_on_sparse_groups"] else "WARNING"
+            metric(metrics, severity, "sparse_group", replicate_n, f"Fewer than {min_rep} replicate unit(s) in group", species=species, condition=condition, timepoint=timepoint)
 
-    present_components = set()
-    component_set = set(components)
-    for row in rows:
-        component = component_name_for_row(row, component_set)
-        if component:
-            present_components.add(component)
-    for component in components:
-        if component not in present_components:
-            metric(metrics, "WARNING", "missing_profile_component", component, "Profile component is absent from phenotype table", measurement=component)
-        else:
-            metric(metrics, "INFO", "profile_component_present", component, "Profile component is present", measurement=component)
+    for index_name, components in index_components:
+        present_components = set()
+        component_set = set(components)
+        for row in rows:
+            component = component_name_for_row(row, component_set)
+            if component:
+                present_components.add(component)
+        for component in components:
+            if component not in present_components:
+                severity = "ERROR" if qc_policy["fail_on_missing_components"] else "WARNING"
+                metric(metrics, severity, "missing_profile_component", component, f"Profile component is absent from phenotype table for index {index_name}", measurement=component)
+            else:
+                metric(metrics, "INFO", "profile_component_present", component, f"Profile component is present for index {index_name}", measurement=component)
 
     units_by_assay_measurement = defaultdict(set)
     for row in rows:
@@ -158,9 +164,10 @@ def build_metrics(fields, rows, components):
             units_by_assay_measurement[key].add(row.get("unit"))
     for (assay, measurement), units in sorted(units_by_assay_measurement.items()):
         if len(units) > 1:
+            severity = "ERROR" if qc_policy["fail_on_unit_inconsistency"] else "WARNING"
             metric(
                 metrics,
-                "WARNING",
+                severity,
                 "unit_inconsistency",
                 ",".join(sorted(units)),
                 "Multiple units found within assay/measurement",
@@ -186,12 +193,17 @@ def main():
     fields, rows = read_table(args.input)
     try:
         profile = load_profile(args.study_profile)
-        components = profile_components(profile)
+        index_components = []
+        for index in profile_indexes(profile):
+            index_components.append((str(index.get("name", "")).strip(), [str(item).strip() for item in index.get("components", []) if str(item).strip()]))
+        if not index_components:
+            index_components = [("phenotype_index", profile_components(profile))]
+        qc_policy = profile_qc_policy(profile)
     except Exception as exc:
         stderr(f"ERROR\tstudy_profile\t{exc}")
         return 1
 
-    metrics = build_metrics(fields, rows, components)
+    metrics = build_metrics(fields, rows, index_components, qc_policy)
     counts = group_counts(rows)
     outliers = outlier_rows(rows)
 

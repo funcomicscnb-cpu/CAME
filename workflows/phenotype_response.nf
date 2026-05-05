@@ -44,7 +44,8 @@ workflow PHENOTYPE_RESPONSE {
         PHENOTYPE_NORMALIZE.out.table,
         study_profile,
         CALC_PHENOTYPE_INDEX.out.sample,
-        CALC_PHENOTYPE_INDEX.out.group
+        CALC_PHENOTYPE_INDEX.out.group,
+        CALC_PHENOTYPE_INDEX.out.indexes_group
     )
 
     emit:

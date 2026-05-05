@@ -241,4 +241,27 @@ if ! grep -q '"WARNING"' "$dir/summary.json"; then
   exit 1
 fi
 
+dir="$TMP_DIR/multi_index_profile"
+mkdir -p "$dir"
+write_metadata "$dir"
+cp "$ROOT_DIR/profiles/multi_index_test/study_profile.yaml" "$dir/study_profile.yaml"
+if ! run_validator "$dir/study_profile.yaml" "$dir/phenotype_samplesheet.csv" "$dir/species_traits.tsv" "$dir/report.tsv"; then
+  cat "$dir/report.tsv.stdout"
+  cat "$dir/report.tsv"
+  echo "FAIL: valid multi-index profile expected pass" >&2
+  exit 1
+fi
+
+awk 'BEGIN{done=0} /formula: "component_a \+ component_b"/ && !done{sub("component_b", "component_z"); done=1} {print}' "$ROOT_DIR/profiles/multi_index_test/study_profile.yaml" > "$dir/bad_formula.yaml"
+if run_validator "$dir/bad_formula.yaml" "$dir/phenotype_samplesheet.csv" "$dir/species_traits.tsv" "$dir/bad_formula_report.tsv"; then
+  cat "$dir/bad_formula_report.tsv"
+  echo "FAIL: invalid secondary index formula expected failure" >&2
+  exit 1
+fi
+if ! grep -q 'Formula variable is not listed in components' "$dir/bad_formula_report.tsv"; then
+  cat "$dir/bad_formula_report.tsv"
+  echo "FAIL: secondary index formula diagnostic missing" >&2
+  exit 1
+fi
+
 echo "study profile validation tests passed"

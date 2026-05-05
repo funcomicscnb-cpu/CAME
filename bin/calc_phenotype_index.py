@@ -2,6 +2,7 @@
 """Calculate profile-defined phenotype indexes from normalized CAME phenotype data."""
 
 import argparse
+import os
 import sys
 from collections import defaultdict
 
@@ -9,13 +10,18 @@ from phenotype_utils import (
     GROUP_KEY,
     REPLICATE_KEY,
     aggregate,
+    as_list,
     component_name_for_row,
     evaluate_formula_tree,
     format_value,
     load_profile,
+    norm,
     normalize_aggregation,
     parse_float,
     phenotype_index,
+    primary_index,
+    profile_indexes,
+    profile_qc_policy,
     profile_components,
     profile_id,
     read_table,
@@ -57,6 +63,25 @@ GROUP_FIELDS = [
     "source_sample_ids",
 ]
 
+MANIFEST_FIELDS = [
+    "profile_id",
+    "profile_version",
+    "normalization",
+    "primary_index_name",
+    "index_name",
+    "is_primary",
+    "formula",
+    "aggregation",
+    "contrast_count",
+    "contrast_names",
+    "qc_min_replicates_per_group",
+    "qc_fail_on_missing_components",
+    "qc_fail_on_sparse_groups",
+    "qc_fail_on_unit_inconsistency",
+    "sample_output",
+    "group_output",
+]
+
 
 def unit_context(rows):
     first = rows[0]
@@ -77,7 +102,7 @@ def stable_sample_id(context):
     return "|".join(context[field] for field in ["species", "individual_id", "replicate_id", "condition", "timepoint"])
 
 
-def calculate_samples(rows, profile, sample_output):
+def calculate_samples(rows, profile, sample_output=None):
     index = phenotype_index(profile)
     components = profile_components(profile)
     if not components:
@@ -158,11 +183,12 @@ def calculate_samples(rows, profile, sample_output):
     if not sample_rows:
         fatal_errors.append("No phenotype rows matched profile components")
 
-    write_tsv(sample_output, SAMPLE_FIELDS, sample_rows)
+    if sample_output:
+        write_tsv(sample_output, SAMPLE_FIELDS, sample_rows)
     return sample_rows, aggregation, fatal_errors
 
 
-def calculate_groups(sample_rows, profile, aggregation, group_output):
+def calculate_groups(sample_rows, profile, aggregation, group_output=None):
     index = phenotype_index(profile)
     profile_name = str(index.get("name", "")).strip()
     pid = profile_id(profile)
@@ -196,8 +222,33 @@ def calculate_groups(sample_rows, profile, aggregation, group_output):
             }
         )
 
-    write_tsv(group_output, GROUP_FIELDS, group_rows)
+    if group_output:
+        write_tsv(group_output, GROUP_FIELDS, group_rows)
     return group_rows
+
+
+def manifest_row(profile, index_def, primary, qc_policy, normalization, sample_output, group_output):
+    study = profile.get("study") if isinstance(profile.get("study"), dict) else {}
+    contrasts = [contrast for contrast in as_list(index_def.get("contrasts")) if isinstance(contrast, dict)]
+    is_primary = index_def is primary
+    return {
+        "profile_id": profile_id(profile),
+        "profile_version": norm(study.get("version")),
+        "normalization": normalization,
+        "primary_index_name": norm(primary.get("name")),
+        "index_name": norm(index_def.get("name")),
+        "is_primary": str(is_primary).lower(),
+        "formula": norm(index_def.get("formula")),
+        "aggregation": norm(index_def.get("aggregation")),
+        "contrast_count": str(len(contrasts)),
+        "contrast_names": ",".join(norm(contrast.get("name")) for contrast in contrasts if norm(contrast.get("name"))),
+        "qc_min_replicates_per_group": str(qc_policy["min_replicates_per_group"]),
+        "qc_fail_on_missing_components": str(qc_policy["fail_on_missing_components"]).lower(),
+        "qc_fail_on_sparse_groups": str(qc_policy["fail_on_sparse_groups"]).lower(),
+        "qc_fail_on_unit_inconsistency": str(qc_policy["fail_on_unit_inconsistency"]).lower(),
+        "sample_output": sample_output,
+        "group_output": group_output,
+    }
 
 
 def parse_args():
@@ -206,24 +257,69 @@ def parse_args():
     parser.add_argument("--study_profile", required=True)
     parser.add_argument("--sample_output", default="results/phenotype/index/phenotype_index_by_sample.tsv")
     parser.add_argument("--group_output", default="results/phenotype/index/phenotype_index_by_group.tsv")
+    parser.add_argument("--indexes_sample_output", default="")
+    parser.add_argument("--indexes_group_output", default="")
+    parser.add_argument("--manifest_output", default="")
+    parser.add_argument("--normalization", default="")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    if not args.indexes_sample_output:
+        args.indexes_sample_output = os.path.join(os.path.dirname(args.sample_output) or ".", "phenotype_indexes_by_sample.tsv")
+    if not args.indexes_group_output:
+        args.indexes_group_output = os.path.join(os.path.dirname(args.group_output) or ".", "phenotype_indexes_by_group.tsv")
+    if not args.manifest_output:
+        args.manifest_output = os.path.join(os.path.dirname(args.group_output) or ".", "phenotype_processing_manifest.tsv")
+    all_sample_rows = []
+    all_group_rows = []
+    manifest_rows = []
+    fatal_errors = []
     try:
         _, rows = read_table(args.input)
         profile = load_profile(args.study_profile)
-        sample_rows, aggregation, fatal_errors = calculate_samples(rows, profile, args.sample_output)
-        group_rows = calculate_groups(sample_rows, profile, aggregation, args.group_output)
+        indexes = profile_indexes(profile)
+        primary = primary_index(profile)
+        qc_policy = profile_qc_policy(profile)
+        primary_sample_rows = []
+        primary_group_rows = []
+        for index_def in indexes:
+            single_profile = dict(profile)
+            single_profile["phenotype_index"] = index_def
+            single_profile.pop("phenotype_indexes", None)
+            sample_rows_for_index, aggregation, errors = calculate_samples(rows, single_profile)
+            group_rows_for_index = calculate_groups(sample_rows_for_index, single_profile, aggregation)
+            all_sample_rows.extend(sample_rows_for_index)
+            all_group_rows.extend(group_rows_for_index)
+            fatal_errors.extend(errors)
+            if index_def is primary:
+                primary_sample_rows = sample_rows_for_index
+                primary_group_rows = group_rows_for_index
+            manifest_rows.append(
+                manifest_row(
+                    profile,
+                    index_def,
+                    primary,
+                    qc_policy,
+                    args.normalization,
+                    args.indexes_sample_output,
+                    args.indexes_group_output,
+                )
+            )
+        write_tsv(args.indexes_sample_output, SAMPLE_FIELDS, all_sample_rows)
+        write_tsv(args.indexes_group_output, GROUP_FIELDS, all_group_rows)
+        write_tsv(args.sample_output, SAMPLE_FIELDS, primary_sample_rows)
+        write_tsv(args.group_output, GROUP_FIELDS, primary_group_rows)
+        write_tsv(args.manifest_output, MANIFEST_FIELDS, manifest_rows)
     except Exception as exc:
         stderr(f"ERROR\tphenotype_index\t{exc}")
         return 1
 
-    warnings = sum(1 for row in sample_rows + group_rows if row.get("status") == "WARNING")
-    errors = sum(1 for row in sample_rows + group_rows if row.get("status") == "ERROR")
-    print(f"CAME phenotype index summary: ERROR={errors} WARNING={warnings} samples={len(sample_rows)} groups={len(group_rows)}")
-    for row in sample_rows + group_rows:
+    warnings = sum(1 for row in all_sample_rows + all_group_rows if row.get("status") == "WARNING")
+    errors = sum(1 for row in all_sample_rows + all_group_rows if row.get("status") == "ERROR")
+    print(f"CAME phenotype index summary: ERROR={errors} WARNING={warnings} samples={len(all_sample_rows)} groups={len(all_group_rows)} indexes={len(manifest_rows)}")
+    for row in all_sample_rows + all_group_rows:
         if row.get("status") in {"ERROR", "WARNING"}:
             stderr(f"{row['status']}\t{row.get('sample_id', row.get('species', ''))}\t{row.get('message', '')}")
     for error in fatal_errors[:20]:

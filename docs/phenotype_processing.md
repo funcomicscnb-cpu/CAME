@@ -42,6 +42,10 @@ Outputs:
 ## Phenotype Indexes
 
 Profiles define one `phenotype_index` with `name`, `formula`, `components`, `aggregation`, and `contrasts`.
+Profiles may also define optional `phenotype_indexes` for multiple index definitions. The top-level
+`phenotype_index` remains required for compatibility and must duplicate the selected primary index when
+`phenotype_indexes` is present. Primary selection uses `primary: true` when set, otherwise the first
+entry in `phenotype_indexes`; profiles with more than one primary index fail validation.
 
 Formula syntax supports component names, numeric literals, parentheses, unary signs, `+`, `-`, `*`, `/`, and safe `abs`, `min`, and `max` calls. Exponentiation, attribute access, imports, strings, and raw Python evaluation are not allowed.
 
@@ -57,6 +61,9 @@ Outputs:
 
 - `results/phenotype/index/phenotype_index_by_sample.tsv`
 - `results/phenotype/index/phenotype_index_by_group.tsv`
+- `results/phenotype/index/phenotype_indexes_by_sample.tsv`
+- `results/phenotype/index/phenotype_indexes_by_group.tsv`
+- `results/phenotype/summary/phenotype_processing_manifest.tsv`
 
 ## QC
 
@@ -67,6 +74,18 @@ Outputs:
 - `results/phenotype/qc/group_counts.tsv`
 
 QC includes row counts, missingness, replicate counts, duplicate `sample_id` warnings, expected profile component checks, unit inconsistency warnings, sparse group warnings, and IQR outliers.
+
+Profiles can add optional QC gates:
+
+```yaml
+phenotype_qc:
+  min_replicates_per_group: 2
+  fail_on_missing_components: false
+  fail_on_sparse_groups: false
+  fail_on_unit_inconsistency: false
+```
+
+By default, sparse groups, missing profile components observed during QC, and unit inconsistencies remain warnings. Set the corresponding `fail_on_*` flag to promote that condition to an error.
 
 ## Contrasts
 
@@ -83,6 +102,9 @@ Outputs:
 
 - `results/phenotype/contrasts/phenotype_index_contrasts.tsv`
 - `results/phenotype/contrasts/component_trait_contrasts.tsv`
+- `results/phenotype/contrasts/phenotype_index_contrasts_long.tsv`
+
+The legacy `phenotype_index_contrasts.tsv` file contains only the primary index. The long contrast table contains all indexes and prepends `phenotype_index_name`.
 
 ## Examples
 

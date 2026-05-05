@@ -3,6 +3,7 @@
 
 import argparse
 import math
+import os
 import sys
 from collections import defaultdict
 
@@ -14,6 +15,7 @@ from phenotype_utils import (
     normalize_aggregation,
     parse_float,
     phenotype_index,
+    profile_indexes,
     profile_components,
     profile_contrasts,
     read_table,
@@ -40,6 +42,7 @@ INDEX_FIELDS = [
 ]
 
 COMPONENT_FIELDS = ["trait"] + INDEX_FIELDS
+INDEX_LONG_FIELDS = ["phenotype_index_name"] + INDEX_FIELDS
 
 
 def text(value):
@@ -193,6 +196,24 @@ def read_index_groups(path):
     return values, observed
 
 
+def read_indexes_by_group(path):
+    fields, rows = read_table(path)
+    if "phenotype_index_name" not in fields:
+        return {}, set()
+    values = {}
+    observed = set()
+    for row in rows:
+        index_name = row.get("phenotype_index_name", "")
+        species = row.get("species", "")
+        condition = row.get("condition", "")
+        timepoint = row.get("timepoint", "")
+        observed.add((index_name, species, condition, timepoint))
+        value = parse_float(row.get("index_value"))
+        n = parse_float(row.get("replicate_n")) or 0
+        values[(index_name, species, condition, timepoint)] = {"value": value, "n": int(n)}
+    return values, observed
+
+
 def component_groups(rows, components, aggregation):
     component_set = set(components)
     by_unit = defaultdict(list)
@@ -250,18 +271,50 @@ def compute_component_contrasts(component_values, observed_pairs, species_values
     return output
 
 
+def compute_long_index_contrasts(indexes_values, indexes_observed, species_values, conditions, timepoints, profile):
+    output = []
+    for index_def in profile_indexes(profile):
+        index_name = text(index_def.get("name"))
+        if not index_name:
+            continue
+        index_values = {
+            (species, condition, timepoint): record
+            for (name, species, condition, timepoint), record in indexes_values.items()
+            if name == index_name
+        }
+        observed_pairs = {
+            (species, condition, timepoint)
+            for name, species, condition, timepoint in indexes_observed
+            if name == index_name
+        }
+        contrasts = index_def.get("contrasts")
+        if isinstance(contrasts, dict):
+            contrasts = [contrasts]
+        if not isinstance(contrasts, list):
+            continue
+        for row in compute_index_contrasts(index_values, observed_pairs, species_values, conditions, timepoints, contrasts):
+            out = {"phenotype_index_name": index_name}
+            out.update(row)
+            output.append(out)
+    return output
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Calculate CAME phenotype contrasts.")
     parser.add_argument("--phenotype_table", required=True)
     parser.add_argument("--study_profile", required=True)
     parser.add_argument("--index_by_group", required=True)
+    parser.add_argument("--indexes_by_group", default="")
     parser.add_argument("--index_output", default="results/phenotype/contrasts/phenotype_index_contrasts.tsv")
     parser.add_argument("--component_output", default="results/phenotype/contrasts/component_trait_contrasts.tsv")
+    parser.add_argument("--index_long_output", default="")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+    if not args.index_long_output:
+        args.index_long_output = os.path.join(os.path.dirname(args.index_output) or ".", "phenotype_index_contrasts_long.tsv")
     try:
         _, phenotype_rows = read_table(args.phenotype_table)
         profile = load_profile(args.study_profile)
@@ -276,14 +329,21 @@ def main():
 
         index_rows = compute_index_contrasts(index_values, observed_pairs, species_values, conditions, timepoints, contrasts)
         component_rows = compute_component_contrasts(component_values, observed_pairs, species_values, conditions, timepoints, contrasts, components)
+        if args.indexes_by_group:
+            indexes_values, indexes_observed = read_indexes_by_group(args.indexes_by_group)
+            index_long_rows = compute_long_index_contrasts(indexes_values, indexes_observed, species_values, conditions, timepoints, profile)
+        else:
+            index_name = text(index.get("name"))
+            index_long_rows = [{"phenotype_index_name": index_name, **row} for row in index_rows]
     except Exception as exc:
         stderr(f"ERROR\tphenotype_contrasts\t{exc}")
         return 1
 
     write_tsv(args.index_output, INDEX_FIELDS, index_rows)
     write_tsv(args.component_output, COMPONENT_FIELDS, component_rows)
+    write_tsv(args.index_long_output, INDEX_LONG_FIELDS, index_long_rows)
     warnings = sum(1 for row in index_rows + component_rows if row["status"] == "WARNING")
-    print(f"CAME phenotype contrast summary: ERROR=0 WARNING={warnings} index_rows={len(index_rows)} component_rows={len(component_rows)}")
+    print(f"CAME phenotype contrast summary: ERROR=0 WARNING={warnings} index_rows={len(index_rows)} component_rows={len(component_rows)} index_long_rows={len(index_long_rows)}")
     for row in index_rows + component_rows:
         if row["status"] == "WARNING":
             stderr(f"WARNING\t{row['contrast_name']}\t{row['species']}\t{row['message']}")
