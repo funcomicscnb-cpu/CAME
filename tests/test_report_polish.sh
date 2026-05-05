@@ -40,13 +40,13 @@ RESULTS="$TMP_DIR/results"
 mkdir -p "$RESULTS/validation" "$RESULTS/final/release_checks"
 
 cat > "$RESULTS/validation/metadata_validation_report.tsv" <<'EOF'
-severity	source	field	row	message
-INFO	validation			ok
+severity	rule_id	source	field	row	message	suggestion
+INFO		validation			ok	n/a
 EOF
 
 cat > "$RESULTS/validation/study_profile_validation_report.tsv" <<'EOF'
-severity	source	field	row	message
-INFO	study_profile			ok
+severity	rule_id	source	field	row	message	suggestion
+INFO		study_profile			ok	n/a
 EOF
 
 cat > "$RESULTS/final/release_checks/came_release_checks.tsv" <<'EOF'

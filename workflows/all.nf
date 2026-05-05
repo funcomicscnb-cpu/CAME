@@ -55,6 +55,7 @@ workflow ALL {
     functional_interpretation_top_n
     functional_interpretation_min_score
     resume_completed_stages
+    validation_strict
 
     main:
     ALL_METADATA_VALIDATION(
@@ -63,9 +64,10 @@ workflow ALL {
         species_traits,
         reference_manifest,
         phylogeny_manifest,
-        study_design
+        study_design,
+        validation_strict
     )
-    ALL_STUDY_PROFILE_VALIDATION(study_profile, phenotype_samplesheet, species_traits)
+    ALL_STUDY_PROFILE_VALIDATION(study_profile, phenotype_samplesheet, species_traits, validation_strict)
 
     ALL_PHENOTYPE_RESPONSE(
         phenotype_samplesheet,

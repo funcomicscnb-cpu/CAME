@@ -88,7 +88,7 @@ empty_outputs <- function() {
   )
 }
 
-run_profile_screen <- function(data, args, model_types, phylogeny_id, tree_file, species_col, label_col) {
+run_profile_screen <- function(data, args, model_types, phylogeny_id, tree_file, species_col, label_col, pgls_min_species) {
   if (!requireNamespace("yaml", quietly = TRUE)) {
     stop("R package yaml is required when --study_profile is used", call. = FALSE)
   }
@@ -114,7 +114,8 @@ run_profile_screen <- function(data, args, model_types, phylogeny_id, tree_file,
       phylogeny_id = phylogeny_id,
       tree_file = tree_file,
       species_col = species_col,
-      label_col = label_col
+      label_col = label_col,
+      pgls_min_species = pgls_min_species
     )
     outputs <- append_outputs(outputs, out)
   }
@@ -137,9 +138,13 @@ main <- function() {
   label_col <- arg_value(args, "phylogeny_label_col", "phylogeny_label")
   phylogeny_id <- arg_value(args, "phylogeny_id", first_nonempty(data, "phylogeny_id"))
   tree_file <- arg_value(args, "phylogeny_file", first_nonempty(data, "phylogeny_file"))
+  pgls_min_species <- as.integer(arg_value(args, "pgls_min_species", "6"))
+  if (is.na(pgls_min_species) || pgls_min_species < 1) {
+    stop("--pgls_min_species must be an integer >= 1", call. = FALSE)
+  }
 
   if (arg_value(args, "response") == "" && arg_value(args, "study_profile") != "") {
-    outputs <- run_profile_screen(data, args, model_types, phylogeny_id, tree_file, species_col, label_col)
+    outputs <- run_profile_screen(data, args, model_types, phylogeny_id, tree_file, species_col, label_col, pgls_min_species)
   } else {
     response <- arg_value(args, "response")
     predictors <- split_csv(arg_value(args, "predictors"))
@@ -158,7 +163,8 @@ main <- function() {
       phylogeny_id = phylogeny_id,
       tree_file = tree_file,
       species_col = species_col,
-      label_col = label_col
+      label_col = label_col,
+      pgls_min_species = pgls_min_species
     )
   }
 

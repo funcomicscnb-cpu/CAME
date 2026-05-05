@@ -289,7 +289,40 @@ error_hypothesis_output <- function(hypothesis_name, hypothesis_type, stage, str
   outputs
 }
 
-run_annotated_model <- function(data, hypothesis_name, hypothesis_type, stage, stratum, response, predictors, covariates, model_types, phylogeny_id, tree_file, species_col, label_col) {
+warning_hypothesis_output <- function(hypothesis_name, hypothesis_type, stage, stratum, model_id, model_type, response, predictors, covariates, message) {
+  outputs <- empty_hypothesis_outputs()
+  outputs$summary <- data.frame(
+    hypothesis_name = hypothesis_name,
+    hypothesis_type = hypothesis_type,
+    stage = stage,
+    stratum = stratum,
+    model_id = model_id,
+    model_type = model_type,
+    response = response,
+    predictors = collapse_terms(predictors),
+    covariates = collapse_terms(covariates),
+    term = "",
+    n_species = 0,
+    p_value = NA_real_,
+    status = "WARNING",
+    message = message,
+    stringsAsFactors = FALSE
+  )
+  outputs$warnings <- data.frame(
+    hypothesis_name = hypothesis_name,
+    hypothesis_type = hypothesis_type,
+    stage = stage,
+    stratum = stratum,
+    model_id = model_id,
+    model_type = model_type,
+    severity = "WARNING",
+    message = message,
+    stringsAsFactors = FALSE
+  )
+  outputs
+}
+
+run_annotated_model <- function(data, hypothesis_name, hypothesis_type, stage, stratum, response, predictors, covariates, model_types, phylogeny_id, tree_file, species_col, label_col, pgls_min_species) {
   model_id <- paste(safe_id(hypothesis_name), safe_id(stage), safe_id(stratum), sep = "__")
   missing <- required_variables_present(data, unique(c(response, predictors, covariates, species_col, label_col)))
   if (length(missing)) {
@@ -305,7 +338,8 @@ run_annotated_model <- function(data, hypothesis_name, hypothesis_type, stage, s
     phylogeny_id = phylogeny_id,
     tree_file = tree_file,
     species_col = species_col,
-    label_col = label_col
+    label_col = label_col,
+    pgls_min_species = pgls_min_species
   )
   summary <- summary_from_outputs(raw, hypothesis_name, hypothesis_type, stage, stratum)
   annotated <- annotate_output(raw, hypothesis_name, hypothesis_type, stage, stratum)
@@ -369,7 +403,7 @@ add_residual_column <- function(data, residuals, column_name, species_col) {
   data
 }
 
-run_residual_hypothesis <- function(data, hypothesis, profile, name, htype, stratum, model_types, phylogeny_id, tree_file, species_col, label_col) {
+run_residual_hypothesis <- function(data, hypothesis, profile, name, htype, stratum, model_types, phylogeny_id, tree_file, species_col, label_col, pgls_min_species) {
   predictors <- as_chr(hypothesis$predictors)
   parts <- resolve_residual_parts(hypothesis, profile, data)
   if (!length(parts$covariates)) {
@@ -390,13 +424,30 @@ run_residual_hypothesis <- function(data, hypothesis, profile, name, htype, stra
       phylogeny_id = phylogeny_id,
       tree_file = tree_file,
       species_col = species_col,
-      label_col = label_col
+      label_col = label_col,
+      pgls_min_species = pgls_min_species
     )
     outputs <- append_hypothesis_outputs(outputs, stage1)
     if (any(stage1$summary$status == "ERROR", na.rm = TRUE)) {
       next
     }
     residual_name <- residual_column_name(name, model_type)
+    if (!nrow(stage1$residuals)) {
+      stage2_skip <- warning_hypothesis_output(
+        hypothesis_name = name,
+        hypothesis_type = htype,
+        stage = "residual_stage2",
+        stratum = stratum,
+        model_id = paste(safe_id(name), "residual_stage2", safe_id(stratum), sep = "__"),
+        model_type = model_type,
+        response = residual_name,
+        predictors = predictors,
+        covariates = character(),
+        message = paste("Residual stage 2 skipped because residual_stage1 produced no residuals for", model_type)
+      )
+      outputs <- append_hypothesis_outputs(outputs, stage2_skip)
+      next
+    }
     data_with_residual <- add_residual_column(data, stage1$residuals, residual_name, species_col)
     stage2 <- run_annotated_model(
       data = data_with_residual,
@@ -411,14 +462,15 @@ run_residual_hypothesis <- function(data, hypothesis, profile, name, htype, stra
       phylogeny_id = phylogeny_id,
       tree_file = tree_file,
       species_col = species_col,
-      label_col = label_col
+      label_col = label_col,
+      pgls_min_species = pgls_min_species
     )
     outputs <- append_hypothesis_outputs(outputs, stage2)
   }
   outputs
 }
 
-run_nonresidual_hypothesis <- function(data, hypothesis, name, htype, stratum, model_types, phylogeny_id, tree_file, species_col, label_col) {
+run_nonresidual_hypothesis <- function(data, hypothesis, name, htype, stratum, model_types, phylogeny_id, tree_file, species_col, label_col, pgls_min_species) {
   response <- first_chr(hypothesis$response)
   predictors <- as_chr(hypothesis$predictors)
   covariates <- if (htype == "direct_model") character() else as_chr(hypothesis$covariates)
@@ -436,7 +488,8 @@ run_nonresidual_hypothesis <- function(data, hypothesis, name, htype, stratum, m
     phylogeny_id = phylogeny_id,
     tree_file = tree_file,
     species_col = species_col,
-    label_col = label_col
+    label_col = label_col,
+    pgls_min_species = pgls_min_species
   )
 }
 
@@ -452,7 +505,7 @@ split_strata <- function(data, stratify_by) {
   split(data, key)
 }
 
-run_one_hypothesis <- function(data, hypothesis, profile, index, override_model_types, phylogeny_id, tree_file, species_col, label_col) {
+run_one_hypothesis <- function(data, hypothesis, profile, index, override_model_types, phylogeny_id, tree_file, species_col, label_col, pgls_min_species) {
   name <- hypothesis_name(hypothesis, index)
   htype <- normal_hypothesis_type(hypothesis)
   model_types <- hypothesis_model_types(hypothesis, override_model_types)
@@ -465,9 +518,9 @@ run_one_hypothesis <- function(data, hypothesis, profile, index, override_model_
   for (stratum in names(strata)) {
     stratum_data <- strata[[stratum]]
     if (htype == "residual_model") {
-      out <- run_residual_hypothesis(stratum_data, hypothesis, profile, name, htype, stratum, model_types, phylogeny_id, tree_file, species_col, label_col)
+      out <- run_residual_hypothesis(stratum_data, hypothesis, profile, name, htype, stratum, model_types, phylogeny_id, tree_file, species_col, label_col, pgls_min_species)
     } else {
-      out <- run_nonresidual_hypothesis(stratum_data, hypothesis, name, htype, stratum, model_types, phylogeny_id, tree_file, species_col, label_col)
+      out <- run_nonresidual_hypothesis(stratum_data, hypothesis, name, htype, stratum, model_types, phylogeny_id, tree_file, species_col, label_col, pgls_min_species)
     }
     outputs <- append_hypothesis_outputs(outputs, out)
   }
@@ -493,6 +546,10 @@ main <- function() {
   phylogeny_id <- arg_value(args, "phylogeny_id", first_nonempty(data, "phylogeny_id"))
   tree_file <- arg_value(args, "phylogeny_file", first_nonempty(data, "phylogeny_file"))
   override_model_types <- arg_value(args, "model_types", "")
+  pgls_min_species <- as.integer(arg_value(args, "pgls_min_species", "6"))
+  if (is.na(pgls_min_species) || pgls_min_species < 1) {
+    stop("--pgls_min_species must be an integer >= 1", call. = FALSE)
+  }
 
   outputs <- empty_hypothesis_outputs()
   if (!length(hypotheses)) {
@@ -514,7 +571,7 @@ main <- function() {
         outputs <- append_hypothesis_outputs(outputs, error_hypothesis_output(paste0("hypothesis_", index), "unknown", "parse", "all", paste0("hypothesis_", index), "Hypothesis entry is not a mapping"))
         next
       }
-      out <- run_one_hypothesis(data, hypothesis, profile, index, override_model_types, phylogeny_id, tree_file, species_col, label_col)
+      out <- run_one_hypothesis(data, hypothesis, profile, index, override_model_types, phylogeny_id, tree_file, species_col, label_col, pgls_min_species)
       outputs <- append_hypothesis_outputs(outputs, out)
     }
   }

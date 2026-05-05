@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -62,6 +63,8 @@ ATAC_QC_FIELDS = [
     "n_consensus_peaks",
     "reads_in_peaks",
     "frip",
+    "tss_reads",
+    "tss_enrichment",
     "fragment_mean",
     "fragment_sd",
     "status",
@@ -408,15 +411,119 @@ def parse_samtools_stats(path: Path) -> dict[str, str]:
     return metrics
 
 
+def parse_complexity(path: Path, sample_id: str, warnings: list[dict[str, str]]) -> dict[str, str]:
+    metrics = {
+        "total_fragments": "",
+        "distinct_fragments": "",
+        "one_read_fragments": "",
+        "two_read_fragments": "",
+        "nrf": "",
+        "pbc1": "",
+        "pbc2": "",
+    }
+    if not path.exists():
+        add_warning(warnings, "samtools", "library_complexity", sample_id, "position-level duplicate complexity output unavailable")
+        return metrics
+    _, rows = read_table(str(path))
+    if not rows:
+        add_warning(warnings, "samtools", "library_complexity", sample_id, "position-level duplicate complexity output is empty")
+        return metrics
+    row = rows[0]
+    for field in metrics:
+        metrics[field] = norm(row.get(field))
+    total_fragments = to_int(metrics["total_fragments"])
+    if total_fragments in (None, 0):
+        add_warning(warnings, "samtools", "library_complexity", sample_id, "NRF/PBC metrics unavailable because no filtered fragments were present")
+        metrics["nrf"] = ""
+        metrics["pbc1"] = ""
+        metrics["pbc2"] = ""
+        return metrics
+    if not metrics["nrf"] or not metrics["pbc1"] or not metrics["pbc2"]:
+        add_warning(warnings, "samtools", "library_complexity", sample_id, "NRF/PBC metrics could not be derived from complexity output")
+    return metrics
+
+
+def sum_bedtools_counts(output: str) -> int | None:
+    total = 0
+    seen = False
+    for line in output.splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.rstrip("\n").split("\t")
+        if not parts:
+            continue
+        value = to_int(parts[-1])
+        if value is None:
+            continue
+        seen = True
+        total += value
+    return total if seen else None
+
+
+def tss_metrics(tss_bed: str, bam: Path, usable_reads: int | None, sample_id: str, warnings: list[dict[str, str]]) -> tuple[str, str]:
+    if not tss_bed:
+        add_warning(warnings, "atacseq", "tss_bed", sample_id, "TSS enrichment unavailable because reference manifest lacks tss_bed")
+        return "", ""
+    if not Path(tss_bed).exists():
+        add_warning(warnings, "atacseq", "tss_bed", sample_id, f"TSS enrichment unavailable because tss_bed does not exist: {tss_bed}")
+        return "", ""
+    if not bam.exists():
+        add_warning(warnings, "atacseq", "tss_enrichment", sample_id, "TSS enrichment unavailable because BAM is missing")
+        return "", ""
+    if not usable_reads:
+        add_warning(warnings, "atacseq", "tss_enrichment", sample_id, "TSS enrichment unavailable because usable reads are unavailable")
+        return "", ""
+    try:
+        result = subprocess.run(
+            ["bedtools", "coverage", "-a", tss_bed, "-b", str(bam), "-counts"],
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except FileNotFoundError:
+        add_warning(warnings, "atacseq", "tss_enrichment", sample_id, "TSS enrichment unavailable because bedtools is not on PATH")
+        return "", ""
+    except subprocess.CalledProcessError as exc:
+        add_warning(warnings, "atacseq", "tss_enrichment", sample_id, f"TSS enrichment bedtools coverage failed: {exc.stderr.strip()}")
+        return "", ""
+    tss_reads = sum_bedtools_counts(result.stdout)
+    if tss_reads is None:
+        add_warning(warnings, "atacseq", "tss_enrichment", sample_id, "TSS enrichment unavailable because bedtools returned no count rows")
+        return "", ""
+    return str(tss_reads), f"{tss_reads / usable_reads:.6f}"
+
+
+def replicate_concordance_warnings(rows: list[dict[str, str]], mode: str, warnings: list[dict[str, str]]) -> None:
+    mode = norm(mode).lower() or "none"
+    if mode == "none":
+        add_warning(warnings, "atacseq", "replicate_concordance", "run", "ATAC replicate concordance was not requested")
+        return
+    groups: dict[tuple[str, str, str, str], set[str]] = {}
+    for row in rows:
+        key = (
+            norm(row.get("species")),
+            norm(row.get("condition")),
+            norm(row.get("timepoint")),
+            norm(row.get("reference_id")),
+        )
+        groups.setdefault(key, set()).add(norm(row.get("biological_replicate")) or norm(row.get("replicate_id")) or norm(row.get("sample_id")))
+    eligible = sum(1 for replicates in groups.values() if len(replicates) >= 2)
+    if eligible:
+        add_warning(warnings, "atacseq", "replicate_concordance", "run", "IDR replicate concordance requested, but CAME v0.1 records the request only; run external IDR before treating consensus peaks as replicate-confirmed")
+    else:
+        add_warning(warnings, "atacseq", "replicate_concordance", "run", "IDR replicate concordance requested but no species/condition/timepoint group has at least two biological replicates")
+
+
 def collect_atac(args: argparse.Namespace) -> int:
     totals, n_features = count_totals(args.counts, {"feature_id", "feature_type", "chrom", "start", "end"})
     warnings: list[dict[str, str]] = []
-    add_warning(warnings, "atacseq", "no_idr", "run", "IDR replicate concordance is not computed in v0.1")
-    add_warning(warnings, "atacseq", "no_tss_enrichment", "run", "TSS enrichment is not computed in v0.1")
     add_warning(warnings, "atacseq", "bedtools_merge_consensus", "run", "Consensus peaks are generated with bedtools merge and should be treated as exploratory")
     qc_rows: list[dict[str, str]] = []
     complexity_rows: list[dict[str, str]] = []
-    for row in sample_rows(args.manifest, "atacseq"):
+    atac_rows = sample_rows(args.manifest, "atacseq")
+    replicate_concordance_warnings(atac_rows, args.atac_replicate_concordance, warnings)
+    for row in atac_rows:
         sid = row["sample_id"]
         skey = sample_key(row)
         bam = Path(args.bam_dir) / f"{skey}.bam"
@@ -444,7 +551,8 @@ def collect_atac(args: argparse.Namespace) -> int:
         frip = format_fraction(reads_in_peaks, usable_reads)
         if duplicate_reads is None:
             add_warning(warnings, "samtools", "duplicate_proxy", sid, "duplicate proxy unavailable")
-        add_warning(warnings, "atacseq", "no_nrf_pbc", sid, "NRF/PBC metrics unavailable without position-level duplicate complexity output")
+        complexity = parse_complexity(Path(args.logs_dir) / "samtools" / f"{skey}.complexity.tsv", sid, warnings)
+        tss_reads, tss_enrichment = tss_metrics(norm(row.get("tss_bed")), bam, usable_reads, sid, warnings)
         sample_warnings = [item["message"] for item in warnings if item["sample_id"] == sid]
         qc_rows.append(
             {
@@ -471,6 +579,8 @@ def collect_atac(args: argparse.Namespace) -> int:
                 "n_consensus_peaks": str(n_features),
                 "reads_in_peaks": str(reads_in_peaks),
                 "frip": frip,
+                "tss_reads": tss_reads,
+                "tss_enrichment": tss_enrichment,
                 "fragment_mean": stats_metrics["fragment_mean"],
                 "fragment_sd": stats_metrics["fragment_sd"],
                 "status": "WARNING" if sample_warnings else "OK",
@@ -484,11 +594,11 @@ def collect_atac(args: argparse.Namespace) -> int:
                 "mapped_reads": str(mapped_reads if mapped_reads is not None else ""),
                 "duplicate_reads": str(duplicate_reads if duplicate_reads is not None else ""),
                 "duplicate_fraction": duplicate_fraction,
-                "nrf": "",
-                "pbc1": "",
-                "pbc2": "",
-                "status": "WARNING" if duplicate_reads is None else "OK",
-                "warnings": "NRF/PBC metrics unavailable without position-level duplicate complexity output",
+                "nrf": complexity["nrf"],
+                "pbc1": complexity["pbc1"],
+                "pbc2": complexity["pbc2"],
+                "status": "WARNING" if not (complexity["nrf"] and complexity["pbc1"] and complexity["pbc2"]) else "OK",
+                "warnings": "" if complexity["nrf"] and complexity["pbc1"] and complexity["pbc2"] else "NRF/PBC metrics unavailable without position-level duplicate complexity output",
             }
         )
     write_tsv(args.output, ATAC_QC_FIELDS, qc_rows)
@@ -511,6 +621,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--featurecounts_summary_output", default="")
     parser.add_argument("--library_complexity_output", default="")
     parser.add_argument("--warnings_output", default="")
+    parser.add_argument("--atac_replicate_concordance", default="none", choices=["none", "idr"])
     return parser.parse_args(argv)
 
 

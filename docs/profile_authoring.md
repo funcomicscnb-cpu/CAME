@@ -88,7 +88,7 @@ Supported contrast types are `baseline_vs_response`, `condition_contrast`, `time
 
 ## Derived Variables
 
-Declare variables that later stages are expected to create before hypotheses reference them:
+Declare variables that downstream workflows are expected to create before hypotheses reference them:
 
 ```yaml
 derived_variables:

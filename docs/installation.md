@@ -1,6 +1,6 @@
 # Installation
 
-This page describes a local CAME v0.1 setup. Stub-mode tests require Java, Nextflow, Python, and a small R package set. Stage 25 real-mode RNA-seq and ATAC-seq runs and Stage 27 optional WGS runs require additional command-line tools, reference assets, and tuned runtime resources.
+This page describes a local CAME v0.1 setup. Stub-mode tests require Java, Nextflow, Python, and a small R package set. Real-mode RNA-seq, ATAC-seq, and optional WGS runs require additional command-line tools, reference assets, and tuned runtime resources.
 
 ## Conda Environment
 
@@ -84,13 +84,13 @@ Optional WGS small-variant real mode also expects:
 - BWA-MEM2
 - GATK 4
 
-BWA and HMMRATAC are retained for legacy scaffold compatibility, but Stage 25 ATAC real mode uses Bowtie2 plus MACS3.
+BWA and HMMRATAC are retained for legacy compatibility, but ATAC real mode uses Bowtie2 plus MACS3.
 
 Stub mode does not require these tools.
 
 ## Nextflow Profiles
 
-Stage 25 adds clean profile hooks:
+CAME provides clean profile hooks:
 
 ```bash
 nextflow run . -profile conda ...
@@ -99,9 +99,9 @@ nextflow run . -profile apptainer ...
 nextflow run . -profile singularity ...
 ```
 
-The `conda` profile uses `environment/came_environment.yml`. Docker, Apptainer, and Singularity profiles default to `ghcr.io/funcomicscnb-cpu/came:<VERSION>`, where `<VERSION>` comes from the repository `VERSION` file. Override the image with `--container_image` when using a site-approved build.
+The `conda` profile uses `environment/came_environment.yml` as a flexible local install file. Docker, Apptainer, and Singularity profiles default to `ghcr.io/funcomicscnb-cpu/came:<VERSION>`, where `<VERSION>` comes from the repository `VERSION` file. Override the image with `--container_image` when using a site-approved build.
 
-An explicit linux-64 lock file is provided at `environment/conda-linux-64.lock` for container builds. macOS users should continue to create local environments from `environment/came_environment.yml`.
+An explicit linux-64 lock file is provided at `environment/conda-linux-64.lock` and is the reproducible source of truth for container builds. macOS users should continue to create local environments from `environment/came_environment.yml`.
 
 For Slurm systems, use the portable scheduler profile and supply site values as needed:
 
@@ -131,7 +131,7 @@ The default local resources are conservative test-oriented values. Mammalian STA
 
 ## HMMRATAC Jar Handling
 
-The legacy Stage 5 ATAC-seq scaffold resolves HMMRATAC in this order:
+The legacy ATAC-seq compatibility path resolves HMMRATAC in this order:
 
 1. `HMMRATAC` on `PATH`
 2. `hmmratac` on `PATH`
@@ -145,7 +145,7 @@ To copy an existing jar into the local environment tools directory:
 bash environment/install_local.sh --install-hmmratac --hmmratac-jar /path/to/HMMRATAC.jar
 ```
 
-Stage 25 production ATAC real mode does not use HMMRATAC.
+Production ATAC real mode does not use HMMRATAC.
 
 ## Version Report
 
@@ -157,7 +157,7 @@ This writes `environment/tool_versions.tsv` and prints compact present or missin
 
 ## Real-Mode Smoke Tests
 
-Stage 25 provides real-mode smoke and contract checks for the omics layer:
+CAME provides real-mode smoke and contract checks for the omics layer:
 
 ```bash
 python3 bin/check_real_mode_tools.py --outdir results/real_mode_smoke --mode soft
@@ -182,7 +182,7 @@ See [real_mode_smoke_tests.md](real_mode_smoke_tests.md) for tool requirements, 
 
 ## Reference-Quality Checks
 
-Stage 26 reference-quality checks require only Python and Nextflow for the bundled tiny fixtures:
+Reference-quality checks require only Python and Nextflow for the bundled tiny fixtures:
 
 ```bash
 nextflow run . \
@@ -196,7 +196,7 @@ These checks validate declared reference assets, assembly-report aliases, FASTA/
 
 ## WGS Small-Variant Checks
 
-Stage 27 WGS stub mode requires no external bioinformatics tools:
+CAME WGS stub mode requires no external bioinformatics tools:
 
 ```bash
 nextflow run . \
@@ -207,7 +207,7 @@ nextflow run . \
   --outdir results
 ```
 
-Real WGS mode requires BWA-MEM2, samtools, GATK, FastQC, FASTQ files, and local reference assets with FASTA, FAI, sequence dictionary, and BWA-MEM2 index or buildable FASTA. Stage 27 does not run BQSR; missing known-sites resources warn unless `--require_known_sites true`.
+Real WGS mode requires BWA-MEM2, samtools, GATK, FastQC, FASTQ files, and local reference assets with FASTA, FAI, sequence dictionary, and BWA-MEM2 index or buildable FASTA. CAME does not run BQSR; missing known-sites resources warn unless `--require_known_sites true`.
 
 ## Stub-Mode First Test
 
@@ -242,13 +242,13 @@ nextflow run . -resume \
 
 ## Real-Mode Notes
 
-Stage 25 real mode requires contrast-ready metadata, reference assets, FASTQ files, and the external tools listed above. STAR and Bowtie2 indexes are reused when present or generated under `--reference_cache_dir` when feasible. Stage 27 WGS similarly reuses or builds BWA-MEM2 indexes. Orthology tables, regulatory-element orthology, and regulatory-element-to-gene links are supplied inputs; CAME does not infer them during v0.1 runs.
+CAME real mode requires contrast-ready metadata, reference assets, FASTQ files, and the external tools listed above. STAR and Bowtie2 indexes are reused when present or generated under `--reference_cache_dir` when feasible. CAME WGS similarly reuses or builds BWA-MEM2 indexes. Orthology tables, regulatory-element orthology, and regulatory-element-to-gene links are supplied inputs; CAME does not infer them during v0.1 runs.
 
-The Salmon RNA backend is only a future hook. Requesting it fails clearly in this release.
+The Salmon RNA backend is declared but not implemented. Requesting it fails clearly in this release.
 
 ## Fixture Strategy
 
-Use tiny local synthetic fixtures for regular development. Optional curated real-data fixtures can include a small ENCODE ATAC subset or a manually selected pig `GSE143288 / PRJNA597497` subset. Do not automatically download large public datasets in tests. WGS tests should use deterministic stub and contract fixtures unless a tiny local real-tool fixture is manually curated.
+Use tiny local synthetic fixtures for routine local checks. Optional curated real-data fixtures can include a small ENCODE ATAC subset or a manually selected pig `GSE143288 / PRJNA597497` subset. Do not automatically download large public datasets in tests. WGS tests should use deterministic stub and contract fixtures unless a tiny local real-tool fixture is manually curated.
 
 ## Known Runtime Limitations
 

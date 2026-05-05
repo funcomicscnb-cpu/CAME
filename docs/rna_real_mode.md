@@ -1,6 +1,6 @@
 # RNA Real Mode
 
-Stage 25 RNA real mode runs a per-sample bulk RNA-seq baseline while preserving the downstream count contract.
+CAME RNA real mode runs a per-sample bulk RNA-seq baseline while preserving the downstream count contract.
 
 Implemented backend:
 
@@ -32,13 +32,13 @@ The aggregate step merges per-sample featureCounts outputs into `gene_counts.tsv
 
 ## Inputs
 
-Use Stage 23 metadata rows with `assay=rna`. Required fields include:
+Use real-mode metadata rows with `assay=rna`. Required fields include:
 
 `sample_id`, `species`, `individual_id`, `biological_replicate`, `assay`, `condition`, `read_layout`, `fastq_1`, `reference_id`, and `strandedness`.
 
 `read_layout` may be single-end or paired-end. Paired-end rows require `fastq_2`.
 
-Reference rows must provide FASTA and annotation through Stage 23 fields `fasta` and `annotation_file`, or the legacy aliases `genome_fasta` and `gtf`. `star_index` is reused when present; otherwise an index is built under `--reference_cache_dir`.
+Reference rows must provide FASTA and annotation fields `fasta` and `annotation_file`, or the legacy aliases `genome_fasta` and `gtf`. `star_index` is reused when present; otherwise an index is built under `--reference_cache_dir`.
 
 Input preparation fails if normalized filesystem keys for samples or references collide.
 
@@ -108,7 +108,7 @@ Tune these labels for mammalian genomes. STAR indexing and alignment are usually
 
 Missing STAR, featureCounts, samtools, or FastQC fails with an actionable message. Empty BAMs, missing BAM indexes, empty count matrices, and non-integer counts fail validation. Missing STAR logs and low assigned counts are warnings when the required count and BAM contracts are otherwise valid.
 
-## Stage 28 Fixtures
+## CAME Fixtures
 
 Tiny paired RNA FASTQs and a matching synthetic reference are available under `assets/test_data/real_mode_fixtures/`. Use `bash tests/test_real_mode_fixtures.sh --soft` to validate fixture contracts and, when STAR, featureCounts, samtools, FastQC, and MultiQC are installed, run the tiny RNA real-mode path.
 

@@ -363,7 +363,7 @@ fit_pgls_model <- function(data, response, predictors, covariates, model_id, mod
   )
 }
 
-fit_one_model <- function(data, response, predictors, covariates, model_type, model_id, phylogeny_id, tree_file, species_col = "species", label_col = "phylogeny_label") {
+fit_one_model <- function(data, response, predictors, covariates, model_type, model_id, phylogeny_id, tree_file, species_col = "species", label_col = "phylogeny_label", pgls_min_species = 6) {
   if (model_type == "phylo_anova") {
     return(skip_outputs(model_id, model_type, response, predictors, covariates, phylogeny_id, "phylo_anova is validated but deferred for a later CAME stage"))
   }
@@ -372,6 +372,22 @@ fit_one_model <- function(data, response, predictors, covariates, model_type, mo
     if (model_type == "lm") {
       out <- fit_lm_model(complete$data, response, predictors, covariates, model_id, phylogeny_id, species_col, label_col)
     } else if (model_type %in% c("pgls_brownian", "pgls_pagel_lambda")) {
+      if (nrow(complete$data) < pgls_min_species) {
+        out <- skip_outputs(
+          model_id,
+          model_type,
+          response,
+          predictors,
+          covariates,
+          phylogeny_id,
+          sprintf("Fewer than configured PGLS minimum species: %d < %d", nrow(complete$data), pgls_min_species)
+        )
+        out$warnings <- rbind(
+          complete$warnings,
+          out$warnings
+        )
+        return(out)
+      }
       if (model_type == "pgls_pagel_lambda") {
         require_phylo_packages(model_type)
         if (!exists("corPagel", envir = asNamespace("ape"), inherits = FALSE)) {
@@ -391,7 +407,7 @@ fit_one_model <- function(data, response, predictors, covariates, model_type, mo
   })
 }
 
-run_models <- function(data, response, predictors, covariates = character(), model_types = c("lm"), model_id = "model", phylogeny_id = "", tree_file = "", species_col = "species", label_col = "phylogeny_label") {
+run_models <- function(data, response, predictors, covariates = character(), model_types = c("lm"), model_id = "model", phylogeny_id = "", tree_file = "", species_col = "species", label_col = "phylogeny_label", pgls_min_species = 6) {
   outputs <- lapply(model_types, function(model_type) {
     fit_one_model(
       data = data,
@@ -403,7 +419,8 @@ run_models <- function(data, response, predictors, covariates = character(), mod
       phylogeny_id = phylogeny_id,
       tree_file = tree_file,
       species_col = species_col,
-      label_col = label_col
+      label_col = label_col,
+      pgls_min_species = pgls_min_species
     )
   })
   list(

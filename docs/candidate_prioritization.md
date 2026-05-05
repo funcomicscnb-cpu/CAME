@@ -1,8 +1,8 @@
-# Stage 10: Candidate Mechanism Prioritization
+# Candidate Mechanism Prioritization
 
-Stage 10 ranks candidate genes, regulatory elements, and gene regulatory architectures (GRAs) using outputs from previous CAME stages. It is phenotype-agnostic: candidate IDs, contrasts, and evidence layers come from input tables, not from hardcoded biology.
+CAME ranks candidate genes, regulatory elements, and gene regulatory architectures (GRAs) using outputs from previous CAME workflows. It is phenotype-agnostic: candidate IDs, contrasts, and evidence layers come from input tables, not from hardcoded biology.
 
-Stage 10 does not run enrichment analysis, coordinate lift-over, orthology inference, or RE-to-gene inference.
+CAME does not run enrichment analysis, coordinate lift-over, orthology inference, or RE-to-gene inference.
 
 ## Inputs
 
@@ -24,9 +24,9 @@ Default inputs are resolved under `--outdir`:
 - `integration/clustering/response_clusters_gra_activity.tsv`
 - `integration/pairwise/pairwise_species_molecular_contrasts.tsv`
 
-Stage 10 also accepts explicit path overrides. For differential orthogroup tables, `--differential_expression_orthogroups` and `--differential_accessibility_orthogroups` are preferred. The older `--differential_expression` and `--differential_accessibility` parameters remain valid aliases only for this stage.
+CAME also accepts explicit path overrides. For differential orthogroup tables, `--differential_expression_orthogroups` and `--differential_accessibility_orthogroups` are preferred. The older `--differential_expression` and `--differential_accessibility` parameters remain valid aliases only for this workflow.
 
-Optional evidence layers may be absent. Missing optional layers are reported in `candidate_evidence_warnings.tsv`. The stage fails only when no major scoring evidence is available.
+Optional evidence layers may be absent. Missing optional layers are reported in `candidate_evidence_warnings.tsv`. The workflow fails only when no major scoring evidence is available.
 
 ## Candidate Types
 
@@ -53,7 +53,7 @@ Supported evidence types:
 - `hypothesis_support`
 - `gra_membership`
 
-Current Stage 4 hypothesis results are usually global. They are warning-only unless rows contain candidate identifiers such as `candidate_id`, `gene_orthogroup_id`, `re_orthogroup_id`, `gra_id`, or a candidate-specific `feature_id` with `feature_layer`.
+Current CAME hypothesis results are usually global. They are warning-only unless rows contain candidate identifiers such as `candidate_id`, `gene_orthogroup_id`, `re_orthogroup_id`, `gra_id`, or a candidate-specific `feature_id` with `feature_layer`.
 
 ## Scoring
 
@@ -106,7 +106,7 @@ Ranked tables include total score, number of evidence types, number of contrasts
 
 ## Example
 
-Run upstream stages first with the same `--outdir`, then:
+Run upstream workflows first with the same `--outdir`, then:
 
 ```bash
 nextflow run . \
@@ -123,9 +123,9 @@ nextflow run . \
   --candidate_scoring_config assets/example_samplesheets/candidate_scoring_config.tsv
 ```
 
-## Stage 11 Use
+## CAME Use
 
-Stage 11 enrichment and reporting can consume the ranked candidate tables as transparent, auditable inputs. Enrichment should operate on candidate sets selected from these rankings, not on hidden score internals.
+CAME enrichment and reporting can consume the ranked candidate tables as transparent, auditable inputs. Enrichment should operate on candidate sets selected from these rankings, not on hidden score internals.
 
 ## Limitations
 

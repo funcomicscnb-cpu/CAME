@@ -1,8 +1,8 @@
-# Stage 11: Functional Interpretation
+# Functional Interpretation
 
-Stage 11 adds phenotype-agnostic functional interpretation for ranked CAME candidates. It consumes Stage 10 candidate rankings, Stage 7 feature coordinates, Stage 8 GRA membership, and local annotation files to produce offline enrichment results, GREAT-ready regulatory-region exports, and compact interpretation summaries.
+CAME provides phenotype-agnostic functional interpretation for ranked candidates. It consumes candidate rankings, feature coordinates, GRA membership, and local annotation files to produce offline enrichment results, GREAT-ready regulatory-region exports, and compact interpretation summaries.
 
-Stage 11 does not call online APIs, infer orthology, perform coordinate lift-over, or hardcode profile-specific biology.
+CAME does not call online APIs, infer orthology, perform coordinate lift-over, or hardcode profile-specific biology.
 
 ## Inputs
 
@@ -56,7 +56,7 @@ external_id
 notes
 ```
 
-Missing optional annotation columns generate warnings but do not stop the stage.
+Missing optional annotation columns generate warnings but do not stop the workflow.
 
 ## Gene Sets
 
@@ -81,14 +81,14 @@ This file is the offline source for enrichment. Missing required columns or a mi
 
 ## Candidate-Linked Gene Sets
 
-Stage 11 builds four candidate sets:
+CAME builds four candidate sets:
 
 - `genes`: selected direct gene candidates.
 - `regulatory_element_linked_genes`: genes linked to selected RE candidates.
 - `gra_linked_genes`: genes linked to selected GRA candidates.
 - `all_candidates_linked_genes`: selected genes plus linked genes from selected RE and GRA candidates.
 
-Linked genes are resolved from ranked candidate table link columns first. If those columns are empty, Stage 11 falls back to `gra_re_membership.tsv` and `gene_regulatory_architectures.tsv`.
+Linked genes are resolved from ranked candidate table link columns first. If those columns are empty, CAME falls back to `gra_re_membership.tsv` and `gene_regulatory_architectures.tsv`.
 
 The enrichment background is the intersection of genes in `gene_annotations.tsv` and genes in `gene_sets.tsv`. Candidate genes outside that background are reported and excluded from enrichment tests.
 
@@ -100,7 +100,7 @@ Outputs:
 
 ## Offline Enrichment
 
-Stage 11 runs a one-sided exact hypergeometric overrepresentation test using the Python standard library. P-values are Benjamini-Hochberg adjusted separately within each candidate set.
+CAME runs a one-sided exact hypergeometric overrepresentation test using the Python standard library. P-values are Benjamini-Hochberg adjusted separately within each candidate set.
 
 Output:
 
@@ -111,7 +111,7 @@ Output:
 
 ## Regulatory BED Export
 
-Stage 11 exports selected regulatory-element candidates and REs linked to selected GRA candidates:
+CAME exports selected regulatory-element candidates and REs linked to selected GRA candidates:
 
 - `results/interpretation/regulatory_regions/candidate_res.bed`
 - `results/interpretation/regulatory_regions/gra_linked_candidate_res.bed`
@@ -138,7 +138,7 @@ source_feature_id
 
 ## Summary Outputs
 
-Stage 11 combines candidates, annotations, enrichment results, and regulatory exports into:
+CAME combines candidates, annotations, enrichment results, and regulatory exports into:
 
 - `results/interpretation/summary/candidate_gene_interpretation.tsv`
 - `results/interpretation/summary/candidate_re_interpretation.tsv`
@@ -152,6 +152,6 @@ These outputs are designed for later final reporting: they provide compact candi
 
 - Enrichment uses simple overrepresentation tests and does not deconvolve correlated evidence layers.
 - Background definition depends on the supplied annotation and gene-set files.
-- RE and GRA interpretation depends on supplied Stage 8 links.
+- RE and GRA interpretation depends on supplied CAME links.
 - Coordinates are used as supplied and are assumed to already be in the intended genome coordinate system.
 - Missing annotations or coordinates reduce interpretability but do not imply absence of biological support.

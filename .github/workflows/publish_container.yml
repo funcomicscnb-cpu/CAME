@@ -53,10 +53,21 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
 
+      - name: Verify published image
+        run: |
+          set -euo pipefail
+          image="${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}"
+          docker pull "$image"
+          docker image inspect "$image" --format '{{index .RepoDigests 0}}' > published-image-digest.txt
+          docker run --rm "$image" python3 bin/check_real_mode_tools.py --mode strict --omics-types rnaseq,atacseq,wgs
+          docker run --rm "$image" bash tests/test_real_mode_fixtures.sh --strict
+
       - name: Write release artifact metadata
         run: |
           mkdir -p container-metadata
-          python3 bin/print_versions.py > container-metadata/tool_versions.tsv || true
+          image="${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}"
+          docker run --rm "$image" bash -lc 'python3 bin/print_versions.py --output /tmp/tool_versions.tsv >/dev/null && cat /tmp/tool_versions.tsv' > container-metadata/tool_versions.tsv
+          cp published-image-digest.txt container-metadata/published-image-digest.txt
           shasum -a 256 environment/conda-linux-64.lock > container-metadata/conda-linux-64.lock.sha256
           {
             echo "image=${{ steps.meta.outputs.image }}"

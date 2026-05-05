@@ -249,7 +249,7 @@ model_data <- function(group, min_species) {
 }
 
 fit_lm <- function(group, min_species) {
-  prepared <- model_data(group, min_species)
+  prepared <- model_data(group, 3)
   if (!prepared$ok) {
     return(list(result = skip_result(group, "lm", prepared$message), warning = warning_row(group, "lm", "WARNING", prepared$message)))
   }
@@ -363,7 +363,10 @@ run_associations <- function(args) {
     "feature_layer", "feature_id", "feature_response_metric", "feature_response_value"
   ), "model table")
   output_dir <- arg_value(args, "output_dir", "results/integration/associations")
-  min_species <- as.integer(arg_value(args, "min_species", "3"))
+  min_species <- as.integer(arg_value(args, "min_species", "6"))
+  if (is.na(min_species) || min_species < 1) {
+    stop("--min_species must be an integer >= 1", call. = FALSE)
+  }
   model_types <- split_csv(arg_value(args, "model_types", "lm"))
   if (!length(model_types)) {
     model_types <- "lm"

@@ -1,6 +1,6 @@
-# Stage 13: End-to-End Run
+# End-to-End Run
 
-Stage 13 adds `--run_stage all` for a complete CAME v0.1 stub or real run. It orchestrates existing stages in dependency order and does not add biological analyses.
+`--run_stage all` runs a complete CAME v0.1 stub or real workflow. It orchestrates existing analyses in dependency order and does not add biological analyses.
 
 ## Command
 
@@ -25,7 +25,7 @@ nextflow run . -resume \
   --outdir results
 ```
 
-`--study_design` is required because Stage 1 metadata validation requires it. `-resume` is recommended for reruns.
+`--study_design` is required for metadata validation. `-resume` is recommended for reruns.
 
 ## Execution Order
 
@@ -43,7 +43,7 @@ nextflow run . -resume \
 
 ## Outputs
 
-The usual stage outputs are written under `--outdir`. Stage 13 also writes:
+The usual stage outputs are written under `--outdir`. CAME also writes:
 
 - `results/all/stage_status/<stage>_status.tsv`
 - `results/all/summary/came_all_run_summary.tsv`
@@ -57,7 +57,7 @@ The final report remains under:
 
 ## Reuse Behavior
 
-`--resume_completed_stages` defaults to `true`, but Stage 13 does not skip complete stages at compile time. All stages are scheduled so partial outputs are not silently accepted. Use Nextflow `-resume` to reuse completed process work.
+`--resume_completed_stages` defaults to `true`, but CAME does not skip complete stages at compile time. All stages are scheduled so partial outputs are not silently accepted. Use Nextflow `-resume` to reuse completed process work.
 
 The stage status files report structural completeness only: expected files are present and non-empty. They do not validate input freshness or content hashes.
 

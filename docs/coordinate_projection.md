@@ -1,14 +1,14 @@
 # CAME Optional Coordinate Projection
 
-Stage 19 adds optional scaffolding for future coordinate lift-over and regulatory-element orthology inference. It defines input contracts, validation, deterministic stub outputs, and summary manifests for coordinate projection across species.
+This optional interface defines input contracts, validation, deterministic stub outputs, and summary manifests for coordinate projection across species.
 
-This stage is future-facing. It is not part of the default v0.1 `--run_stage all` path, and it does not implement production lift-over. Core CAME remains phenotype-agnostic; projection behavior is driven by metadata tables and not by example study-profile biology.
+This interface is optional. It is not part of the default v0.1 `--run_stage all` path, and it does not implement production lift-over. Core CAME remains phenotype-agnostic; projection behavior is driven by metadata tables and not by example study-profile biology.
 
-## Relationship To Stage 7
+## Relationship To Orthology Projection
 
-Stage 7 `orthology_projection` remains the v0.1 workflow for projecting omics features through precomputed `orthologous_genes.tsv` and `orthologous_res.tsv` inputs.
+`orthology_projection` remains the v0.1 workflow for projecting omics features through precomputed `orthologous_genes.tsv` and `orthologous_res.tsv` inputs.
 
-Stage 19 does not replace that behavior. It can write an optional `inferred_orthologous_res.tsv` table with the same core columns as Stage 7 regulatory orthology inputs, but users must explicitly choose whether to review or reuse that file in later experiments.
+Coordinate projection does not replace that behavior. It can write an optional `inferred_orthologous_res.tsv` table with the same core columns as regulatory orthology inputs, but users must explicitly choose whether to review or reuse that file in later experiments.
 
 ## Command
 
@@ -72,7 +72,7 @@ Required columns:
 | `target_species` | Target species from the alignment manifest. |
 | `method` | Projection method label. |
 
-Allowed scaffold method labels:
+Allowed method labels:
 
 - `stub`
 - `liftover_chain`
@@ -108,16 +108,16 @@ The inferred regulatory orthology table includes one-to-one, many-to-one, ambigu
 
 ## Real Mode
 
-`--coordinate_projection_stub false` is intentionally conservative. The workflow validates required alignment assets and then fails clearly at placeholder execution unless a future production implementation is added.
+`--coordinate_projection_stub false` is intentionally conservative. The workflow validates required alignment assets and then fails clearly at placeholder execution unless a production implementation is available.
 
-Potential future tools may include:
+Potential implementation tools include:
 
 - UCSC `liftOver`
 - CrossMap
 - HAL tools
 - custom MAF projection
 
-The current scaffold does not install tools, does not run production lift-over, and does not silently emit synthetic real-mode results.
+The current interface does not install tools, does not run production lift-over, and does not silently emit synthetic real-mode results.
 
 ## Ambiguity Handling
 
@@ -128,11 +128,11 @@ Stub outputs use `mapping_class` in `projected_regions.tsv` and `orthology_type`
 - `one_to_many` ambiguous mappings
 - `failed_projection`
 
-Future production logic should preserve ambiguous mappings with explicit confidence and notes rather than collapsing them silently.
+Production logic should preserve ambiguous mappings with explicit confidence and notes rather than collapsing them silently.
 
 ## Limitations
 
 - Production coordinate projection is not implemented.
 - Stub coordinates are deterministic placeholders.
 - Input coordinates are validated as zero-based, half-open intervals.
-- Stage 19 is optional and is not required by `--run_stage all`.
+- This interface is optional and is not required by `--run_stage all`.

@@ -1,14 +1,14 @@
-# CAME Stage 5 Bulk Omics
+# CAME Bulk Omics
 
-Stage 5 adds the first generic bulk omics workflow layer for CAME. It defines metadata-aware RNA-seq and ATAC-seq interfaces, deterministic stub outputs for tests, and stable count matrix contracts for later differential analysis stages.
+CAME provides a generic bulk omics workflow layer with metadata-aware RNA-seq and ATAC-seq interfaces, deterministic stub outputs for tests, and stable count matrix contracts for downstream differential analysis.
 
-This stage remains phenotype-agnostic. It does not implement phenotype-omics association, regulatory architecture comparisons, orthology projection, or DESeq2 contrasts.
+This workflow remains phenotype-agnostic. It does not implement phenotype-omics association, regulatory architecture comparisons, orthology projection, or DESeq2 contrasts.
 
 ## Modes
 
 `--omics_stub true` is the default. Stub mode does not require real FASTQ files, reference genomes, indexes, or bioinformatics executables. It creates small deterministic placeholder QC, alignment, peak, count, summary, and MultiQC-style files.
 
-`--omics_mode real` enables the Stage 24 production-oriented baseline for bulk RNA-seq and ATAC-seq. `--omics_stub false` is retained as a compatibility alias for real mode unless `--omics_mode stub` is explicitly set. Real mode checks required executables and fails clearly if tools, FASTQ files, or required reference assets are unavailable. CAME does not install FastQC, STAR, featureCounts, Bowtie2, MACS3, samtools, bedtools, or MultiQC.
+`--omics_mode real` enables the production-oriented baseline for bulk RNA-seq and ATAC-seq. `--omics_stub false` is retained as a compatibility alias for real mode unless `--omics_mode stub` is explicitly set. Real mode checks required executables and fails clearly if tools, FASTQ files, or required reference assets are unavailable. CAME does not install FastQC, STAR, featureCounts, Bowtie2, MACS3, samtools, bedtools, or MultiQC.
 
 ## Inputs
 
@@ -22,7 +22,7 @@ Useful parameters:
 - `--omics_types rnaseq,atacseq`
 - `--omics_mode stub|real`
 - `--omics_stub true|false`
-- `--real_mode_metadata` for Stage 23 real-mode metadata
+- `--real_mode_metadata` for real-mode metadata
 - `--rna_backend star`
 - `--atac_backend bowtie2`
 - `--peak_caller macs3`
@@ -39,7 +39,7 @@ Required reference columns:
 
 `reference_id`, `species`, `genome_fasta`
 
-Real-mode RNA-seq requires a FASTA and annotation through Stage 23 `fasta` and `annotation_file`, or legacy aliases `genome_fasta` and `gtf`. `star_index` is reused when present; otherwise CAME attempts `STAR --runMode genomeGenerate` under `--reference_cache_dir`.
+Real-mode RNA-seq requires a FASTA and annotation through `fasta` and `annotation_file`, or legacy aliases `genome_fasta` and `gtf`. `star_index` is reused when present; otherwise CAME attempts `STAR --runMode genomeGenerate` under `--reference_cache_dir`.
 
 Real-mode ATAC-seq requires a FASTA through `fasta` or `genome_fasta`. `bowtie2_index` is reused when present; otherwise CAME attempts `bowtie2-build` under `--reference_cache_dir`.
 
@@ -56,7 +56,7 @@ nextflow run . \
 
 The workflow prepares joined manifests, runs RNA-seq and ATAC-seq interfaces, creates a MultiQC-style report, and summarizes expected outputs.
 
-Stage 24 real-mode example:
+Real-mode example:
 
 ```bash
 nextflow run . \
@@ -114,9 +114,9 @@ Shared reports:
 - `results/omics/summary/omics_run_summary.tsv`
 - `results/omics/summary/omics_outputs_manifest.tsv`
 
-## Later Stages
+## Downstream Use
 
-Stage 6 and later workflows should consume the raw count matrices and prepared manifests. Stage 5 does not normalize counts, test differential abundance, or join omics counts to phenotype-response outputs.
+Downstream workflows should consume the raw count matrices and prepared manifests. Bulk omics does not normalize counts, test differential abundance, or join omics counts to phenotype-response outputs.
 
 ## Common Failures
 

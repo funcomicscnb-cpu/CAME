@@ -143,6 +143,7 @@ def fixture_paths(outdir: Path) -> dict[str, Path]:
         "assembly_report": outdir / "tiny_reference" / "assembly_report.txt",
         "alias_map": outdir / "tiny_reference" / "alias_map.tsv",
         "chrom_sizes": outdir / "tiny_reference" / "tiny.chrom.sizes",
+        "tss_bed": outdir / "tiny_reference" / "tiny.tss.bed",
         "repeatmasker": outdir / "tiny_reference" / "repeatmasker.bed",
         "mappability": outdir / "tiny_reference" / "mappability.bed",
         "blacklist": outdir / "tiny_reference" / "blacklist.bed",
@@ -236,6 +237,7 @@ def create_fixtures(outdir: Path, force: bool = False) -> None:
         ],
     )
     write_text(paths["chrom_sizes"], f"{CHROM}\t{len(nuclear)}\n{MITO}\t{len(mito)}\n")
+    write_text(paths["tss_bed"], f"{CHROM}\t95\t155\ttiny_gene_1_tss\n")
     write_text(paths["repeatmasker"], f"{CHROM}\t720\t780\ttiny_repeat_1\n")
     write_text(paths["mappability"], f"{CHROM}\t1\t{len(nuclear)}\t1.0\n")
     write_text(paths["blacklist"], f"{MITO}\t0\t{len(mito)}\ttiny_mito_blacklist\n")
@@ -276,6 +278,7 @@ def create_fixtures(outdir: Path, force: bool = False) -> None:
         "bwa_index_prefix",
         "bowtie2_index",
         "chrom_sizes",
+        "tss_bed",
         "blacklist_bed",
         "repeatmasker_bed",
         "repeatmask_bed",
@@ -309,6 +312,7 @@ def create_fixtures(outdir: Path, force: bool = False) -> None:
         "mitochondrial_name": MITO,
         "genome_fasta": relative(paths["fasta"], manifest_dir),
         "chrom_sizes": relative(paths["chrom_sizes"], manifest_dir),
+        "tss_bed": relative(paths["tss_bed"], manifest_dir),
         "blacklist_bed": relative(paths["blacklist"], manifest_dir),
         "repeatmasker_bed": relative(paths["repeatmasker"], manifest_dir),
         "repeatmask_bed": relative(paths["repeatmasker"], manifest_dir),

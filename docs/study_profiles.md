@@ -2,7 +2,7 @@
 
 CAME study profiles define the study-specific interpretation layer. They describe phenotype indexes, component traits, contrasts, hypothesis variables, covariates, external evolutionary traits, and report labels without hardcoding a phenotype into the core pipeline.
 
-The validator checks structure and resolvability. Later phenotype and modeling stages consume the same profile declarations through generic code paths.
+The validator checks structure and resolvability. Downstream phenotype and modeling workflows consume the same profile declarations through generic code paths.
 
 ## File Layout
 
@@ -62,7 +62,7 @@ The validator rejects exponentiation, attribute access, string constants, import
 
 ## Derived Variables
 
-Later stages will produce variables such as:
+Downstream workflows produce variables such as:
 
 ```yaml
 derived_variables:
@@ -71,11 +71,11 @@ derived_variables:
   - component_response
 ```
 
-The validator allows hypotheses to reference declared derived variables. Later stages populate supported derived variables through generic profile-driven code paths.
+The validator allows hypotheses to reference declared derived variables. Downstream workflows populate supported derived variables through generic profile-driven code paths.
 
 ## Contrasts
 
-Contrasts define which phenotype metadata values later stages will compare. Supported contrast types are:
+Contrasts define which phenotype metadata values downstream workflows will compare. Supported contrast types are:
 
 - `baseline_vs_response`
 - `treated_vs_control`
@@ -183,7 +183,7 @@ nextflow run . --validate_only true \
   --study_design assets/example_samplesheets/study_design.yaml
 ```
 
-The report is a TSV with `severity`, `source`, `field`, `row`, and `message`.
+The report is a TSV with `severity`, `rule_id`, `source`, `field`, `row`, `message`, and `suggestion`.
 
 ## Common Errors
 
@@ -196,6 +196,6 @@ The report is a TSV with `severity`, `source`, `field`, `row`, and `message`.
 | Contrast condition not found | Align contrast condition names with phenotype samplesheet `condition`. |
 | Variable is not resolvable or declared as derived | Add a profile declaration, species trait row, phenotype metadata value, or derived variable. |
 
-## Later Stages
+## Downstream Use
 
 CAME uses profiles to compute phenotype indexes, calculate contrast responses, build model matrices, fit phylogenetic and non-phylogenetic hypothesis models, and label report context. Profile content remains data-driven: adding a new profile should not require editing core analysis code.

@@ -1,6 +1,6 @@
 # Real-Mode Metadata
 
-Stage 23 real-mode metadata separates study, sample, experiment, and run concepts so future workflows can join biological design to sequencing files without guessing.
+Real-mode metadata separates study, sample, experiment, and run concepts so downstream workflows can join biological design to sequencing files without guessing.
 
 ## Required Columns
 
@@ -44,12 +44,12 @@ Recommended optional fields include:
 - `target_bed`
 - `notes`
 
-These fields let Stage 24 and later workflows group technical runs, inspect batch effects, and record longitudinal designs without overloading `sample_id`.
+These fields let downstream workflows group technical runs, inspect batch effects, and record longitudinal designs without overloading `sample_id`.
 
 ## Replicates And QC
 
 The validator warns when a study/species/assay/tissue/condition group has fewer than two biological replicates. This is a warning because some pilot or public datasets are unreplicated, but production differential analysis should justify low replication before interpretation.
 
-Recommended QC expectations for Stage 24 include FASTQ quality summaries, read length checks, adapter/duplication summaries, alignment rates, library complexity, RNA strandedness confirmation, ATAC fragment-size and TSS-enrichment metrics, WES target coverage, and ChIP antibody and peak-quality summaries.
+Recommended QC expectations for CAME include FASTQ quality summaries, read length checks, adapter/duplication summaries, alignment rates, library complexity, RNA strandedness confirmation, ATAC fragment-size and TSS-enrichment metrics, WES target coverage, and ChIP antibody and peak-quality summaries.
 
-Stage 23 records only the metadata contract and warnings. It does not run QC tools or production analysis.
+CAME records only the metadata contract and warnings. It does not run QC tools or production analysis.

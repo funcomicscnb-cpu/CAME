@@ -1,12 +1,12 @@
-# Stage 8: Gene Regulatory Architecture Analysis
+# Gene Regulatory Architecture Analysis
 
-Stage 8 builds phenotype-agnostic gene regulatory architectures (GRAs) from orthologous regulatory elements (REs) and orthologous genes. It consumes Stage 7 orthology projection outputs, links RE orthogroups to gene orthogroups, aggregates ATAC-seq accessibility into GRA-level activity, and runs differential GRA activity tests when executable contrasts are available.
+CAME builds phenotype-agnostic gene regulatory architectures (GRAs) from orthologous regulatory elements (REs) and orthologous genes. It consumes orthology projection outputs, links RE orthogroups to gene orthogroups, aggregates ATAC-seq accessibility into GRA-level activity, and runs differential GRA activity tests when executable contrasts are available.
 
-Stage 8 does not run phenotype-omics association, candidate ranking, orthology inference, or coordinate lift-over.
+CAME does not run phenotype-omics association, candidate ranking, orthology inference, or coordinate lift-over.
 
 ## Inputs
 
-Required Stage 7 outputs:
+Required upstream outputs:
 
 - `--gene_orthogroup_counts results/orthology/gene_orthogroup_counts.tsv`
 - `--re_orthogroup_counts results/orthology/re_orthogroup_counts.tsv`
@@ -14,7 +14,7 @@ Required Stage 7 outputs:
 - `--differential_expression_orthogroups results/orthology/differential_expression_orthogroups.tsv`
 - `--differential_accessibility_orthogroups results/orthology/differential_accessibility_orthogroups.tsv`
 
-Required Stage 8 input:
+Required input:
 
 - `--re_to_gene_links assets/example_samplesheets/re_to_gene_links.tsv`
 
@@ -50,7 +50,7 @@ Supported `link_type` examples are `promoter`, `proximal`, `distal_contact`, `ne
 
 Resolution priority:
 
-1. Use supplied `gene_orthogroup_id` and `re_orthogroup_id` when present, after checking that they exist in Stage 7 outputs.
+1. Use supplied `gene_orthogroup_id` and `re_orthogroup_id` when present, after checking that they exist in CAME outputs.
 2. Otherwise resolve `(species, feature_id)` through `feature_to_orthogroup_map.tsv`.
 3. Retain unresolved links in validation output, but exclude them from constructed GRAs.
 
@@ -76,13 +76,13 @@ Modes:
 - `max`
 - `weighted_mean`
 
-`weighted_mean` uses numeric `contact_score` first, then numeric `link_confidence`. If no usable weights exist for a GRA, Stage 8 falls back to `mean` and records a warning.
+`weighted_mean` uses numeric `contact_score` first, then numeric `link_confidence`. If no usable weights exist for a GRA, CAME falls back to `mean` and records a warning.
 
 Missing RE values are not converted to zero. A GRA/sample value is `NA` when all member REs are absent for that sample.
 
 ## Differential GRA Activity
 
-Differential GRA testing uses the Stage 6 contrast direction convention:
+Differential GRA testing uses the CAME contrast direction convention:
 
 ```text
 log2_fold_change = response - baseline
@@ -95,7 +95,7 @@ DESeq2 is used only when all of the following are true:
 - DESeq2 is installed
 - `--differential_force_fallback false`
 
-Otherwise Stage 8 uses deterministic fallback tests. If no executable contrasts are available, it writes empty differential output with headers and a warning.
+Otherwise CAME uses deterministic fallback tests. If no executable contrasts are available, it writes empty differential output with headers and a warning.
 
 ## Outputs
 
@@ -140,11 +140,11 @@ nextflow run . \
   --omics_stub true
 ```
 
-Run Stage 7 first with the same `--outdir`, or provide all Stage 7 paths explicitly.
+Run the upstream workflows first with the same `--outdir`, or provide all paths explicitly.
 
 ## Limitations
 
-- Link evidence is consumed as supplied; Stage 8 does not infer RE-to-gene links.
+- Link evidence is consumed as supplied; CAME does not infer RE-to-gene links.
 - Orthogroup-level links are preferred when cross-species feature-level links cannot be resolved.
 - Differential testing on mean/median/max aggregated activity uses fallback statistics by design.
-- No phenotype-omics association or candidate ranking is performed. Stage 9 can use `gra_activity_matrix.tsv`, `differential_gra_activity.tsv`, and GRA membership tables to relate GRA activity to phenotype responses.
+- No phenotype-omics association or candidate ranking is performed. Downstream workflows can use `gra_activity_matrix.tsv`, `differential_gra_activity.tsv`, and GRA membership tables to relate GRA activity to phenotype responses.

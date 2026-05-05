@@ -1,6 +1,6 @@
 # ATAC Real Mode
 
-Stage 25 ATAC real mode runs a per-sample ATAC-seq baseline while preserving the downstream regulatory-element count contract.
+CAME ATAC real mode runs a per-sample ATAC-seq baseline while preserving the downstream regulatory-element count contract.
 
 Implemented backend and peak caller:
 
@@ -25,13 +25,13 @@ Internal files use safe `sample_key` names. Final count matrix columns use origi
 
 ## Inputs
 
-Use Stage 23 metadata rows with `assay=atac`. Required fields include:
+Use real-mode metadata rows with `assay=atac`. Required fields include:
 
 `sample_id`, `species`, `individual_id`, `biological_replicate`, `assay`, `condition`, `read_layout`, `fastq_1`, and `reference_id`.
 
 Paired-end ATAC is strongly preferred. Single-end ATAC is allowed by default with an explicit warning; set `--real_require_paired_atac true` to make single-end ATAC fail during input preparation.
 
-Reference rows must provide FASTA through `fasta` or `genome_fasta`. `bowtie2_index` is reused when present; otherwise an index is built under `--reference_cache_dir`. `chrom_sizes` helps MACS3 genome-size selection. `mitochondrial_name` enables mitochondrial read and fraction metrics; if it is absent or not found in idxstats, mitochondrial metrics are marked unavailable with a warning.
+Reference rows must provide FASTA through `fasta` or `genome_fasta`. `bowtie2_index` is reused when present; otherwise an index is built under `--reference_cache_dir`. `chrom_sizes` helps MACS3 genome-size selection. `mitochondrial_name` enables mitochondrial read and fraction metrics; if it is absent or not found in idxstats, mitochondrial metrics are marked unavailable with a warning. Optional `tss_bed` enables TSS coverage enrichment in `atac_qc.tsv`.
 
 Input preparation fails if normalized filesystem keys for samples or references collide.
 
@@ -74,13 +74,16 @@ Primary outputs are:
 - peak count;
 - reads in peaks from bedtools count output;
 - FRiP when usable reads and reads-in-peaks are both available;
+- `tss_reads` and `tss_enrichment` when `tss_bed` is supplied;
 - read layout and single-end warning;
 - paired-end fragment mean and standard deviation when samtools stats exposes them;
 - status and warning text.
 
-`library_complexity.tsv` is written when duplicate proxy or complexity-related metrics exist. `nrf`, `pbc1`, and `pbc2` are present in the table, but remain blank when position-level duplicate complexity output is unavailable.
+`library_complexity.tsv` is written when duplicate proxy or complexity-related metrics exist. `nrf`, `pbc1`, and `pbc2` are derived from filtered BAM position-level duplicate complexity output; `pbc2` remains blank when no two-read duplicate positions exist, because the metric denominator is zero.
 
-`atac_qc_warnings.tsv` records single-end libraries, missing mitochondrial contig metadata, unavailable metrics, low usable reads, high mitochondrial fraction, and structured v0.1 limitation warnings: no IDR replicate concordance, no TSS enrichment, unavailable NRF/PBC metrics, and bedtools-merge consensus peaks.
+`atac_qc_warnings.tsv` records single-end libraries, missing mitochondrial contig metadata, unavailable metrics, low usable reads, high mitochondrial fraction, missing `tss_bed`, replicate-concordance status, and bedtools-merge consensus peak limitations.
+
+`--atac_replicate_concordance none|idr` defaults to `none`. `idr` records an explicit replicate-concordance request and checks whether any species/condition/timepoint/reference group has at least two biological replicates, but CAME v0.1 still treats consensus peaks as exploratory unless external IDR results are supplied outside this workflow.
 
 Blank numeric fields mean unavailable, not zero.
 
@@ -100,9 +103,9 @@ Tune these labels for mammalian genomes, read depth, peak density, executor type
 
 Missing Bowtie2, bowtie2-build, MACS3, samtools, FastQC, or bedtools fails with an actionable message. Validation fails if all MACS3 peak files are empty, consensus peaks are malformed or empty, BAMs are empty, BAM indexes are missing, or counts are non-integer.
 
-High mitochondrial fraction, low usable reads, unavailable mitochondrial contig metrics, and single-end ATAC are warnings. Full TSS enrichment, fragment periodicity modeling, TOBIAS, and HMMRATAC production are not implemented in Stage 25.
+High mitochondrial fraction, low usable reads, unavailable mitochondrial contig metrics, missing TSS BED, and single-end ATAC are warnings. Fragment periodicity modeling, TOBIAS, production HMMRATAC, and internal IDR execution are not implemented in CAME.
 
-## Stage 28 Fixtures
+## CAME Fixtures
 
 Tiny paired ATAC FASTQs and a matching synthetic reference are available under `assets/test_data/real_mode_fixtures/`. Use `bash tests/test_real_mode_fixtures.sh --soft` to validate fixture contracts and, when Bowtie2, MACS3, samtools, bedtools, FastQC, and MultiQC are installed, run the tiny ATAC real-mode path.
 

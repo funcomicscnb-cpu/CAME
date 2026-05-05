@@ -29,12 +29,12 @@ assert_grep '	MISSING	' "$TMP_DIR/empty_validation_status.tsv" "empty outdir sho
 SYN="$TMP_DIR/synthetic"
 mkdir -p "$SYN/validation" "$SYN/all/stage_status"
 cat > "$SYN/validation/metadata_validation_report.tsv" <<'EOF'
-severity	source	field	row	message
-INFO	validation			ok
+severity	rule_id	source	field	row	message	suggestion
+INFO		validation			ok	n/a
 EOF
 cat > "$SYN/validation/study_profile_validation_report.tsv" <<'EOF'
-severity	source	field	row	message
-INFO	study_profile			ok
+severity	rule_id	source	field	row	message	suggestion
+INFO		study_profile			ok	n/a
 EOF
 python3 "$ROOT_DIR/bin/check_stage_outputs.py" \
   --stage validation \

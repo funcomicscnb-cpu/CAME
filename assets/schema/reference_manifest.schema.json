@@ -44,6 +44,7 @@
     "bwa_index": {"type": ["string", "null"]},
     "bowtie2_index": {"type": ["string", "null"]},
     "chrom_sizes": {"type": ["string", "null"]},
+    "tss_bed": {"type": ["string", "null"]},
     "blacklist_bed": {"type": ["string", "null"]},
     "repeatmasker_bed": {"type": ["string", "null"]},
     "mappability_bed": {"type": ["string", "null"]},

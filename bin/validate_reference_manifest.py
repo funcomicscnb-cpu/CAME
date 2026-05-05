@@ -54,6 +54,7 @@ RECOMMENDED_ASSETS = [
     "bwa_index",
     "bowtie2_index",
     "chrom_sizes",
+    "tss_bed",
     "blacklist_bed",
     "repeatmasker_bed",
     "mappability_bed",
@@ -63,7 +64,7 @@ BUSCO_FIELDS = ["busco_lineage", "busco_complete"]
 
 ASSAY_RECOMMENDED = {
     "rna": ["transcript_fasta", "star_index"],
-    "atac": ["bowtie2_index", "chrom_sizes", "blacklist_bed", "mappability_bed"],
+    "atac": ["bowtie2_index", "chrom_sizes", "tss_bed", "blacklist_bed", "mappability_bed"],
     "wgs": ["bwa_index", "fai"],
     "wes": ["bwa_index", "fai"],
 }
@@ -74,6 +75,7 @@ PATH_FIELDS = set(REQUIRED_COLUMNS) | set(RECOMMENDED_ASSETS) | {
     "bwa_index",
     "star_index",
     "bowtie2_index",
+    "tss_bed",
     "transcript_fasta",
 }
 NON_PATH_FIELDS = {

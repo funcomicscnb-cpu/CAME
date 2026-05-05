@@ -4,24 +4,24 @@ CAME v0.1 prepares the repository for a public release of the phenotype-agnostic
 
 ## Scope
 
-The v0.1 release includes implemented validation, phenotype processing, phylogenetic/hypothesis modeling, bulk RNA-seq/ATAC-seq interfaces, differential omics, orthology projection, GRA analysis, phenotype-omics integration, candidate prioritization, functional interpretation, final reporting, release checks, and optional future-facing scaffold stages through Stage 20.
+The v0.1 release includes implemented validation, phenotype processing, phylogenetic/hypothesis modeling, bulk RNA-seq/ATAC-seq interfaces, differential omics, orthology projection, GRA analysis, phenotype-omics integration, candidate prioritization, functional interpretation, final reporting, release checks, and optional interfaces.
 
 `--run_stage all` remains the v0.1 core end-to-end path. It warns that `reference_prepare`, `reference_quality`, `wgs_variants`, `coordinate_projection`, `re_to_gene_inference`, and `advanced_statistics` are excluded and must be run explicitly when needed.
 
-## Optional Scaffolds
+## Optional Interfaces
 
-The following stages are optional scaffolds and are not production implementations of their future analysis areas:
+The following commands are optional interfaces and are not production implementations of their analysis areas:
 
-- `reference_prepare`: WGS-backed reference preparation scaffold.
-- `coordinate_projection`: coordinate lift-over and regulatory-element orthology scaffold.
-- `re_to_gene_inference`: regulatory-element-to-gene inference scaffold.
-- `advanced_statistics`: future-facing advanced statistics scaffold and lightweight model-comparison interface.
+- `reference_prepare`: WGS-backed reference preparation interface.
+- `coordinate_projection`: coordinate lift-over and regulatory-element orthology interface.
+- `re_to_gene_inference`: regulatory-element-to-gene inference interface.
+- `advanced_statistics`: optional advanced statistics and lightweight model-comparison interface.
 
-Scaffold outputs are deterministic contract fixtures or limited interface outputs for validation and review. They should not be interpreted as production biological results.
+Stub outputs are deterministic contract fixtures for validation and review. They should not be interpreted as production biological results.
 
 ## Skipped Work
 
-NanoSeq and mutation profiling are intentionally skipped in v0.1. Documentation may mention future mutation-rate or ultra-accurate sequencing use cases, but CAME v0.1 does not implement NanoSeq processing or mutation profiling.
+NanoSeq and mutation profiling are intentionally skipped in v0.1. Documentation may mention mutation-rate or ultra-accurate sequencing use cases, but CAME v0.1 does not implement NanoSeq processing or mutation profiling.
 
 ## Minimal Example
 
@@ -74,8 +74,8 @@ CAME v0.1 is distributed under `GPL-3.0-only`. Citation metadata is provided in 
 - Stub-mode validation does not prove biological correctness.
 - Real-mode production readiness depends on caller-provided data, references, and external tools.
 - WGS is per-sample only in v0.1: BQSR is not applied and joint genotyping is not performed.
-- ATAC consensus peaks are bedtools-merge exploratory outputs; IDR and TSS enrichment are not computed in v0.1.
-- PGLS models with 3-5 species emit warnings and should be treated as exploratory.
-- Optional scaffold stages are not production analysis implementations.
+- ATAC consensus peaks are bedtools-merge exploratory outputs; TSS enrichment is computed only when `tss_bed` is supplied, NRF/PBC require duplicate-position complexity output, and IDR remains an explicit opt-in limitation warning.
+- PGLS defaults to a six-species minimum. Three-to-five-species PGLS is exploratory only when the threshold is deliberately lowered.
+- Optional interfaces are not production analysis implementations.
 - NanoSeq and mutation profiling are not implemented.
 - Orthology tables and regulatory-element-to-gene links are supplied inputs for the v0.1 all-run path.

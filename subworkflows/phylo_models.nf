@@ -19,6 +19,7 @@ process PHYLO_MODELS {
       --input ${hypothesis_model_table} \\
       --study_profile ${study_profile} \\
       --model_types ${model_types} \\
+      --pgls_min_species "${params.pgls_min_species ?: 6}" \\
       --output_dir models
     """
 }

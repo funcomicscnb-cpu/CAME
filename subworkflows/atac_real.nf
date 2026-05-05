@@ -154,6 +154,27 @@ process ATAC_SAMTOOLS_FILTER_SAMPLE {
     samtools flagstat "bam/${sample_key}.bam" > "logs/samtools/${sample_key}.flagstat.txt"
     samtools idxstats "bam/${sample_key}.bam" > "logs/samtools/${sample_key}.idxstats.tsv"
     samtools stats "bam/${sample_key}.bam" > "logs/samtools/${sample_key}.stats.txt"
+    samtools view "bam/${sample_key}.bam" | awk '
+      BEGIN { OFS="\\t" }
+      {
+        strand = (int(\$2 / 16) % 2) ? "-" : "+"
+        key = \$3 ":" \$4 ":" strand
+        counts[key] += 1
+        total += 1
+      }
+      END {
+        for (key in counts) {
+          distinct += 1
+          if (counts[key] == 1) one += 1
+          if (counts[key] == 2) two += 1
+        }
+        nrf = total ? distinct / total : 0
+        pbc1 = distinct ? one / distinct : 0
+        pbc2 = two ? sprintf("%.6f", one / two) : ""
+        print "total_fragments", "distinct_fragments", "one_read_fragments", "two_read_fragments", "nrf", "pbc1", "pbc2"
+        printf "%d\\t%d\\t%d\\t%d\\t%.6f\\t%.6f\\t%s\\n", total, distinct, one, two, nrf, pbc1, pbc2
+      }
+    ' > "logs/samtools/${sample_key}.complexity.tsv"
     """
 }
 
@@ -341,7 +362,7 @@ PY
     cp "${consensus}" counts/peak_consensus.bed
     if [ "\$sample_count" = "0" ]; then
       printf 'sample_id\\tspecies\\tomics_type\\tcondition\\ttimepoint\\treference_id\\tstatus\\tn_features\\ttotal_counts\\toutput_files\\twarnings\\n' > summary/atacseq_summary.tsv
-      printf 'sample_id\\tspecies\\tomics_type\\tcondition\\ttimepoint\\treference_id\\tread_layout\\tbam\\tbai\\tbam_exists\\tbam_nonempty\\ttotal_reads\\tmapped_reads\\ttotal_aligned_reads\\tmitochondrial_reads\\tmitochondrial_fraction\\tduplicate_reads\\tduplicate_fraction\\tusable_reads\\tn_peaks\\tn_consensus_peaks\\treads_in_peaks\\tfrip\\tfragment_mean\\tfragment_sd\\tstatus\\twarnings\\n' > qc/atac_qc.tsv
+      printf 'sample_id\\tspecies\\tomics_type\\tcondition\\ttimepoint\\treference_id\\tread_layout\\tbam\\tbai\\tbam_exists\\tbam_nonempty\\ttotal_reads\\tmapped_reads\\ttotal_aligned_reads\\tmitochondrial_reads\\tmitochondrial_fraction\\tduplicate_reads\\tduplicate_fraction\\tusable_reads\\tn_peaks\\tn_consensus_peaks\\treads_in_peaks\\tfrip\\ttss_reads\\ttss_enrichment\\tfragment_mean\\tfragment_sd\\tstatus\\twarnings\\n' > qc/atac_qc.tsv
       printf 'sample_id\\ttotal_reads\\tmapped_reads\\tduplicate_reads\\tduplicate_fraction\\tnrf\\tpbc1\\tpbc2\\tstatus\\twarnings\\n' > qc/library_complexity.tsv
       printf 'severity\\tsource\\tmetric\\tsample_id\\tmessage\\n' > qc/atac_qc_warnings.tsv
       printf 'severity\\tsource\\tfield\\tsample_id\\tmessage\\nINFO\\tatac_real\\t\\t\\tNo ATAC-seq samples requested\\n' > validation/atac_real_validation.tsv
@@ -363,7 +384,8 @@ PY
       --peaks_dir peaks \\
       --output qc/atac_qc.tsv \\
       --library_complexity_output qc/library_complexity.tsv \\
-      --warnings_output qc/atac_qc_warnings.tsv
+      --warnings_output qc/atac_qc_warnings.tsv \\
+      --atac_replicate_concordance "${params.atac_replicate_concordance}"
     python3 - qc/atac_qc.tsv summary/atacseq_summary.tsv counts/re_counts.tsv <<'PY'
 import csv
 import sys

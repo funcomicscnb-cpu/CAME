@@ -19,6 +19,7 @@ process HYPOTHESIS_TESTS {
       --input ${hypothesis_model_table} \\
       --study_profile ${study_profile} \\
       --output_dir . \\
+      --pgls_min_species "${params.pgls_min_species ?: 6}" \\
       ${modelTypesArg}
     """
 }

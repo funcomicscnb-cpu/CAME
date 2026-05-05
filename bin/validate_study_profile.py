@@ -4,15 +4,22 @@
 import argparse
 import ast
 import csv
+import json
 import os
 import re
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
+from pathlib import Path
 
 try:
     import yaml
 except ImportError:
     yaml = None
+
+try:
+    import jsonschema
+except ImportError:
+    jsonschema = None
 
 
 REQUIRED_TOP = ["study", "phenotype_index", "hypotheses", "reporting"]
@@ -44,20 +51,27 @@ ALLOWED_AST = (
     ast.Call,
 )
 SAFE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+STRICT_PROMOTIONS = {"PROFILE_CONTRAST_LOW_REPLICATES"}
 
 
 def norm(value):
     return str(value or "").strip()
 
 
-def add(records, severity, source, field, row, message):
+def report_text(value):
+    return " ".join(norm(value).split())
+
+
+def add(records, severity, source, field, row, message, rule_id="", suggestion=""):
     records.append(
         {
             "severity": severity,
+            "rule_id": rule_id or "",
             "source": source,
             "field": field or "",
             "row": str(row or ""),
-            "message": message,
+            "message": report_text(message),
+            "suggestion": report_text(suggestion),
         }
     )
 
@@ -108,6 +122,54 @@ def load_yaml(path, records):
     return data
 
 
+def default_schema_dir():
+    return Path(__file__).resolve().parents[1] / "assets" / "schema"
+
+
+def schema_dir_path(value):
+    return Path(value).resolve() if value else default_schema_dir()
+
+
+def load_schema(schema_dir, filename, records):
+    path = schema_dir / filename
+    if jsonschema is None:
+        add(records, "WARNING", "study_profile", "", "", "jsonschema is unavailable; schema validation was skipped", rule_id="PROFILE_SCHEMA_VALIDATION_UNAVAILABLE", suggestion="Install jsonschema to enable schema validation.")
+        return None
+    if not path.is_file():
+        add(records, "WARNING", "study_profile", "", "", f"Schema file not found: {path}", rule_id="PROFILE_SCHEMA_VALIDATION_UNAVAILABLE", suggestion="Provide --schema_dir pointing to assets/schema.")
+        return None
+    try:
+        with path.open() as handle:
+            return json.load(handle)
+    except Exception as exc:
+        add(records, "WARNING", "study_profile", "", "", f"Could not read schema file {path}: {exc}", rule_id="PROFILE_SCHEMA_VALIDATION_UNAVAILABLE", suggestion="Check that the schema file is valid JSON.")
+        return None
+
+
+def schema_error_field(error):
+    return ".".join(str(part) for part in error.path)
+
+
+def validate_profile_schema(profile, schema_dir, records):
+    schema = load_schema(schema_dir, "study_profile.schema.json", records)
+    if schema is None or jsonschema is None:
+        return False
+    validator = jsonschema.Draft202012Validator(schema)
+    errors = sorted(validator.iter_errors(profile), key=lambda item: [str(p) for p in item.path])
+    for error in errors:
+        add(
+            records,
+            "ERROR",
+            "study_profile",
+            schema_error_field(error),
+            "",
+            error.message,
+            rule_id="PROFILE_SCHEMA_VIOLATION",
+            suggestion="Check study_profile.schema.json for required fields and types.",
+        )
+    return not errors
+
+
 def as_list(value):
     if value is None:
         return []
@@ -138,13 +200,14 @@ def check_required_mapping(mapping, keys, source, records):
             add(records, "ERROR", source, key, "", "Missing required field")
 
 
-def structural_validation(profile, records):
-    for section in REQUIRED_TOP:
-        if section not in profile:
-            add(records, "ERROR", "study_profile", section, "", "Missing required top-level section")
-    check_required_mapping(profile.get("study"), REQUIRED_STUDY, "study", records)
-    check_required_mapping(profile.get("phenotype_index"), REQUIRED_INDEX, "phenotype_index", records)
-    check_required_mapping(profile.get("reporting"), REQUIRED_REPORTING, "reporting", records)
+def structural_validation(profile, records, skip_schema_covered=False):
+    if not skip_schema_covered:
+        for section in REQUIRED_TOP:
+            if section not in profile:
+                add(records, "ERROR", "study_profile", section, "", "Missing required top-level section")
+        check_required_mapping(profile.get("study"), REQUIRED_STUDY, "study", records)
+        check_required_mapping(profile.get("phenotype_index"), REQUIRED_INDEX, "phenotype_index", records)
+        check_required_mapping(profile.get("reporting"), REQUIRED_REPORTING, "reporting", records)
 
     index = profile.get("phenotype_index") if isinstance(profile.get("phenotype_index"), dict) else {}
     components = index.get("components")
@@ -165,7 +228,8 @@ def structural_validation(profile, records):
             if not isinstance(hyp, dict):
                 add(records, "ERROR", "hypotheses", "", idx, "Hypothesis must be a mapping")
                 continue
-            check_required_mapping(hyp, REQUIRED_HYPOTHESIS, "hypotheses", records)
+            if not skip_schema_covered:
+                check_required_mapping(hyp, REQUIRED_HYPOTHESIS, "hypotheses", records)
             if "predictors" in hyp:
                 if not isinstance(hyp.get("predictors"), list) or not hyp.get("predictors"):
                     add(records, "ERROR", "hypotheses", "predictors", idx, "predictors must be a non-empty array")
@@ -254,8 +318,224 @@ def formula_validation(profile, pheno_fields, pheno_rows, records):
             add(records, "ERROR", "phenotype_samplesheet", "measurement/assay", "", f"Profile component is absent from phenotype metadata: {component}")
 
 
+def contrast_group_specs(contrast):
+    ctype = norm(contrast.get("type"))
+    empty = ({}, {})
+    if ctype == "baseline_vs_response":
+        if not all(norm(contrast.get(field)) for field in ["baseline_condition", "baseline_timepoint", "response_condition", "response_timepoint"]):
+            return empty
+        left = {"condition": norm(contrast.get("baseline_condition")), "timepoint": norm(contrast.get("baseline_timepoint"))}
+        right = {"condition": norm(contrast.get("response_condition")), "timepoint": norm(contrast.get("response_timepoint"))}
+    elif ctype == "treated_vs_control":
+        left_condition = norm(contrast.get("baseline_condition") or contrast.get("control_condition"))
+        right_condition = norm(contrast.get("response_condition") or contrast.get("treated_condition"))
+        if not left_condition or not right_condition:
+            return empty
+        if bool(norm(contrast.get("baseline_timepoint"))) != bool(norm(contrast.get("response_timepoint"))):
+            return empty
+        timepoint = norm(contrast.get("baseline_timepoint"))
+        left = {"condition": left_condition, "timepoint": timepoint}
+        right = {"condition": right_condition, "timepoint": norm(contrast.get("response_timepoint"))}
+    elif ctype == "timepoint_contrast":
+        left_timepoint = norm(contrast.get("from_timepoint")) or norm(contrast.get("baseline_timepoint"))
+        right_timepoint = norm(contrast.get("to_timepoint")) or norm(contrast.get("response_timepoint"))
+        if not left_timepoint:
+            return empty
+        if not right_timepoint:
+            return empty
+        if bool(norm(contrast.get("baseline_condition"))) != bool(norm(contrast.get("response_condition"))):
+            return empty
+        condition = norm(contrast.get("baseline_condition"))
+        left = {"condition": condition, "timepoint": left_timepoint}
+        right = {"condition": norm(contrast.get("response_condition") or condition), "timepoint": right_timepoint}
+    elif ctype == "condition_contrast":
+        left_condition = norm(contrast.get("control_condition") or contrast.get("baseline_condition"))
+        right_condition = norm(contrast.get("treated_condition") or contrast.get("response_condition"))
+        if not left_condition or not right_condition:
+            return empty
+        if bool(norm(contrast.get("baseline_timepoint"))) != bool(norm(contrast.get("response_timepoint"))):
+            return empty
+        timepoint = norm(contrast.get("baseline_timepoint"))
+        left = {"condition": left_condition, "timepoint": timepoint}
+        right = {"condition": right_condition, "timepoint": norm(contrast.get("response_timepoint"))}
+    else:
+        return empty
+    return ({key: value for key, value in left.items() if value}, {key: value for key, value in right.items() if value})
+
+
+def row_matches_group(row, spec):
+    return all(norm(row.get(field)) == value for field, value in spec.items())
+
+
+def row_component(row, component):
+    return norm(row.get("measurement")) == component or norm(row.get("assay")) == component
+
+
+def contrast_pair_specs(contrast, pheno_rows):
+    ctype = norm(contrast.get("type"))
+    if ctype == "baseline_vs_response":
+        left, right = contrast_group_specs(contrast)
+        return None if not left or not right else [(left, right)]
+    if ctype in {"treated_vs_control", "condition_contrast"}:
+        left, right = contrast_group_specs(contrast)
+        if not left or not right:
+            return None
+        if left.get("timepoint") or right.get("timepoint"):
+            return [(left, right)]
+        left_condition = left.get("condition")
+        right_condition = right.get("condition")
+        left_timepoints = {norm(row.get("timepoint")) for row in pheno_rows if norm(row.get("condition")) == left_condition and norm(row.get("timepoint"))}
+        right_timepoints = {norm(row.get("timepoint")) for row in pheno_rows if norm(row.get("condition")) == right_condition and norm(row.get("timepoint"))}
+        timepoints = sorted(left_timepoints & right_timepoints)
+        return [({"condition": left_condition, "timepoint": timepoint}, {"condition": right_condition, "timepoint": timepoint}) for timepoint in timepoints]
+    if ctype == "timepoint_contrast":
+        left, right = contrast_group_specs(contrast)
+        if not left or not right:
+            return None
+        if left.get("condition") or right.get("condition"):
+            return [(left, right)]
+        left_timepoint = left.get("timepoint")
+        right_timepoint = right.get("timepoint")
+        left_conditions = {norm(row.get("condition")) for row in pheno_rows if norm(row.get("timepoint")) == left_timepoint and norm(row.get("condition"))}
+        right_conditions = {norm(row.get("condition")) for row in pheno_rows if norm(row.get("timepoint")) == right_timepoint and norm(row.get("condition"))}
+        conditions = sorted(left_conditions & right_conditions)
+        return [({"condition": condition, "timepoint": left_timepoint}, {"condition": condition, "timepoint": right_timepoint}) for condition in conditions]
+    return None
+
+
+def validate_contrast_executability(contrast, idx, components, pheno_rows, records):
+    if not components:
+        return
+    all_pair_specs = contrast_pair_specs(contrast, pheno_rows)
+    if all_pair_specs is None:
+        add(
+            records,
+            "ERROR",
+            "phenotype_index",
+            "contrasts",
+            idx,
+            f"Contrast lacks enough condition/timepoint fields to derive two groups: {norm(contrast.get('name'))}",
+            rule_id="PROFILE_CONTRAST_INCOMPLETE",
+            suggestion="Add the required condition/timepoint fields for this contrast type.",
+        )
+        return
+    broad_left, broad_right = contrast_group_specs(contrast)
+    relevant_species = set()
+    for row in pheno_rows:
+        species = norm(row.get("species"))
+        if not species or not any(row_component(row, component) for component in components):
+            continue
+        if row_matches_group(row, broad_left) or row_matches_group(row, broad_right):
+            relevant_species.add(species)
+    if not relevant_species:
+        add(
+            records,
+            "ERROR",
+            "phenotype_samplesheet",
+            "condition/timepoint",
+            idx,
+            f"Contrast is not executable because no phenotype rows contain profile components: {norm(contrast.get('name'))}",
+            rule_id="PROFILE_CONTRAST_NOT_EXECUTABLE",
+            suggestion="Add phenotype rows for profile components or remove the contrast.",
+        )
+        return
+    any_executable_pair = False
+    for species in sorted(relevant_species):
+        species_rows_all = [row for row in pheno_rows if norm(row.get("species")) == species]
+        pair_specs = contrast_pair_specs(contrast, species_rows_all)
+        if pair_specs is None:
+            add(
+                records,
+                "ERROR",
+                "phenotype_index",
+                "contrasts",
+                idx,
+                f"Contrast lacks enough condition/timepoint fields to derive two groups: {norm(contrast.get('name'))}",
+                rule_id="PROFILE_CONTRAST_INCOMPLETE",
+                suggestion="Add the required condition/timepoint fields for this contrast type.",
+            )
+            continue
+        if not pair_specs:
+            add(
+                records,
+                "ERROR",
+                "phenotype_samplesheet",
+                "condition/timepoint",
+                idx,
+                f"Contrast is not executable for species {species} because no shared phenotype groups match: {norm(contrast.get('name'))}",
+                rule_id="PROFILE_CONTRAST_NOT_EXECUTABLE",
+                suggestion="Add phenotype rows for matching baseline/response groups or remove the contrast.",
+            )
+            continue
+        for left_spec, right_spec in pair_specs:
+            left_rows = [row for row in species_rows_all if row_matches_group(row, left_spec)]
+            right_rows = [row for row in species_rows_all if row_matches_group(row, right_spec)]
+            group_rows = [("baseline", left_rows), ("response", right_rows)]
+            species_pair_complete = True
+            for _, rows in group_rows:
+                if not rows:
+                    species_pair_complete = False
+            if species_pair_complete:
+                any_executable_pair = True
+            for group_name, rows in group_rows:
+                if not rows:
+                    add(
+                        records,
+                        "ERROR",
+                        "phenotype_samplesheet",
+                        "species/condition/timepoint",
+                        idx,
+                        f"Contrast group {group_name} has no rows for species {species}: {norm(contrast.get('name'))}",
+                        rule_id="PROFILE_CONTRAST_NOT_EXECUTABLE",
+                        suggestion="Add phenotype rows for the missing group or remove the contrast.",
+                    )
+                    continue
+                for component in sorted(components):
+                    component_rows = [row for row in rows if row_component(row, component)]
+                    if not component_rows:
+                        add(
+                            records,
+                            "ERROR",
+                            "phenotype_samplesheet",
+                            "measurement/assay",
+                            idx,
+                            f"Contrast group {group_name} lacks component {component} for species {species}: {norm(contrast.get('name'))}",
+                            rule_id="PROFILE_CONTRAST_COMPONENT_MISSING",
+                            suggestion="Add phenotype rows for each profile component in each contrast group.",
+                        )
+                        continue
+                    replicate_pairs = {
+                        (norm(row.get("individual_id")), norm(row.get("replicate_id")))
+                        for row in component_rows
+                        if norm(row.get("individual_id")) or norm(row.get("replicate_id"))
+                    }
+                    if len(replicate_pairs) < 2:
+                        add(
+                            records,
+                            "WARNING",
+                            "phenotype_samplesheet",
+                            "individual_id/replicate_id",
+                            idx,
+                            f"Low replicate coverage for {species}/{group_name}/{component}: {len(replicate_pairs)} replicate pair(s)",
+                            rule_id="PROFILE_CONTRAST_LOW_REPLICATES",
+                            suggestion="Use at least two distinct individual_id/replicate_id pairs per species, group, and component for strict validation.",
+                        )
+    if not any_executable_pair:
+        add(
+            records,
+            "ERROR",
+            "phenotype_samplesheet",
+            "condition/timepoint",
+            idx,
+            f"Contrast is not executable because no paired phenotype groups match: {norm(contrast.get('name'))}",
+            rule_id="PROFILE_CONTRAST_NOT_EXECUTABLE",
+            suggestion="Add phenotype rows for matching baseline/response groups or remove the contrast.",
+        )
+
+
 def contrast_validation(profile, pheno_rows, records):
     index = profile.get("phenotype_index") if isinstance(profile.get("phenotype_index"), dict) else {}
+    components = set(norm(x) for x in as_list(index.get("components")) if norm(x))
     contrasts = index.get("contrasts")
     if isinstance(contrasts, dict):
         contrasts = [contrasts]
@@ -284,6 +564,8 @@ def contrast_validation(profile, pheno_rows, records):
             value = norm(contrast.get(field))
             if value and value not in timepoints:
                 add(records, "ERROR", "phenotype_samplesheet", field, idx, f"Contrast timepoint not found in phenotype metadata: {value}")
+        if ctype in CONTRAST_TYPES:
+            validate_contrast_executability(contrast, idx, components, pheno_rows, records)
 
 
 def hypothesis_validation(profile, pheno_fields, pheno_rows, trait_fields, trait_rows, records):
@@ -317,11 +599,19 @@ def hypothesis_validation(profile, pheno_fields, pheno_rows, trait_fields, trait
                 add(records, "ERROR", "hypotheses", field, idx, f"Variable is not resolvable or declared as derived: {variable}")
 
 
+def promote_warnings(records, strict, rule_ids):
+    if not strict:
+        return
+    for row in records:
+        if row.get("rule_id") in rule_ids and row.get("severity") == "WARNING":
+            row["severity"] = "ERROR"
+
+
 def write_report(path, records):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    fields = ["severity", "source", "field", "row", "message"]
+    fields = ["severity", "rule_id", "source", "field", "row", "message", "suggestion"]
     with open(path, "w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields, delimiter="\t", quoting=csv.QUOTE_NONE, escapechar="\\", lineterminator="\n")
+        writer = csv.DictWriter(handle, fieldnames=fields, delimiter="\t", extrasaction="ignore", quoting=csv.QUOTE_NONE, escapechar="\\", lineterminator="\n")
         writer.writeheader()
         writer.writerows(records)
 
@@ -345,12 +635,20 @@ def print_summary(records):
                     break
 
 
+def severity_summary(records):
+    counts = Counter(row["severity"] for row in records)
+    return {severity: counts.get(severity, 0) for severity in ["ERROR", "WARNING", "INFO"]}
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Validate a CAME Stage 2 study profile.")
     parser.add_argument("--study_profile", required=True)
     parser.add_argument("--phenotype_samplesheet", required=True)
     parser.add_argument("--species_traits", required=True)
     parser.add_argument("--output", default="results/validation/study_profile_validation_report.tsv")
+    parser.add_argument("--json_summary", default="")
+    parser.add_argument("--schema_dir", default="")
+    parser.add_argument("--validation_strict", action="store_true", default=False)
     return parser.parse_args()
 
 
@@ -361,12 +659,17 @@ def main():
     pheno_fields, pheno_rows = read_table(args.phenotype_samplesheet, "phenotype_samplesheet", records)
     trait_fields, trait_rows = read_table(args.species_traits, "species_traits", records)
     if profile:
-        structural_validation(profile, records)
+        schema_ok = validate_profile_schema(profile, schema_dir_path(args.schema_dir), records)
+        structural_validation(profile, records, skip_schema_covered=schema_ok)
         formula_validation(profile, pheno_fields, pheno_rows, records)
         contrast_validation(profile, pheno_rows, records)
         hypothesis_validation(profile, pheno_fields, pheno_rows, trait_fields, trait_rows, records)
     add(records, "INFO", "validation", "", "", f"Validated study profile: {args.study_profile}")
+    promote_warnings(records, args.validation_strict, STRICT_PROMOTIONS)
     write_report(args.output, records)
+    if args.json_summary:
+        with open(args.json_summary, "w") as handle:
+            json.dump(severity_summary(records), handle, indent=2, sort_keys=True)
     print_summary(records)
     return 1 if any(row["severity"] == "ERROR" for row in records) else 0
 

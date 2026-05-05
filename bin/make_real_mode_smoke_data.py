@@ -45,6 +45,7 @@ def write_reference(reference_dir: Path) -> None:
     )
     (reference_dir / "smoke.chrom.sizes").write_text(f"{CHROM}\t{len(GENOME_PREFIX)}\n")
     (reference_dir / "smoke_regions.bed").write_text(f"{CHROM}\t300\t380\tsmoke_region_1\n")
+    (reference_dir / "smoke_tss.bed").write_text(f"{CHROM}\t95\t155\tsmoke_gene_1_tss\n")
     (reference_dir / "assembly_report.txt").write_text("synthetic smoke assembly report\n")
 
 
@@ -215,6 +216,7 @@ def write_reference_manifest(path: Path) -> None:
         "bwa_index",
         "bowtie2_index",
         "chrom_sizes",
+        "tss_bed",
         "blacklist_bed",
         "repeatmasker_bed",
         "mappability_bed",
@@ -246,6 +248,7 @@ def write_reference_manifest(path: Path) -> None:
         "bwa_index": "reference/smoke.fa",
         "bowtie2_index": "reference/bowtie2/genome",
         "chrom_sizes": "reference/smoke.chrom.sizes",
+        "tss_bed": "reference/smoke_tss.bed",
         "blacklist_bed": "",
         "repeatmasker_bed": "",
         "mappability_bed": "",

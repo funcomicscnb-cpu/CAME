@@ -152,6 +152,33 @@ if ! grep -q 'pgls_brownian' "$ASSOC/phenotype_expression_associations.tsv" "$AS
 fi
 assert_grep 'fewer than 6 species' "$ASSOC/phenotype_omics_association_warnings.tsv" "PGLS small-n warning missing"
 
+ASSOC_DEFAULT="$TMP_DIR/integration/associations_default_min"
+Rscript "$ROOT_DIR/bin/run_phenotype_omics_associations.R" \
+  --model_table "$INPUT/phenotype_omics_model_table.tsv" \
+  --species_traits "$SPECIES_TRAITS" \
+  --phylogeny_manifest "$PHYLO_MANIFEST" \
+  --phylogeny_base_dir "$ROOT_DIR/assets/example_samplesheets" \
+  --model_types lm,pgls_brownian \
+  --output_dir "$ASSOC_DEFAULT" > "$TMP_DIR/assoc_default.out" 2>&1
+test -s "$ASSOC_DEFAULT/phenotype_expression_associations.tsv"
+assert_grep 'lm' "$ASSOC_DEFAULT/phenotype_expression_associations.tsv" "LM association missing with default PGLS threshold"
+assert_grep 'OK' "$ASSOC_DEFAULT/phenotype_expression_associations.tsv" "LM should still run below default PGLS threshold"
+assert_grep 'pgls_brownian' "$ASSOC_DEFAULT/phenotype_omics_association_warnings.tsv" "PGLS default threshold warning missing"
+assert_grep 'Fewer than 6 species available for model' "$ASSOC_DEFAULT/phenotype_omics_association_warnings.tsv" "PGLS default threshold did not skip 4-species model"
+
+TWO_SPECIES_MODEL="$TMP_DIR/integration/two_species_model_table.tsv"
+awk 'BEGIN{FS=OFS="\t"} NR==1 || $1=="Danio_rerio" || $1=="Gallus_gallus"' "$INPUT/phenotype_omics_model_table.tsv" > "$TWO_SPECIES_MODEL"
+ASSOC_TWO_SPECIES="$TMP_DIR/integration/associations_two_species"
+Rscript "$ROOT_DIR/bin/run_phenotype_omics_associations.R" \
+  --model_table "$TWO_SPECIES_MODEL" \
+  --species_traits "$SPECIES_TRAITS" \
+  --phylogeny_manifest "$PHYLO_MANIFEST" \
+  --phylogeny_base_dir "$ROOT_DIR/assets/example_samplesheets" \
+  --model_types lm \
+  --min_species 1 \
+  --output_dir "$ASSOC_TWO_SPECIES" > "$TMP_DIR/assoc_two_species.out" 2>&1
+assert_grep 'Fewer than 3 species available for model' "$ASSOC_TWO_SPECIES/phenotype_omics_association_warnings.tsv" "LM should keep a three-species minimum even when PGLS threshold is overridden"
+
 PAIRWISE="$TMP_DIR/integration/pairwise"
 python3 "$ROOT_DIR/bin/run_pairwise_species_contrasts.py" \
   --phenotype_response_table "$INPUT/phenotype_response_table.tsv" \

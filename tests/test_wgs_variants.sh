@@ -180,6 +180,19 @@ assert_grep '	stub	' "$NF_OUT/wgs/qc/variant_qc.tsv" "stub WGS QC did not record
 assert_grep '	false	per_sample	false	' "$NF_OUT/wgs/qc/variant_qc.tsv" "stub WGS limitation fields missing"
 assert_grep '	false	per_sample	false	' "$NF_OUT/wgs/summary/wgs_variant_summary.tsv" "stub WGS summary limitation fields missing"
 
+if nextflow -log "$TMP_DIR/wgs_joint.log" run "$ROOT_DIR" \
+  -work-dir "$TMP_DIR/work_joint" \
+  --run_stage wgs_variants \
+  --wgs_samplesheet "$ROOT_DIR/assets/example_samplesheets/wgs_samplesheet.csv" \
+  --reference_manifest "$ROOT_DIR/assets/example_samplesheets/reference_manifest.tsv" \
+  --wgs_mode stub \
+  --wgs_calling_mode joint \
+  --outdir "$TMP_DIR/nf_wgs_joint" > "$TMP_DIR/nextflow_joint.out" 2>&1; then
+  cat "$TMP_DIR/nextflow_joint.out" >&2
+  fail "unsupported WGS joint/cohort mode should fail"
+fi
+assert_grep 'cohort/joint genotyping is not implemented' "$TMP_DIR/nextflow_joint.out" "unsupported WGS joint mode diagnostic absent"
+
 EMPTY_PATH="$TMP_DIR/empty_path"
 mkdir -p "$EMPTY_PATH"
 if PATH="$EMPTY_PATH" "$PYTHON_BIN" "$ROOT_DIR/bin/check_real_mode_tools.py" \

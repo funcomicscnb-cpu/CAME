@@ -110,6 +110,8 @@ assert_grep 'Non-numeric QC value' "$TMP_DIR/bad_qc_validation.tsv" "malformed Q
 
 ATAC="$TMP_DIR/atac"
 mkdir -p "$ATAC/bam" "$ATAC/logs/samtools" "$ATAC/peaks"
+ATAC_MANIFEST_NO_TSS="$TMP_DIR/atacseq_manifest_no_tss.tsv"
+awk 'BEGIN{FS=OFS="\t"} NR==1{for(i=1;i<=NF;i++) if($i=="tss_bed") c=i; print; next} {if(c) $c=""; print}' "$PREP/atacseq_manifest.tsv" > "$ATAC_MANIFEST_NO_TSS"
 printf 'bam\n' > "$ATAC/bam/smoke_atac_1.bam"
 printf 'bai\n' > "$ATAC/bam/smoke_atac_1.bam.bai"
 cat > "$ATAC/re_counts.tsv" <<'EOF'
@@ -134,9 +136,13 @@ cat > "$ATAC/logs/samtools/smoke_atac_1.stats.txt" <<'EOF'
 SN	insert size average:	150
 SN	insert size standard deviation:	20
 EOF
+cat > "$ATAC/logs/samtools/smoke_atac_1.complexity.tsv" <<'EOF'
+total_fragments	distinct_fragments	one_read_fragments	two_read_fragments	nrf	pbc1	pbc2
+8	7	6	1	0.875000	0.857143	6.000000
+EOF
 "$PYTHON" "$ROOT_DIR/bin/collect_real_qc_metrics.py" \
   --assay atacseq \
-  --manifest "$PREP/atacseq_manifest.tsv" \
+  --manifest "$ATAC_MANIFEST_NO_TSS" \
   --counts "$ATAC/re_counts.tsv" \
   --bam_dir "$ATAC/bam" \
   --logs_dir "$ATAC/logs" \
@@ -146,14 +152,15 @@ EOF
   --warnings_output "$ATAC/atac_qc_warnings.tsv" > "$TMP_DIR/atac_collect.out" 2>&1
 assert_file "$ATAC/atac_qc.tsv" "ATAC QC table missing"
 assert_grep 'frip' "$ATAC/atac_qc.tsv" "ATAC QC FRiP column missing"
+assert_grep 'tss_enrichment' "$ATAC/atac_qc.tsv" "ATAC QC TSS enrichment column missing"
+assert_grep 'smoke_atac_1	10	8	1	0.100000	0.875000	0.857143	6.000000	OK' "$ATAC/library_complexity.tsv" "NRF/PBC metrics not parsed"
 assert_grep 'mitochondrial contig unavailable' "$ATAC/atac_qc_warnings.tsv" "missing mitochondrial contig warning absent"
-assert_grep 'no_idr' "$ATAC/atac_qc_warnings.tsv" "ATAC no_idr warning absent"
-assert_grep 'no_tss_enrichment' "$ATAC/atac_qc_warnings.tsv" "ATAC no_tss_enrichment warning absent"
-assert_grep 'no_nrf_pbc' "$ATAC/atac_qc_warnings.tsv" "ATAC no_nrf_pbc warning absent"
+assert_grep 'replicate_concordance' "$ATAC/atac_qc_warnings.tsv" "ATAC replicate concordance warning absent"
+assert_grep 'TSS enrichment unavailable because reference manifest lacks tss_bed' "$ATAC/atac_qc_warnings.tsv" "ATAC missing TSS BED warning absent"
 assert_grep 'bedtools_merge_consensus' "$ATAC/atac_qc_warnings.tsv" "ATAC bedtools merge warning absent"
 "$PYTHON" "$ROOT_DIR/bin/validate_real_outputs.py" \
   --assay atacseq \
-  --manifest "$PREP/atacseq_manifest.tsv" \
+  --manifest "$ATAC_MANIFEST_NO_TSS" \
   --counts "$ATAC/re_counts.tsv" \
   --bam_dir "$ATAC/bam" \
   --peaks_dir "$ATAC/peaks" \
@@ -162,6 +169,34 @@ assert_grep 'bedtools_merge_consensus' "$ATAC/atac_qc_warnings.tsv" "ATAC bedtoo
   --library_complexity "$ATAC/library_complexity.tsv" \
   --report "$ATAC/atac_validation.tsv" > "$TMP_DIR/atac_validate.out" 2>&1
 assert_grep 'Validated atacseq outputs' "$ATAC/atac_validation.tsv" "valid ATAC outputs were not accepted"
+
+TSS_ATAC="$TMP_DIR/atac_tss"
+cp -R "$ATAC" "$TSS_ATAC"
+mkdir -p "$TSS_ATAC/bin"
+cat > "$TSS_ATAC/tss.bed" <<'EOF'
+chrSmoke	90	150	smoke_tss
+EOF
+cat > "$TSS_ATAC/bin/bedtools" <<'EOF'
+#!/usr/bin/env sh
+printf 'chrSmoke\t90\t150\tsmoke_tss\t4\n'
+EOF
+chmod +x "$TSS_ATAC/bin/bedtools"
+awk -v tss="$TSS_ATAC/tss.bed" 'BEGIN{FS=OFS="\t"} NR==1{for(i=1;i<=NF;i++) if($i=="tss_bed") c=i; print; next} {if(c) $c=tss; print}' "$PREP/atacseq_manifest.tsv" > "$TSS_ATAC/atacseq_manifest.tsv"
+PATH="$TSS_ATAC/bin:$PATH" "$PYTHON" "$ROOT_DIR/bin/collect_real_qc_metrics.py" \
+  --assay atacseq \
+  --manifest "$TSS_ATAC/atacseq_manifest.tsv" \
+  --counts "$TSS_ATAC/re_counts.tsv" \
+  --bam_dir "$TSS_ATAC/bam" \
+  --logs_dir "$TSS_ATAC/logs" \
+  --peaks_dir "$TSS_ATAC/peaks" \
+  --output "$TSS_ATAC/atac_qc.tsv" \
+  --library_complexity_output "$TSS_ATAC/library_complexity.tsv" \
+  --warnings_output "$TSS_ATAC/atac_qc_warnings.tsv" > "$TMP_DIR/atac_tss_collect.out" 2>&1
+assert_grep 'smoke_atac_1.*	4	0.500000	' "$TSS_ATAC/atac_qc.tsv" "ATAC TSS enrichment was not computed from tss_bed"
+if grep -q 'reference manifest lacks tss_bed' "$TSS_ATAC/atac_qc_warnings.tsv"; then
+  cat "$TSS_ATAC/atac_qc_warnings.tsv" >&2
+  fail "TSS BED warning should be absent when tss_bed is supplied"
+fi
 
 BAD_ATAC_QC="$TMP_DIR/bad_atac_qc.tsv"
 awk 'BEGIN{FS=OFS="\t"} NR==1{for(i=1;i<=NF;i++) if($i=="frip") c=i} NR==2{$c="bad_frip"} {print}' "$ATAC/atac_qc.tsv" > "$BAD_ATAC_QC"

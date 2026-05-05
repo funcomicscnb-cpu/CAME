@@ -1,6 +1,6 @@
-# Stage 16: Final Report, Assets, And Provenance
+# Final Report, Assets, And Provenance
 
-Stage 16 creates a polished final report for a CAME run. It is a reporting and packaging stage only: it consumes existing outputs, records what is present, warns about missing upstream files, captures run provenance, creates compact report assets, renders HTML and Markdown reports, and runs release-readiness checks.
+CAME creates a polished final report for a run. It is a reporting and packaging workflow only: it consumes existing outputs, records what is present, warns about missing upstream files, captures run provenance, creates compact report assets, renders HTML and Markdown reports, and runs release-readiness checks.
 
 It does not perform new biological analyses, infer orthology, infer regulatory-element-to-gene links, run online enrichment, or convert coordinates.
 
@@ -54,7 +54,7 @@ Files under `results/final/` are excluded from collection to avoid self-referent
 
 ## Provenance And Assets
 
-Stage 16 writes:
+Final reporting writes:
 
 - `results/final/provenance/came_run_provenance.tsv`
 - `results/final/provenance/came_parameters_snapshot.tsv`

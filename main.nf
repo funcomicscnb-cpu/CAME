@@ -26,6 +26,7 @@ params.omics_samplesheet = null
 params.wgs_samplesheet = 'assets/example_samplesheets/wgs_samplesheet.csv'
 params.wgs_mode = 'stub'
 params.wgs_variant_mode = 'haplotypecaller'
+params.wgs_calling_mode = 'per_sample'
 params.wgs_filtering_mode = 'hard_filter'
 params.require_known_sites = false
 params.allow_no_bqsr = true
@@ -54,6 +55,7 @@ params.omics_mode = null
 params.rna_backend = 'star'
 params.atac_backend = 'bowtie2'
 params.peak_caller = 'macs3'
+params.atac_replicate_concordance = 'none'
 params.container_image = null
 params.came_version = params.came_version ?: (new File('VERSION').exists() ? new File('VERSION').text.trim() : '0.1.0')
 params.default_container_image = params.default_container_image ?: "ghcr.io/funcomicscnb-cpu/came:${params.came_version}"
@@ -108,7 +110,8 @@ params.phenotype_response_metric = 'difference'
 params.molecular_response_metric = 'log2_fold_change'
 params.phenotype_response_scope = 'index'
 params.integration_model_types = 'lm,pgls_brownian'
-params.integration_min_species = 3
+params.pgls_min_species = 6
+params.integration_min_species = null
 params.integration_cluster_method = 'sign'
 params.species_pairs = null
 params.baseline_condition = null
@@ -165,6 +168,18 @@ workflow {
     def effectiveWgsMode = params.wgs_mode ? params.wgs_mode.toString().trim().toLowerCase() : 'stub'
     if (!(effectiveWgsMode in ['stub', 'real'])) {
         error "Unsupported --wgs_mode '${params.wgs_mode}'. Supported values: stub, real."
+    }
+    def effectivePglsMinSpecies = params.pgls_min_species != null ? params.pgls_min_species.toString() as Integer : 6
+    if (effectivePglsMinSpecies < 1) {
+        error "--pgls_min_species must be at least 1."
+    }
+    def effectiveIntegrationMinSpecies = params.integration_min_species != null ? params.integration_min_species.toString() as Integer : effectivePglsMinSpecies
+    if (effectiveIntegrationMinSpecies < 1) {
+        error "--integration_min_species must be at least 1."
+    }
+    def effectiveAtacReplicateConcordance = params.atac_replicate_concordance.toString().trim().toLowerCase()
+    if (!(effectiveAtacReplicateConcordance in ['none', 'idr'])) {
+        error "Unsupported --atac_replicate_concordance '${params.atac_replicate_concordance}'. Supported values: none, idr."
     }
     def allowedStages = stageCatalog.collect { it.run_stage }
     if (!allowedStages.contains(params.run_stage)) {
@@ -326,6 +341,9 @@ workflow {
         if (params.wgs_variant_mode.toString() != 'haplotypecaller') {
             error "Unsupported --wgs_variant_mode '${params.wgs_variant_mode}'. Supported value: haplotypecaller."
         }
+        if (params.wgs_calling_mode.toString() != 'per_sample') {
+            error "Unsupported --wgs_calling_mode '${params.wgs_calling_mode}'. CAME v0.1 supports per_sample only; cohort/joint genotyping is not implemented."
+        }
         if (!(params.wgs_filtering_mode.toString() in ['hard_filter', 'none'])) {
             error "Unsupported --wgs_filtering_mode '${params.wgs_filtering_mode}'. Supported values: hard_filter, none."
         }
@@ -408,7 +426,8 @@ workflow {
             activeSpeciesTraits,
             activeReferenceManifest,
             activePhylogenyManifest,
-            activeStudyDesign
+            activeStudyDesign,
+            params.validation_strict ?: false
         )
         metadataReport = METADATA_VALIDATION.out.report
     } else if (!realModeValidationEnabled && !isAllStage && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage) {
@@ -434,7 +453,8 @@ workflow {
         STUDY_PROFILE_VALIDATION(
             activeStudyProfile,
             activePhenotypeSamplesheet,
-            activeSpeciesTraits
+            activeSpeciesTraits,
+            params.validation_strict ?: false
         )
     }
 
@@ -482,12 +502,13 @@ workflow {
             params.molecular_response_metric,
             params.phenotype_response_scope,
             params.integration_model_types,       // workflow param: model_types
-            params.integration_min_species,       // workflow param: min_species
+            effectiveIntegrationMinSpecies,       // workflow param: min_species
             params.integration_cluster_method,
             params.species_pairs ?: '',
             params.functional_interpretation_top_n,
             functionalMinScore,
-            params.resume_completed_stages
+            params.resume_completed_stages,
+            params.validation_strict ?: false
         )
     } else if (params.run_stage == 'bulk_omics' && !validateOnly) {
         BULK_OMICS(
@@ -681,7 +702,7 @@ workflow {
             params.molecular_response_metric,
             params.phenotype_response_scope,
             params.integration_model_types,       // workflow param: model_types
-            params.integration_min_species,       // workflow param: min_species
+            effectiveIntegrationMinSpecies,       // workflow param: min_species
             params.integration_cluster_method,
             params.species_pairs ?: ''
         )

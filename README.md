@@ -10,7 +10,7 @@ Bundled study-profile templates include `generic`, `ddr_ror`, `immune_response`,
 
 Current release metadata targets `v0.1.0`. CAME is an **advanced beta for expert users**: core RNA-seq, ATAC-seq, WGS, and comparative-analysis paths are genuine, but reproducible deployment and real-tool CI are still being hardened for the v0.1 release.
 
-This release prepares the public repository package, stub-mode orchestration, final reports, release checks, and real-mode operational contracts. It does not add new biological analyses, implement NanoSeq or mutation profiling, or make optional scaffold stages part of `--run_stage all`.
+This release prepares the public repository package, stub-mode orchestration, final reports, release checks, and real-mode operational contracts. It does not add new biological analyses, implement NanoSeq or mutation profiling, or make optional interfaces part of `--run_stage all`.
 
 CAME is distributed under `GPL-3.0-only`. Citation metadata is available in [CITATION.cff](CITATION.cff); the public repository is `https://github.com/funcomicscnb-cpu/CAME`, and the release date is still unset.
 
@@ -46,7 +46,7 @@ See [docs/installation.md](docs/installation.md) for full installation notes, op
 
 ## Quick Start
 
-The command below runs in **stub mode** (`--omics_stub true`), which is the default. Stub mode exercises the full orchestration and reporting pipeline using synthetic omics data. No FASTQ files, reference indexes, or external bioinformatics tools are required. Stage 25 real mode is available for baseline bulk RNA-seq with STAR/featureCounts and ATAC-seq with Bowtie2/MACS3, with Stage 26 reference-quality preflight checks available when explicitly enabled. Stage 27 adds optional WGS SNP/indel contracts through `--run_stage wgs_variants`, outside `--run_stage all`; see [docs/real_mode_workflows.md](docs/real_mode_workflows.md).
+The command below runs in **stub mode** (`--omics_stub true`), which is the default. Stub mode exercises the full orchestration and reporting pipeline using synthetic omics data. No FASTQ files, reference indexes, or external bioinformatics tools are required. Real mode is available for baseline bulk RNA-seq with STAR/featureCounts and ATAC-seq with Bowtie2/MACS3, with reference-quality preflight checks available when explicitly enabled. Optional WGS SNP/indel contracts are available through `--run_stage wgs_variants`, outside `--run_stage all`; see [docs/real_mode_workflows.md](docs/real_mode_workflows.md).
 
 ```bash
 nextflow run . -resume \
@@ -88,17 +88,17 @@ Final reports are written to `results/final/report/` with linked provenance and 
 | Candidate prioritization | `--run_stage candidate_prioritization` |
 | Functional interpretation | `--run_stage functional_interpretation` |
 | Final reporting and release checks | `--run_stage final_report` |
-| Optional reference preparation scaffold | `--run_stage reference_prepare` |
+| Optional reference preparation interface | `--run_stage reference_prepare` |
 | Optional WGS small-variant baseline | `--run_stage wgs_variants` |
 | Reference-quality validation | `--run_stage reference_quality` |
-| Optional coordinate projection scaffold | `--run_stage coordinate_projection` |
-| Optional RE-to-gene inference scaffold | `--run_stage re_to_gene_inference` |
-| Optional advanced statistics scaffold | `--run_stage advanced_statistics` |
+| Optional coordinate projection interface | `--run_stage coordinate_projection` |
+| Optional RE-to-gene inference interface | `--run_stage re_to_gene_inference` |
+| Optional advanced statistics interface | `--run_stage advanced_statistics` |
 | End-to-end orchestration | `--run_stage all` |
 
-Optional scaffold stages define future-facing interfaces and validation outputs. They are not production implementations and are not automatically run by the v0.1 `--run_stage all` path unless explicitly documented for that path.
+Optional interfaces define stable file contracts and validation outputs. They are not production implementations and are not automatically run by the v0.1 `--run_stage all` path unless explicitly documented for that path.
 
-Use `--list_stages true` to print the run-stage catalog with maturity and `--run_stage all` inclusion status.
+Use `--list_stages true` to print the run-stage catalog and `--run_stage all` inclusion status.
 
 ## Documentation
 
@@ -108,15 +108,15 @@ Use `--list_stages true` to print the run-stage catalog with maturity and `--run
 - End-to-end runs: [docs/end_to_end_run.md](docs/end_to_end_run.md)
 - Optional reference preparation: [docs/reference_preparation.md](docs/reference_preparation.md)
 - Reference quality: [docs/reference_quality.md](docs/reference_quality.md)
-- Stage 23 real-mode contracts: [docs/real_mode_requirements.md](docs/real_mode_requirements.md)
-- Stage 25/26 real-mode workflows: [docs/real_mode_workflows.md](docs/real_mode_workflows.md)
-- Stage 28 real-mode fixtures: [docs/real_mode_fixture_strategy.md](docs/real_mode_fixture_strategy.md)
+- Real-mode contracts: [docs/real_mode_requirements.md](docs/real_mode_requirements.md)
+- Real-mode workflows: [docs/real_mode_workflows.md](docs/real_mode_workflows.md)
+- Real-mode fixtures: [docs/real_mode_fixture_strategy.md](docs/real_mode_fixture_strategy.md)
 - RNA real mode: [docs/rna_real_mode.md](docs/rna_real_mode.md)
 - ATAC real mode: [docs/atac_real_mode.md](docs/atac_real_mode.md)
 - WGS real mode: [docs/wgs_real_mode.md](docs/wgs_real_mode.md)
 - Optional coordinate projection: [docs/coordinate_projection.md](docs/coordinate_projection.md)
 - Optional RE-to-gene inference: [docs/re_to_gene_inference.md](docs/re_to_gene_inference.md)
-- Optional advanced statistics scaffold: [docs/advanced_statistics.md](docs/advanced_statistics.md)
+- Optional advanced statistics: [docs/advanced_statistics.md](docs/advanced_statistics.md)
 - Final reports: [docs/final_report.md](docs/final_report.md)
 - Report customization: [docs/report_customization.md](docs/report_customization.md)
 - CI and release process: [docs/ci_and_release.md](docs/ci_and_release.md)
@@ -128,8 +128,8 @@ Use `--list_stages true` to print the run-stage catalog with maturity and `--run
 
 - `--resume_completed_stages` is reporting/documentation only; reuse is through Nextflow `-resume`.
 - Stage status checks are file presence/non-empty checks, not freshness or content hashes.
-- Optional scaffold stages such as `re_to_gene_inference` and `advanced_statistics` are not run by `--run_stage all`.
+- Optional interfaces such as `re_to_gene_inference` and `advanced_statistics` are not run by `--run_stage all`.
 - `--run_stage all` also excludes `reference_prepare`, `reference_quality`, `wgs_variants`, and `coordinate_projection`; run these stages explicitly when needed.
 - Real mode requires real contrast-ready metadata, reference assets, FASTQ files, and external tools.
-- Stage 28 real-mode fixtures are tiny contract tests, not biological benchmarks; production validation still requires curated real datasets and installed tools.
+- Real-mode fixtures are tiny contract tests, not biological benchmarks; production validation still requires curated real datasets and installed tools.
 - NanoSeq and mutation profiling are not implemented in v0.1.

@@ -170,6 +170,7 @@ REQUIRED_EXAMPLES = [
     "assets/test_data/real_mode_fixtures/tiny_reference/assembly_report.txt",
     "assets/test_data/real_mode_fixtures/tiny_reference/alias_map.tsv",
     "assets/test_data/real_mode_fixtures/tiny_reference/tiny.chrom.sizes",
+    "assets/test_data/real_mode_fixtures/tiny_reference/tiny.tss.bed",
     "assets/test_data/real_mode_fixtures/tiny_reference/repeatmasker.bed",
     "assets/test_data/real_mode_fixtures/tiny_reference/mappability.bed",
     "assets/test_data/real_mode_fixtures/tiny_reference/blacklist.bed",
@@ -682,10 +683,30 @@ def check_conda_lock(rows: list[dict[str, str]], root: Path) -> None:
         problems.append("contains macOS package URLs")
     if "openjdk-" not in text:
         problems.append("missing openjdk package")
+    required_packages = [
+        "bioconductor-deseq2",
+        "r-ape",
+        "r-nlme",
+        "star",
+        "subread",
+        "bowtie2",
+        "macs3",
+        "bwa-mem2",
+        "samtools",
+        "gatk4",
+        "bedtools",
+        "fastqc",
+        "multiqc",
+    ]
+    missing_packages = [package for package in required_packages if f"/{package}-" not in text]
+    if missing_packages:
+        problems.append("missing required real-mode package(s): " + ", ".join(missing_packages))
+    if not re.search(r"^# input_hash: [0-9a-f]{64}$", text, re.MULTILINE):
+        problems.append("missing conda-lock input_hash marker")
     if problems:
         add(rows, "conda_linux_lock", "ERROR", path.relative_to(root).as_posix(), "; ".join(problems), "Regenerate the linux-64 explicit lock and strip auth tokens.")
     else:
-        add(rows, "conda_linux_lock", "PASS", path.relative_to(root).as_posix(), "linux-64 explicit lock is present, auth-free, and includes OpenJDK.")
+        add(rows, "conda_linux_lock", "PASS", path.relative_to(root).as_posix(), "linux-64 explicit lock is present, auth-free, and includes required real-mode tools.")
 
 
 def main(argv: list[str] | None = None) -> int:

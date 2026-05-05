@@ -63,12 +63,12 @@ mkdir -p \
   "$RESULTS/interpretation/enrichment"
 
 cat > "$RESULTS/validation/metadata_validation_report.tsv" <<'EOF'
-severity	source	field	row	message
-INFO	validation			ok
+severity	rule_id	source	field	row	message	suggestion
+INFO		validation			ok	n/a
 EOF
 cat > "$RESULTS/validation/study_profile_validation_report.tsv" <<'EOF'
-severity	source	field	row	message
-INFO	study_profile			ok
+severity	rule_id	source	field	row	message	suggestion
+INFO		study_profile			ok	n/a
 EOF
 cat > "$RESULTS/phenotype/qc/normalization_summary.tsv" <<'EOF'
 metric	value	source

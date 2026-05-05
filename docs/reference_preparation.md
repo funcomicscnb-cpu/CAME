@@ -1,12 +1,12 @@
 # CAME Optional Reference Preparation
 
-Stage 18 adds optional scaffolding for future WGS-backed reference preparation. It defines metadata contracts, validation, stub-mode output files, and summary manifests that later comparative genomics stages can consume.
+This optional interface defines metadata contracts, validation, stub-mode output files, and summary manifests that downstream comparative genomics workflows can consume.
 
-This stage is future-facing. It is not part of the default v0.1 `--run_stage all` path, and it does not implement production BWA/GATK/CNV processing. Core CAME remains phenotype-agnostic; reference preparation is driven by samplesheets and manifests, not study-profile biology.
+This interface is optional. It is not part of the default v0.1 `--run_stage all` path, and it does not implement production BWA/GATK/CNV processing. Core CAME remains phenotype-agnostic; reference preparation is driven by samplesheets and manifests, not study-profile biology.
 
 ## Purpose
 
-Reference preparation gives future CAME analyses a stable place to represent:
+Reference preparation gives downstream analyses a stable place to represent:
 
 - corrected or patched reference FASTA files
 - high-confidence variant callsets
@@ -67,7 +67,7 @@ Optional columns:
 
 `known_repeats_bed`, `mappability_bed`, `problematic_sites_bed`, `cnv_regions_bed`, `retain_coverage_deviation_labels`, `notes`
 
-Supported scaffold `masking_strategy` values are:
+Supported `masking_strategy` values are:
 
 - `label_only`
 - `mask_problematic`
@@ -97,9 +97,9 @@ These files are synthetic contract fixtures only. They are suitable for testing 
 
 ## Real Mode
 
-`--reference_stub false` is intentionally conservative. The workflow validates that required files exist and includes placeholders for BWA mapping, GATK-style variant calling, problematic-site labeling, CNV integration, and corrected-reference output. If required tools or assets are absent, the stage fails clearly.
+`--reference_stub false` is intentionally conservative. The workflow validates that required files exist and includes placeholders for BWA mapping, GATK-style variant calling, problematic-site labeling, CNV integration, and corrected-reference output. If required tools or assets are absent, the workflow fails clearly.
 
-The current scaffold does not silently emit fake real-mode outputs and does not install tools.
+The current interface does not silently emit fake real-mode outputs and does not install tools.
 
 ## Summary Outputs
 
@@ -110,13 +110,13 @@ The current scaffold does not silently emit fake real-mode outputs and does not 
 
 The summary reports WGS sample count, reference count, species count, generated outputs, warnings, errors, and stub versus real mode.
 
-## Future Consumption
+## Downstream Use
 
-Future WGS, mutation-rate, mask-aware variant, or ultra-accurate sequencing stages should consume `reference_outputs_manifest.tsv` rather than hardcoding file names. Downstream stages can select by `reference_id`, `species`, and `output_type` to find corrected FASTA, reliable VCF, mask BED, exclusion BED, and CNV BED outputs.
+WGS, mutation-rate, mask-aware variant, or ultra-accurate sequencing workflows should consume `reference_outputs_manifest.tsv` rather than hardcoding file names. Downstream workflows can select by `reference_id`, `species`, and `output_type` to find corrected FASTA, reliable VCF, mask BED, exclusion BED, and CNV BED outputs.
 
 ## Known Limitations
 
-- Production BWA/GATK/CNV execution is not implemented in this stage.
+- Production BWA/GATK/CNV execution is not implemented in this workflow.
 - Stub FASTA, VCF, BED, and CNV files are deterministic placeholders.
 - Masking strategies define metadata intent only; they do not perform real sequence masking in stub mode.
 - Real mode requires caller-provided tools and assets and will fail rather than fabricate outputs.

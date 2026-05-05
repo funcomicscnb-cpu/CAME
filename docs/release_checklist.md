@@ -7,9 +7,9 @@ This checklist describes the expected release state for CAME v0.1. Final reporti
 - GPL-3.0-only `LICENSE`, `CITATION.cff`, `VERSION`, `CHANGELOG.md`, release notes, and versioning policy are present.
 - GitHub issue templates, pull request template, CI workflow, and Dependabot configuration are present.
 - Core regression tests and profile example tests pass.
-- Stage 16 final reporting passes with `--run_stage final_report`.
-- Stage 13 end-to-end orchestration passes with `--run_stage all`.
-- Stage 22 release metadata, CI, installation, version reporting, and release bundle validation assets are present.
+- CAME final reporting passes with `--run_stage final_report`.
+- CAME end-to-end orchestration passes with `--run_stage all`.
+- CAME release metadata, CI, installation, version reporting, and release bundle validation assets are present.
 - The final output manifest, provenance tables, report assets, HTML report, Markdown report, CSS, release checks, and release summary are produced.
 - The all-run summary and per-stage status TSVs are produced.
 - Missing optional upstream outputs are warnings, not workflow failures.
@@ -17,7 +17,7 @@ This checklist describes the expected release state for CAME v0.1. Final reporti
 - No obvious local absolute paths are present in tracked pipeline logic.
 - Environment files are present and describe Python, Nextflow, R, and external tool dependencies.
 - NanoSeq and mutation profiling are not described as implemented.
-- Optional scaffold stages are documented as optional and scaffold-only, not production biological results.
+- Optional interfaces are documented as optional and interface-only, not production biological results.
 
 ## Test Commands
 
@@ -85,7 +85,7 @@ nextflow run . -resume \
 ## Documentation Checks
 
 - Verify all supported `--run_stage` values are documented or discoverable from `main.nf`.
-- Verify Stage 16 documentation explains manifest files, provenance, report assets, report sections, release checks, warning behavior, and limitations.
+- Verify CAME documentation explains manifest files, provenance, report assets, report sections, release checks, warning behavior, and limitations.
 - Verify [versioning.md](versioning.md) and [release_notes_v0.1.md](release_notes_v0.1.md) match `VERSION` and `CHANGELOG.md`.
 - Verify known limitations are stated without implying unsupported analyses were performed.
 - Verify citation metadata is intentional and does not include fabricated dates, institutions, or identifiers.
@@ -99,7 +99,7 @@ nextflow run . -resume \
 - Coordinates are not lifted over or converted.
 - Partial upstream runs produce partial final reports with warnings.
 - NanoSeq and mutation profiling are skipped in v0.1.
-- Optional scaffold outputs are contract fixtures or limited interface outputs, not production biological results.
+- Optional interface outputs are contract fixtures, not production biological results.
 
 ## Suggested Tag Procedure
 

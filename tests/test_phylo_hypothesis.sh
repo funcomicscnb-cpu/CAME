@@ -144,6 +144,7 @@ EOF
     --response phenotype_index_response \
     --predictors external_trait_alpha \
     --model_types pgls_brownian \
+    --pgls_min_species 3 \
     --output_dir "$TMP_DIR/missing_tree_model" > "$TMP_DIR/missing_tree.out" 2>&1; then
     cat "$TMP_DIR/missing_tree.out"
     echo "FAIL: missing tree expected failure" >&2
@@ -159,6 +160,7 @@ EOF
     --response phenotype_index_response \
     --predictors external_trait_alpha \
     --model_types pgls_brownian \
+    --pgls_min_species 3 \
     --output_dir "$TMP_DIR/three_species_model" > "$TMP_DIR/three_species.out" 2>&1
   assert_grep 'Dropped species absent from tree' "$TMP_DIR/three_species_model/model_warnings.tsv" "tree species-drop warning absent"
 
@@ -170,6 +172,7 @@ EOF
     --response phenotype_index_response \
     --predictors external_trait_alpha \
     --model_types pgls_brownian \
+    --pgls_min_species 3 \
     --output_dir "$TMP_DIR/two_species_model" > "$TMP_DIR/two_species.out" 2>&1; then
     cat "$TMP_DIR/two_species.out"
     echo "FAIL: fewer than 3 matched species expected failure" >&2
@@ -187,6 +190,7 @@ EOF
     --response phenotype_index_response \
     --predictors external_trait_alpha \
     --model_types pgls_brownian \
+    --pgls_min_species 3 \
     --output_dir "$TMP_DIR/malformed_model" > "$TMP_DIR/malformed.out" 2>&1; then
     cat "$TMP_DIR/malformed.out"
     echo "FAIL: malformed Newick expected failure" >&2
@@ -200,6 +204,7 @@ else
     --response phenotype_index_response \
     --predictors external_trait_alpha \
     --model_types pgls_brownian \
+    --pgls_min_species 3 \
     --output_dir "$TMP_DIR/missing_dependency_model" > "$TMP_DIR/missing_dependency.out" 2>&1; then
     cat "$TMP_DIR/missing_dependency.out"
     echo "FAIL: missing phylogenetic dependency expected failure" >&2

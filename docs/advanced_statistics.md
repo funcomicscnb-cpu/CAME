@@ -1,10 +1,10 @@
-# Advanced Statistics Scaffold
+# Advanced Statistics
 
-`advanced_statistics` is an optional future-facing stage for comparing alternative statistical and phylogenetic model interfaces. It is not part of the default v0.1 `--run_stage all` path and does not replace Stage 4 phylogenetic/hypothesis modeling or Stage 9 phenotype-omics integration.
+`advanced_statistics` is an optional workflow for comparing alternative statistical and phylogenetic model interfaces. It is not part of the default v0.1 `--run_stage all` path and does not replace phylogenetic/hypothesis modeling or phenotype-omics integration.
 
-It is a scaffold and compatibility layer, not a production replacement for the established v0.1 statistical stages.
+It is a compatibility interface, not a production replacement for the established v0.1 statistical workflows.
 
-The stage is phenotype-agnostic. Models are declared in a tabular config, and core logic does not hardcode example profile biology.
+The workflow is phenotype-agnostic. Models are declared in a tabular config, and core logic does not hardcode example profile biology.
 
 ## Command
 
@@ -55,11 +55,11 @@ Placeholder families intentionally emit warning rows and no synthetic statistica
 
 ## Inputs
 
-The stage discovers upstream outputs under `--outdir` when present:
+The workflow discovers upstream outputs under `--outdir` when present:
 
-- Stage 3 phenotype contrasts
-- Stage 4 hypothesis model tables and hypothesis results
-- Stage 9 phenotype-omics model tables
+- CAME phenotype contrasts
+- CAME hypothesis model tables and hypothesis results
+- CAME phenotype-omics model tables
 - species traits
 - phylogeny manifests
 
@@ -94,12 +94,12 @@ Summary:
 
 ## Interpretation Limits
 
-Small species counts can make comparative models unstable. The scaffold reports small-n warnings and does not treat placeholder methods as completed analyses.
+Small species counts can make comparative models unstable. The workflow reports small-n warnings and does not treat placeholder methods as completed analyses.
 
 In non-stub mode, currently supported fitting is limited to ordinary LM and PGLS variants when model-ready data, tree information, and R dependencies are available. AIC deltas are reported only when fitted models are comparable on the same response, predictors, term, and species count.
 
 Species are not silently dropped. Missing model values, duplicate species rows, and tree-tip mismatches are reported as warnings or cause a model row to be skipped.
 
-## Roadmap
+## Possible Extensions
 
-Future versions may add production implementations for OU models, robust regression, multivariate response models, permutation tests, and richer target-specific filtering. These should remain optional and must not alter default Stage 4 or Stage 9 outputs.
+Later versions may add production implementations for OU models, robust regression, multivariate response models, permutation tests, and richer target-specific filtering. These should remain optional and must not alter default outputs.

@@ -1,6 +1,6 @@
-# CAME Stage 4 Phylogenetic Models
+# CAME Phylogenetic Models
 
-Stage 4 adds comparative modeling and profile-defined hypothesis tests on top of Stage 3 phenotype-response outputs. The stage remains phenotype-agnostic: DDR/RoR is only an example profile, and core scripts resolve variables from profile declarations and metadata.
+CAME runs comparative modeling and profile-defined hypothesis tests on top of phenotype-response outputs. The workflow remains phenotype-agnostic: DDR/RoR is only an example profile, and core scripts resolve variables from profile declarations and metadata.
 
 ## Workflow
 
@@ -13,7 +13,7 @@ nextflow run . \
   --phylogeny_manifest assets/example_samplesheets/phylogeny_manifest.tsv
 ```
 
-If full Stage 1 inputs are supplied, the standard metadata validator runs. With the shorter Stage 4 command, CAME runs a Stage 4 metadata check for phenotype species, species traits, and phylogeny labels. The workflow then validates the study profile, runs phenotype response processing, prepares model-ready tables, fits generic phylogenetic models, and runs profile hypotheses.
+If full CAME inputs are supplied, the standard metadata validator runs. With the shorter command, CAME runs a metadata check for phenotype species, species traits, and phylogeny labels. The workflow then validates the study profile, runs phenotype response processing, prepares model-ready tables, fits generic phylogenetic models, and runs profile hypotheses.
 
 ## Model-Ready Inputs
 
@@ -98,4 +98,4 @@ Hypothesis outputs:
 
 ## Limitations
 
-Small species counts can produce unstable estimates, singular fits, or dependency on exact tree/species matching. CAME fails phylogenetic models with fewer than 3 matched species, but more species are recommended for interpretable comparative modeling. The current stage does not implement RNA-seq, ATAC-seq, GRA, omics integration, or full phylo-ANOVA.
+Small species counts can produce unstable estimates, singular fits, or dependency on exact tree/species matching. CAME fails base model preparation with fewer than 3 matched species. PGLS defaults to `--pgls_min_species 6`; below that threshold PGLS rows are skipped with explicit warnings unless the threshold is deliberately lowered for exploratory work. This workflow does not implement RNA-seq, ATAC-seq, GRA, omics integration, or full phylo-ANOVA.

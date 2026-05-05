@@ -1,10 +1,10 @@
-# Stage 25 Real-Mode Workflows
+# CAME Real-Mode Workflows
 
-Stage 25 hardens the RNA-seq and ATAC-seq real-mode baseline that was introduced in Stage 24. It is a scale-out and QC hardening stage, not a fully production-certified non-model mammal multi-omics platform.
+Real mode provides a production-oriented baseline for RNA-seq and ATAC-seq. It improves routing, validation, and QC visibility, but it is not a fully production-certified non-model mammal multi-omics platform.
 
-Stage 26 adds an optional reference-quality preflight for real-mode references. It validates declared assets and sequence-name concordance before expensive RNA/ATAC work when explicitly enabled.
+An optional reference-quality preflight validates declared assets and sequence-name concordance before expensive RNA/ATAC work when explicitly enabled.
 
-Stage 27 adds an optional WGS SNP/indel baseline through `--run_stage wgs_variants`. It is outside `--run_stage all` and does not change RNA/ATAC behavior.
+An optional WGS SNP/indel baseline is available through `--run_stage wgs_variants`. It is outside `--run_stage all` and does not change RNA/ATAC behavior.
 
 Supported production-oriented real-mode scope:
 
@@ -19,7 +19,7 @@ Out of scope: CNV/SV, DeepVariant, WES production support, ChIP production, TOBI
 
 ## Running Real Mode
 
-Use Stage 23 real-mode metadata when possible:
+Use real-mode metadata when possible:
 
 ```bash
 nextflow run . \
@@ -48,7 +48,7 @@ nextflow run . \
   --outdir results
 ```
 
-This runs Stage 23 metadata/reference checks and Stage 26 reference-quality checks before RNA/ATAC work. It is not run for stub mode.
+This runs metadata/reference checks and reference-quality checks before RNA/ATAC work. It is not run for stub mode.
 
 Optional WGS run:
 
@@ -174,7 +174,7 @@ Containers are not required by default for local stub-mode work. Docker, Apptain
 
 RNA production support is `--rna_backend star`.
 
-`--rna_backend salmon` is declared only as a future architecture hook. It fails clearly in this release:
+`--rna_backend salmon` is declared but not implemented. It fails clearly in this release:
 
 ```text
 ERROR: Salmon backend is declared but not implemented in this release.
@@ -182,19 +182,19 @@ ERROR: Salmon backend is declared but not implemented in this release.
 
 ATAC production support is `--atac_backend bowtie2` and `--peak_caller macs3`.
 
-WGS production-oriented support is `--wgs_variant_mode haplotypecaller`. BQSR is not executed in Stage 27. Missing `known_sites_vcf` emits a no-BQSR warning unless `--require_known_sites true`. WGS QC and summary tables record `bqsr_applied=false`, `calling_mode=per_sample`, and `joint_genotyping=false`.
+WGS production-oriented support is `--wgs_variant_mode haplotypecaller`. BQSR is not executed in CAME. Missing `known_sites_vcf` emits a no-BQSR warning unless `--require_known_sites true`. WGS QC and summary tables record `bqsr_applied=false`, `calling_mode=per_sample`, and `joint_genotyping=false`.
 
 ## QC Semantics
 
 RNA QC includes total reads, uniquely mapped reads and fraction when STAR logs are available, multi-mapped reads and fraction, assigned reads from featureCounts summaries, assigned fraction, strandedness, mapping rate, status, and warning text. Missing STAR logs and low assignment are warnings, not crashes, when count contracts remain valid.
 
-ATAC QC includes total and mapped reads, mapping rate, mitochondrial reads and fraction when a mitochondrial contig is known, duplicate proxy metrics when samtools stats exposes them, usable reads, peak count, reads in peaks, FRiP, read layout, single-end warnings, and paired-end fragment mean and standard deviation when available. Missing mitochondrial contig metadata produces an explicit warning and unavailable mitochondrial fields instead of a crash.
+ATAC QC includes total and mapped reads, mapping rate, mitochondrial reads and fraction when a mitochondrial contig is known, duplicate proxy metrics, usable reads, peak count, reads in peaks, FRiP, TSS enrichment when `tss_bed` is supplied, NRF/PBC library-complexity metrics, read layout, single-end warnings, and paired-end fragment mean and standard deviation when available. Missing mitochondrial contig metadata or `tss_bed` produces an explicit warning and unavailable fields instead of a crash.
 
 Warnings tables use explicit records for missing or unavailable metrics. Blank numeric cells mean the metric was unavailable, not zero.
 
 ## Reference Quality Preflight
 
-Stage 26 writes reference-quality outputs under `results/reference_quality/`:
+Reference-quality validation writes outputs under `results/reference_quality/`:
 
 - `reference_asset_validation.tsv`
 - `reference_asset_warnings.tsv`
@@ -210,7 +210,7 @@ Use `--run_stage reference_quality` to run it directly. Use `--check_paths true`
 
 ## Fixture Strategy
 
-Stage 28 adds committed tiny fixtures under `assets/test_data/real_mode_fixtures/` plus generator and validator scripts. These fixtures are for contract testing only: they verify that manifests, tiny reference assets, paired FASTQs, optional real-mode execution paths, and output contracts fit together. They are not biological benchmarks and do not replace curated production validation.
+CAME includes committed tiny fixtures under `assets/test_data/real_mode_fixtures/` plus generator and validator scripts. These fixtures are for contract testing only: they verify that manifests, tiny reference assets, paired FASTQs, optional real-mode execution paths, and output contracts fit together. They are not biological benchmarks and do not replace curated production validation.
 
 Recommended local fixtures:
 
@@ -223,7 +223,7 @@ Optional external fixture paths:
 - a small manually curated ENCODE ATAC subset for toolchain and peak-count behavior;
 - a manually curated non-model mammal subset such as pig `GSE143288 / PRJNA597497`, with explicit provenance and no automatic large downloads.
 
-WGS regular tests use deterministic stub fixtures, Stage 28 local fixtures, and contract validators. Real WGS fixtures should remain tiny, manually curated, and local; do not automatically download large public datasets in CI.
+WGS regular tests use deterministic stub fixtures, local fixtures, and contract validators. Real WGS fixtures should remain tiny, manually curated, and local; do not automatically download large public datasets in CI.
 
 See [real_mode_fixture_strategy.md](real_mode_fixture_strategy.md) for external fixture curation policy.
 
@@ -235,4 +235,4 @@ Warnings are used for lower-confidence or missing quality signals such as single
 
 ## Current Limitations
 
-Stage 25 improves routing, validation, and QC visibility, while Stage 27 adds only a narrow WGS SNP/indel baseline. These stages do not add advanced biological QC such as full TSS enrichment, fragment periodicity modeling, TOBIAS bias correction, HMMRATAC production, replicate-aware consensus peak policies, cohort genotyping, CNV/SV discovery, or DeepVariant.
+CAME improves routing, validation, and QC visibility, while WGS support remains a narrow SNP/indel baseline. These workflows do not add advanced biological QC such as full TSS enrichment, fragment periodicity modeling, TOBIAS bias correction, HMMRATAC production, replicate-aware consensus peak policies, cohort genotyping, CNV/SV discovery, or DeepVariant.

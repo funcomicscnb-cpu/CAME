@@ -61,6 +61,7 @@ PREPARED_FIELDS = [
     "star_index",
     "bowtie2_index",
     "chrom_sizes",
+    "tss_bed",
     "mitochondrial_name",
     "blacklist_bed",
     "annotation_version",
@@ -77,6 +78,7 @@ REFERENCE_FIELDS = [
     "star_index",
     "bowtie2_index",
     "chrom_sizes",
+    "tss_bed",
     "mitochondrial_name",
     "blacklist_bed",
 ]
@@ -263,6 +265,7 @@ def build_reference_index(
         fasta = resolve_path(choose_reference_path(row, "fasta", "genome_fasta"), base_dir)
         annotation_file = resolve_path(choose_reference_path(row, "annotation_file", "gtf"), base_dir)
         chrom_sizes = resolve_path(row.get("chrom_sizes"), base_dir)
+        tss_bed = resolve_path(row.get("tss_bed"), base_dir)
         blacklist_bed = resolve_path(row.get("blacklist_bed"), base_dir)
         star_index_raw = resolve_path(row.get("star_index"), base_dir)
         bowtie2_index_raw = resolve_path(row.get("bowtie2_index"), base_dir)
@@ -283,6 +286,7 @@ def build_reference_index(
             "star_index": star_index,
             "bowtie2_index": bowtie2_index,
             "chrom_sizes": chrom_sizes,
+            "tss_bed": tss_bed,
             "mitochondrial_name": norm(row.get("mitochondrial_name")),
             "blacklist_bed": blacklist_bed,
             "annotation_version": norm(row.get("annotation_version")),
@@ -460,6 +464,9 @@ def validate_paths(rows: list[dict[str, str]], issues: list[dict[str, str]]) -> 
                 add_issue(issues, "ERROR", "reference_manifest", "fasta", "", sample_id, "ATAC real mode requires reference FASTA")
             elif not path_exists(value):
                 add_issue(issues, "ERROR", "reference_manifest", "fasta", "", sample_id, f"Reference path does not exist: {value}")
+            tss_bed = row.get("tss_bed", "")
+            if tss_bed and not path_exists(tss_bed):
+                add_issue(issues, "ERROR", "reference_manifest", "tss_bed", "", sample_id, f"TSS BED path does not exist: {tss_bed}")
 
 
 def write_tsv(path: str, fields: list[str], rows: list[dict[str, str]]) -> None:

@@ -1,10 +1,10 @@
-# CAME Stage 3 Phenotype Processing
+# CAME Phenotype Processing
 
-Stage 3 turns validated long-format phenotype measurements into reusable phenotype-response tables. It remains phenotype-agnostic: study-specific names such as DDRstate live in profiles and examples, not in core code.
+CAME turns validated long-format phenotype measurements into reusable phenotype-response tables. It remains phenotype-agnostic: study-specific names such as DDRstate live in profiles and examples, not in core code.
 
 ## Workflow
 
-Run Stage 3 with the existing Stage 1 metadata files plus a Stage 2 profile:
+Run CAME with the metadata files plus a study profile:
 
 ```bash
 nextflow run . \
@@ -115,6 +115,6 @@ Both examples use the same generic code path.
 | Non-numeric value | Use numeric phenotype values or mark missing values consistently. |
 | PyYAML missing | Install PyYAML in the runtime environment. |
 
-## Stage 4 Inputs
+## CAME Inputs
 
-Later stages should consume the normalized phenotype table, group-level index table, and contrast tables as stable phenotype-response inputs for omics integration and model fitting.
+Downstream workflows should consume the normalized phenotype table, group-level index table, and contrast tables as stable phenotype-response inputs for omics integration and model fitting.

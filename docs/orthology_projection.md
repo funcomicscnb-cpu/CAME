@@ -1,6 +1,6 @@
-# CAME Stage 7 Orthology Projection
+# CAME Orthology Projection
 
-Stage 7 maps species-specific molecular features to cross-species orthology groups for later comparative analysis. It is phenotype-agnostic and does not build gene-regulatory architecture, test phenotype-omics associations, rank candidates, or hardcode DDR/RoR concepts.
+CAME maps species-specific molecular features to cross-species orthology groups for later comparative analysis. It is phenotype-agnostic and does not build gene-regulatory architecture, test phenotype-omics associations, rank candidates, or hardcode DDR/RoR concepts.
 
 ## Inputs
 
@@ -16,7 +16,7 @@ Count matrices are required for requested assays and resolve from explicit paths
 - `--rnaseq_counts`
 - `--atacseq_counts`
 
-Otherwise Stage 7 looks under `--outdir`:
+Otherwise CAME looks under `--outdir`:
 
 - `results/rnaseq/counts/gene_counts.tsv`
 - `results/atacseq/counts/re_counts.tsv`
@@ -28,7 +28,7 @@ Differential tables are optional by default and are projected when present:
 - `results/differential_omics/rnaseq/differential_results.tsv`
 - `results/differential_omics/atacseq/differential_results.tsv`
 
-If an explicit differential path is supplied, it must exist. If the default differential path is absent, Stage 7 writes empty orthogroup differential outputs and records a warning.
+If an explicit differential path is supplied, it must exist. If the default differential path is absent, CAME writes empty orthogroup differential outputs and records a warning.
 
 ## Orthology Tables
 
@@ -52,13 +52,13 @@ Both CSV and TSV delimiters are accepted.
 
 ## Mapping Semantics
 
-Count matrices do not carry a feature-level species column. Stage 7 uses `omics_samplesheet` to map each sample column to its species, then applies `species + feature_id` orthology mappings for that sample.
+Count matrices do not carry a feature-level species column. CAME uses `omics_samplesheet` to map each sample column to its species, then applies `species + feature_id` orthology mappings for that sample.
 
 - One-to-one mappings are projected directly.
 - Many-to-one mappings are summed for counts and aggregated for differential rows.
 - One-to-many mappings are duplicated into each mapped orthogroup and flagged with `is_ambiguous=true`.
 
-Ambiguous mappings are retained by default so later stages can filter them explicitly.
+Ambiguous mappings are retained by default so downstream workflows can filter them explicitly.
 
 ## Aggregation Rules
 
@@ -106,12 +106,12 @@ nextflow run . \
   --omics_stub true
 ```
 
-Stage 7 consumes existing Stage 5/6 outputs only. Run `bulk_omics` first, and run `differential_omics` first if differential projection is needed.
+Orthology projection consumes existing bulk omics and differential omics outputs only. Run `bulk_omics` first, and run `differential_omics` first if differential projection is needed.
 
-## Stage 8 Use
+## GRA Use
 
-Stage 8 GRA construction should use the orthogroup count tables and feature map to compare expression and accessibility across species while preserving feature membership and ambiguity flags. Stage 8 should filter or model `is_ambiguous` mappings deliberately rather than assuming they were removed.
+GRA construction should use the orthogroup count tables and feature map to compare expression and accessibility across species while preserving feature membership and ambiguity flags. Downstream analyses should filter or model `is_ambiguous` mappings deliberately rather than assuming they were removed.
 
 ## Limitations
 
-The projected differential p-values are summaries of mapped feature-level p-values, not orthogroup-level tests or meta-analysis. Stage 7 does not infer orthology, lift coordinates, resolve paralog confidence, build regulatory architecture, or connect molecular features to phenotype responses.
+The projected differential p-values are summaries of mapped feature-level p-values, not orthogroup-level tests or meta-analysis. CAME does not infer orthology, lift coordinates, resolve paralog confidence, build regulatory architecture, or connect molecular features to phenotype responses.

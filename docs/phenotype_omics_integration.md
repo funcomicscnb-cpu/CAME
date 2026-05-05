@@ -1,8 +1,8 @@
-# Stage 9: Phenotype-Omics Integration
+# Phenotype-Omics Integration
 
-Stage 9 connects cross-species phenotype responses from Stage 3 with molecular responses from Stage 7 orthology projection and Stage 8 GRA analysis. It is phenotype-agnostic: phenotype names, molecular layers, and contrasts come from input tables and the study profile, not from hardcoded biology.
+CAME connects cross-species phenotype responses with molecular responses from orthology projection and GRA analysis. It is phenotype-agnostic: phenotype names, molecular layers, and contrasts come from input tables and the study profile, not from hardcoded biology.
 
-Stage 9 does not perform candidate ranking, enrichment analysis, coordinate lift-over, orthology inference, or RE-to-gene link inference.
+CAME does not perform candidate ranking, enrichment analysis, coordinate lift-over, orthology inference, or RE-to-gene link inference.
 
 ## Inputs
 
@@ -25,7 +25,7 @@ The default phenotype metric is `difference`. The default molecular metric is `l
 
 ## Feature Layers
 
-Stage 9 normalizes molecular tables into one long response table with these layers:
+CAME normalizes molecular tables into one long response table with these layers:
 
 - `expression`: gene orthogroup differential expression, using `orthogroup_id` as `feature_id`
 - `accessibility`: regulatory-element orthogroup differential accessibility, using `orthogroup_id` as `feature_id`
@@ -56,11 +56,11 @@ The default deterministic method is sign-pattern clustering:
 - `mixed`
 - `insufficient_data`
 
-Optional hierarchical clustering can be requested with `--integration_cluster_method hierarchical`. If SciPy is unavailable, Stage 9 falls back to sign-pattern clustering and records a compact warning in process stderr.
+Optional hierarchical clustering can be requested with `--integration_cluster_method hierarchical`. If SciPy is unavailable, CAME falls back to sign-pattern clustering and records a compact warning in process stderr.
 
 ## Association Models
 
-Stage 9 fits:
+CAME fits:
 
 ```text
 feature_response_value ~ phenotype_response_value
@@ -75,15 +75,15 @@ Supported model types:
 
 PGLS is optional. If it cannot run, LM output is still written and the PGLS skip reason is recorded in `phenotype_omics_association_warnings.tsv`.
 
-Stage 9 does not silently drop species from model groups. Missing numeric values, duplicate species rows, missing phylogeny labels, or tree-tip mismatches cause the affected model to be skipped with an explicit warning.
+CAME does not silently drop species from model groups. Missing numeric values, duplicate species rows, missing phylogeny labels, or tree-tip mismatches cause the affected model to be skipped with an explicit warning.
 
-Small species sets limit inference. The default minimum is:
+Small species sets limit inference. The default PGLS minimum is:
 
 ```bash
---integration_min_species 3
+--pgls_min_species 6
 ```
 
-With three to five species, LM and PGLS estimates are possible but uncertainty is high. PGLS models in that range emit structured warning rows and should be treated as exploratory.
+`--integration_min_species` defaults to the same value and can be overridden for exploratory runs. LM still runs with three or more species when model data are usable. PGLS below the configured threshold is skipped with a structured warning; if the threshold is deliberately lowered to 3-5, PGLS emits an exploratory small-n warning.
 
 ## Pairwise Species Contrasts
 
@@ -136,7 +136,7 @@ Summary:
 
 ## Example
 
-Run Stage 3, Stage 7, and Stage 8 first with the same `--outdir`, or provide all upstream output paths explicitly. Then run:
+Run CAME, CAME, and CAME first with the same `--outdir`, or provide all upstream output paths explicitly. Then run:
 
 ```bash
 nextflow run . \
@@ -148,6 +148,6 @@ nextflow run . \
   --omics_stub true
 ```
 
-## Stage 10 Use
+## CAME Use
 
-Stage 10 candidate ranking can consume Stage 9 association tables, response clusters, and pairwise contrasts to prioritize features that repeatedly track phenotype responses across model types, species pairs, and molecular layers.
+CAME candidate ranking can consume CAME association tables, response clusters, and pairwise contrasts to prioritize features that repeatedly track phenotype responses across model types, species pairs, and molecular layers.

@@ -1,6 +1,6 @@
 # Real-Mode Smoke Tests
 
-Stage 15 adds optional smoke validation for the Stage 5/6 omics layer. The tests
+Optional smoke validation is available for the omics layer. The tests
 check whether external real-mode tools are detectable and, when a tiny compatible
 toolchain is available, run minimal RNA-seq and ATAC-seq command-level checks.
 
@@ -23,7 +23,7 @@ The inventory script checks:
 - Java
 - `HMMRATAC`, `hmmratac`, or a HMMRATAC jar
 
-RNA direct smoke requires FastQC, STAR, and featureCounts. The legacy ATAC direct smoke still checks bwa, samtools, and bedtools. Stage 24 ATAC real mode requires FastQC, Bowtie2, MACS3, samtools, and bedtools. MultiQC is needed for Nextflow real-mode smoke runs.
+RNA direct smoke requires FastQC, STAR, and featureCounts. The legacy ATAC direct smoke still checks bwa, samtools, and bedtools. CAME ATAC real mode requires FastQC, Bowtie2, MACS3, samtools, and bedtools. MultiQC is needed for Nextflow real-mode smoke runs.
 
 ## Soft And Strict Modes
 
@@ -99,11 +99,11 @@ When FastQC, bwa, samtools, and bedtools are available, the legacy shell test ru
 - `samtools view`, `sort`, `index`, and `quickcheck`
 - `bedtools coverage` over a tiny BED interval
 
-HMMRATAC is resolved for legacy compatibility but not biologically peak-called on the tiny fixture. Stage 24 ATAC production mode uses Bowtie2 and MACS3 instead; see [atac_real_mode.md](atac_real_mode.md).
+HMMRATAC is resolved for legacy compatibility but not biologically peak-called on the tiny fixture. CAME ATAC production mode uses Bowtie2 and MACS3 instead; see [atac_real_mode.md](atac_real_mode.md).
 
 ## HMMRATAC Jar Handling
 
-HMMRATAC resolution follows the Stage 5 ATAC-seq real-mode order:
+HMMRATAC resolution follows the CAME ATAC-seq real-mode order:
 
 1. `HMMRATAC` on `PATH`
 2. `hmmratac` on `PATH`

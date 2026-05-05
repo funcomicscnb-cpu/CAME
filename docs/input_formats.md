@@ -1,10 +1,10 @@
-# CAME Stage 1 input formats
+# CAME input formats
 
-CAME Stage 1 validates metadata for future cross-species phenotype and multi-omics studies. It does not run biological analyses.
+CAME validates metadata for cross-species phenotype and multi-omics studies. It does not run biological analyses.
 
 The core metadata model is phenotype-agnostic. Study-specific variables such as DDR state, viability, apoptosis, senescence, cancer prevalence, longevity, or body mass should be represented as generic traits, covariates, measurements, or later study profiles. They must not be hardcoded into core validation.
 
-Stage 2 study profiles are documented in [`study_profiles.md`](study_profiles.md). `study_design.yaml` remains the Stage 1 metadata design file; `study_profile.yaml` is an optional Stage 2 validation input.
+Study profiles are documented in [`study_profiles.md`](study_profiles.md). `study_design.yaml` remains the metadata design file; `study_profile.yaml` is an optional validation input.
 
 ## Required files
 
@@ -60,7 +60,7 @@ pheno_mouse_1,Mus_musculus,mouse_001,rep1,control,0h,generic_growth,response_ind
 
 ### `omics_samplesheet.csv`
 
-Omics sample metadata. Stage 1 validates metadata only and does not require FASTQ files to exist.
+Omics sample metadata. CAME validates metadata only and does not require FASTQ files to exist.
 
 Required columns:
 
@@ -70,7 +70,7 @@ Optional columns:
 
 `perturbation`, `dose`, `dose_unit`, `batch`, `fastq_1`, `fastq_2`, `strandedness`, `read_layout`, `library_strategy`, `file`, `notes`
 
-Known `omics_type` examples are `rnaseq` and `atacseq`. Other values are allowed with a warning so future modalities can be added without changing the core schema.
+Known `omics_type` examples are `rnaseq` and `atacseq`. Other values are allowed with a warning so additional modalities can be added without changing the core schema.
 
 Example:
 
@@ -81,7 +81,7 @@ omics_mouse_rna_1,Mus_musculus,mouse_001,rep1,rnaseq,control,0h,mmus_ref,data/mo
 
 ### `reference_manifest.tsv`
 
-Reference asset metadata. Stage 1 requires path values but does not check that referenced files exist.
+Reference asset metadata. CAME requires path values but does not check that referenced files exist.
 
 Required columns:
 
@@ -89,7 +89,7 @@ Required columns:
 
 Optional columns:
 
-`gtf`, `transcript_fasta`, `star_index`, `bwa_index`, `chrom_sizes`, `blacklist_bed`, `repeatmasker_bed`, `mappability_bed`, `annotation_version`, `source`, `notes`
+`gtf`, `transcript_fasta`, `star_index`, `bwa_index`, `bowtie2_index`, `chrom_sizes`, `tss_bed`, `blacklist_bed`, `repeatmasker_bed`, `mappability_bed`, `annotation_version`, `source`, `notes`
 
 Example:
 
@@ -119,7 +119,7 @@ example_tree	phylogeny/example_tree.nwk	Mus_musculus	Mus_musculus	example
 
 ### `study_design.yaml`
 
-Minimal study configuration with placeholders for future configurable phenotype indexes and hypothesis models.
+Minimal study configuration with placeholders for optional configurable phenotype indexes and hypothesis models.
 
 Required top-level sections:
 
@@ -165,7 +165,7 @@ python3 bin/validate_metadata.py \
   --study_design assets/example_samplesheets/study_design.yaml
 ```
 
-The validator writes `results/validation/metadata_validation_report.tsv`.
+The validator writes `results/validation/metadata_validation_report.tsv` with `severity`, `rule_id`, `source`, `field`, `row`, `message`, and `suggestion` columns.
 
 ## Common validation errors
 
