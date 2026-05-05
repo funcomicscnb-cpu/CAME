@@ -15,12 +15,14 @@ from phenotype_utils import (
     normalize_aggregation,
     parse_float,
     phenotype_index,
+    profile_design,
     profile_indexes,
     profile_components,
     profile_contrasts,
     read_table,
     replicate_id_for_row,
     stderr,
+    validate_design_fields,
     write_tsv,
 )
 
@@ -214,14 +216,14 @@ def read_indexes_by_group(path):
     return values, observed
 
 
-def component_groups(rows, components, aggregation):
+def component_groups(rows, components, aggregation, replicate_key=None):
     component_set = set(components)
     by_unit = defaultdict(list)
     for row in rows:
         component = component_name_for_row(row, component_set)
         value = parse_float(row.get("value"))
         if component and value is not None:
-            key = (component, replicate_id_for_row(row))
+            key = (component, replicate_id_for_row(row, replicate_key=replicate_key))
             by_unit[key].append((row, value))
 
     by_group = defaultdict(list)
@@ -316,15 +318,22 @@ def main():
     if not args.index_long_output:
         args.index_long_output = os.path.join(os.path.dirname(args.index_output) or ".", "phenotype_index_contrasts_long.tsv")
     try:
-        _, phenotype_rows = read_table(args.phenotype_table)
+        phenotype_fields, phenotype_rows = read_table(args.phenotype_table)
         profile = load_profile(args.study_profile)
+        design = profile_design(profile)
+        validate_design_fields(phenotype_fields, design)
         index = phenotype_index(profile)
         components = profile_components(profile)
         aggregation = normalize_aggregation(index.get("aggregation"))
         contrasts = profile_contrasts(profile)
         species_values, conditions, timepoints = available_sets(phenotype_rows)
         index_values, index_observed = read_index_groups(args.index_by_group)
-        component_values, component_observed = component_groups(phenotype_rows, components, aggregation)
+        component_values, component_observed = component_groups(
+            phenotype_rows,
+            components,
+            aggregation,
+            replicate_key=design["replicate_key"],
+        )
         observed_pairs = index_observed | component_observed
 
         index_rows = compute_index_contrasts(index_values, observed_pairs, species_values, conditions, timepoints, contrasts)

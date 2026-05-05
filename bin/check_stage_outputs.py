@@ -28,6 +28,7 @@ EXPECTED_OUTPUTS = {
     "phenotype_response": [
         "phenotype/tables/phenotype_long_normalized.tsv",
         "phenotype/qc/normalization_summary.tsv",
+        "phenotype/qc/phenotype_design_summary.tsv",
         "phenotype/qc/phenotype_qc_metrics.tsv",
         "phenotype/index/phenotype_index_by_sample.tsv",
         "phenotype/index/phenotype_index_by_group.tsv",

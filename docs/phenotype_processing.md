@@ -34,10 +34,13 @@ Supported `--normalization` modes:
 | `log10_if_positive` | Apply log10 to positive values; non-positive values become `NA` with a warning. |
 | `median_center_within_assay` | Subtract the within-assay/measurement median. |
 
+Profiles can optionally set `phenotype_design.normalization_scope` to change the grouping columns used by the `_within_assay` modes. The mode names are kept for compatibility; the effective scope comes from the profile. If omitted, normalization remains scoped by `assay` plus `measurement`.
+
 Outputs:
 
 - `results/phenotype/tables/phenotype_long_normalized.tsv`
 - `results/phenotype/qc/normalization_summary.tsv`
+- `results/phenotype/qc/phenotype_design_summary.tsv`
 
 ## Phenotype Indexes
 
@@ -52,6 +55,8 @@ Formula syntax supports component names, numeric literals, parentheses, unary si
 Component values are gathered by replicate unit:
 
 `species + individual_id + replicate_id + condition + timepoint`
+
+Profiles can optionally set `phenotype_design.replicate_key` to add replicate identity columns such as `batch`. Custom replicate keys must still include `species`, `condition`, and `timepoint` because v1 group outputs remain fixed to those columns.
 
 The calculator resolves components from `measurement` first, with `assay` as a compatibility fallback. Missing required components fail the run. Division by zero writes `NA` and a warning instead of crashing. Group-level index values aggregate replicate index values by `species + condition + timepoint`.
 

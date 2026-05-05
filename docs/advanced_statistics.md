@@ -1,6 +1,6 @@
 # Advanced Statistics
 
-`advanced_statistics` is an optional workflow for comparing alternative statistical and phylogenetic model interfaces. It is not part of the default v0.1 `--run_stage all` path and does not replace phylogenetic/hypothesis modeling or phenotype-omics integration.
+`advanced_statistics` is an optional scaffold workflow for comparing alternative statistical and phylogenetic model interfaces. It is not part of the default v0.1 `--run_stage all` path and does not replace phylogenetic/hypothesis modeling or phenotype-omics integration.
 
 It is a compatibility interface, not a production replacement for the established v0.1 statistical workflows.
 

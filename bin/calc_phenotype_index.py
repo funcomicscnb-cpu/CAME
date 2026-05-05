@@ -24,9 +24,11 @@ from phenotype_utils import (
     profile_qc_policy,
     profile_components,
     profile_id,
+    profile_design,
     read_table,
     replicate_id_for_row,
     stderr,
+    validate_design_fields,
     validate_formula_tree,
     write_tsv,
     FormulaDivisionByZero,
@@ -80,6 +82,8 @@ MANIFEST_FIELDS = [
     "qc_fail_on_unit_inconsistency",
     "sample_output",
     "group_output",
+    "design_replicate_key",
+    "design_normalization_scope",
 ]
 
 
@@ -102,7 +106,7 @@ def stable_sample_id(context):
     return "|".join(context[field] for field in ["species", "individual_id", "replicate_id", "condition", "timepoint"])
 
 
-def calculate_samples(rows, profile, sample_output=None):
+def calculate_samples(rows, profile, sample_output=None, replicate_key=None):
     index = phenotype_index(profile)
     components = profile_components(profile)
     if not components:
@@ -124,12 +128,12 @@ def calculate_samples(rows, profile, sample_output=None):
     for row in rows:
         component = component_name_for_row(row, component_set)
         if component:
-            grouped[replicate_id_for_row(row)].append(row)
+            grouped[replicate_id_for_row(row, replicate_key=replicate_key)].append(row)
 
     sample_rows = []
     fatal_errors = []
 
-    for _, unit_rows in sorted(grouped.items()):
+    for unit_id, unit_rows in sorted(grouped.items()):
         context = unit_context(unit_rows)
         values_by_component = defaultdict(list)
         for row in unit_rows:
@@ -146,7 +150,7 @@ def calculate_samples(rows, profile, sample_output=None):
         if missing:
             status = "ERROR"
             message = "Missing required components: " + ",".join(missing)
-            fatal_errors.append(f"{stable_sample_id(context)} {message}")
+            fatal_errors.append(f"{unit_id} {message}")
         else:
             component_values = {
                 component: aggregate(values_by_component[component], aggregation)
@@ -160,7 +164,7 @@ def calculate_samples(rows, profile, sample_output=None):
             except FormulaError as exc:
                 status = "ERROR"
                 message = str(exc)
-                fatal_errors.append(f"{stable_sample_id(context)} {message}")
+                fatal_errors.append(f"{unit_id} {message}")
 
         sample_rows.append(
             {
@@ -169,7 +173,7 @@ def calculate_samples(rows, profile, sample_output=None):
                 "species": context["species"],
                 "condition": context["condition"],
                 "timepoint": context["timepoint"],
-                "sample_id": stable_sample_id(context),
+                "sample_id": unit_id,
                 "individual_id": context["individual_id"],
                 "replicate_id": context["replicate_id"],
                 "replicate_n": "1",
@@ -227,7 +231,7 @@ def calculate_groups(sample_rows, profile, aggregation, group_output=None):
     return group_rows
 
 
-def manifest_row(profile, index_def, primary, qc_policy, normalization, sample_output, group_output):
+def manifest_row(profile, index_def, primary, qc_policy, normalization, sample_output, group_output, design):
     study = profile.get("study") if isinstance(profile.get("study"), dict) else {}
     contrasts = [contrast for contrast in as_list(index_def.get("contrasts")) if isinstance(contrast, dict)]
     is_primary = index_def is primary
@@ -248,6 +252,8 @@ def manifest_row(profile, index_def, primary, qc_policy, normalization, sample_o
         "qc_fail_on_unit_inconsistency": str(qc_policy["fail_on_unit_inconsistency"]).lower(),
         "sample_output": sample_output,
         "group_output": group_output,
+        "design_replicate_key": "|".join(design["replicate_key"]),
+        "design_normalization_scope": "|".join(design["normalization_scope"]),
     }
 
 
@@ -277,8 +283,10 @@ def main():
     manifest_rows = []
     fatal_errors = []
     try:
-        _, rows = read_table(args.input)
+        fields, rows = read_table(args.input)
         profile = load_profile(args.study_profile)
+        design = profile_design(profile)
+        validate_design_fields(fields, design)
         indexes = profile_indexes(profile)
         primary = primary_index(profile)
         qc_policy = profile_qc_policy(profile)
@@ -288,7 +296,11 @@ def main():
             single_profile = dict(profile)
             single_profile["phenotype_index"] = index_def
             single_profile.pop("phenotype_indexes", None)
-            sample_rows_for_index, aggregation, errors = calculate_samples(rows, single_profile)
+            sample_rows_for_index, aggregation, errors = calculate_samples(
+                rows,
+                single_profile,
+                replicate_key=design["replicate_key"],
+            )
             group_rows_for_index = calculate_groups(sample_rows_for_index, single_profile, aggregation)
             all_sample_rows.extend(sample_rows_for_index)
             all_group_rows.extend(group_rows_for_index)
@@ -305,6 +317,7 @@ def main():
                     args.normalization,
                     args.indexes_sample_output,
                     args.indexes_group_output,
+                    design,
                 )
             )
         write_tsv(args.indexes_sample_output, SAMPLE_FIELDS, all_sample_rows)

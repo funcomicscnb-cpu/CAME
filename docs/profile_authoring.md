@@ -49,13 +49,25 @@ reporting:
   candidate_mechanism_label: Candidate mechanism
 ```
 
-Common optional sections are `derived_variables`, `external_traits`, `covariates`, `mechanistic_proxies`, `condition_ranking`, `feature_association_targets`, and `notes`.
+Common optional sections are `derived_variables`, `external_traits`, `covariates`, `mechanistic_proxies`, `condition_ranking`, `feature_association_targets`, `phenotype_design`, and `notes`.
 
 ## Phenotype Components
 
 List every phenotype measurement required by the index under `phenotype_index.components`. Each component must appear in phenotype metadata as either a `measurement` value or, for compatibility, an `assay` value.
 
 Keep component names stable, ASCII, and formula-safe: start with a letter or underscore and use only letters, numbers, and underscores.
+
+## Phenotype Design
+
+Use `phenotype_design` only when the default replicate or normalization assumptions do not match the study:
+
+```yaml
+phenotype_design:
+  replicate_key: [species, individual_id, replicate_id, condition, timepoint, batch]
+  normalization_scope: [assay]
+```
+
+`replicate_key` controls replicate aggregation and phenotype index sample IDs. It may add columns such as `batch`, but must include `species`, `condition`, and `timepoint` because v1 group outputs are still grouped on those fields. `normalization_scope` controls the groups used by `_within_assay` normalization modes. All configured fields must be phenotype samplesheet columns.
 
 ## Safe Formula Syntax
 

@@ -175,6 +175,58 @@ def profile_qc_policy(profile):
     }
 
 
+def design_list(design, key_name, default):
+    if key_name not in design:
+        return list(default)
+    raw = design.get(key_name)
+    if not isinstance(raw, list):
+        raise RuntimeError(f"phenotype_design.{key_name} must be a non-empty list")
+    values = [norm(item) for item in raw]
+    if not values or any(not item for item in values):
+        raise RuntimeError(f"phenotype_design.{key_name} must contain non-empty field names")
+    duplicates = sorted({item for item in values if values.count(item) > 1})
+    if duplicates:
+        raise RuntimeError(f"phenotype_design.{key_name} contains duplicate field(s): {','.join(duplicates)}")
+    return values
+
+
+def profile_design(profile):
+    """Return phenotype design settings with defaults applied."""
+    design = profile.get("phenotype_design")
+    if design is None:
+        design = {}
+    if not isinstance(design, dict):
+        raise RuntimeError("phenotype_design must be a mapping")
+    allowed = {"replicate_key", "normalization_scope"}
+    unknown = sorted(key for key in design if key not in allowed)
+    if unknown:
+        raise RuntimeError(f"phenotype_design contains unsupported key(s): {','.join(unknown)}")
+    replicate_key = design_list(design, "replicate_key", REPLICATE_KEY)
+    normalization_scope = design_list(design, "normalization_scope", ["assay", "measurement"])
+    required_group_fields = {"species", "condition", "timepoint"}
+    missing = sorted(required_group_fields - set(replicate_key))
+    if missing:
+        raise RuntimeError(
+            "phenotype_design.replicate_key must include species, condition, and timepoint "
+            f"for v1 group outputs; missing: {','.join(missing)}"
+        )
+    return {
+        "replicate_key": replicate_key,
+        "normalization_scope": normalization_scope,
+    }
+
+
+def validate_design_fields(fields, design):
+    field_set = {norm(field) for field in fields}
+    missing = []
+    for key_name in ["replicate_key", "normalization_scope"]:
+        for field in design.get(key_name, []):
+            if field not in field_set:
+                missing.append(f"{key_name}:{field}")
+    if missing:
+        raise RuntimeError("phenotype_design field(s) absent from phenotype table: " + ",".join(sorted(missing)))
+
+
 def normalize_aggregation(value):
     text = norm(value).lower()
     if text in ALLOWED_AGGREGATIONS:
@@ -229,8 +281,9 @@ def component_name_for_row(row, components):
     return ""
 
 
-def replicate_id_for_row(row):
-    return "|".join(norm(row.get(field)) for field in REPLICATE_KEY)
+def replicate_id_for_row(row, replicate_key=None):
+    key = replicate_key if replicate_key is not None else REPLICATE_KEY
+    return "|".join(norm(row.get(field)) for field in key)
 
 
 def group_id_for_row(row):

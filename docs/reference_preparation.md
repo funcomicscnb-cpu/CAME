@@ -1,6 +1,6 @@
 # CAME Optional Reference Preparation
 
-This optional interface defines metadata contracts, validation, stub-mode output files, and summary manifests that downstream comparative genomics workflows can consume.
+This optional scaffold interface defines metadata contracts, validation, stub-mode output files, and summary manifests that downstream comparative genomics workflows can consume.
 
 This interface is optional. It is not part of the default v0.1 `--run_stage all` path, and it does not implement production BWA/GATK/CNV processing. Core CAME remains phenotype-agnostic; reference preparation is driven by samplesheets and manifests, not study-profile biology.
 

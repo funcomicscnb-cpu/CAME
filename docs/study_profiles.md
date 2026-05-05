@@ -52,7 +52,7 @@ reporting:
   candidate_mechanism_label:
 ```
 
-Optional sections include `derived_variables`, `external_traits`, `covariates`, `mechanistic_proxies`, `condition_ranking`, `feature_association_targets`, and `notes`.
+Optional sections include `derived_variables`, `external_traits`, `covariates`, `mechanistic_proxies`, `condition_ranking`, `feature_association_targets`, `phenotype_design`, and `notes`.
 Profiles may also include optional `phenotype_indexes` and `phenotype_qc` sections.
 
 ## Formula Rules
@@ -105,6 +105,25 @@ phenotype_qc:
   fail_on_sparse_groups: false
   fail_on_unit_inconsistency: false
 ```
+
+## Phenotype Design
+
+`phenotype_design` can configure replicate identity and normalization scope without changing downstream table schemas:
+
+```yaml
+phenotype_design:
+  replicate_key:
+    - species
+    - individual_id
+    - replicate_id
+    - condition
+    - timepoint
+    - batch
+  normalization_scope:
+    - assay
+```
+
+Both keys are optional. Defaults are `species`, `individual_id`, `replicate_id`, `condition`, `timepoint` for replicate identity and `assay`, `measurement` for normalization scope. Custom fields must exist as phenotype samplesheet columns, and `replicate_key` must include `species`, `condition`, and `timepoint` in v1.
 
 ## Derived Variables
 

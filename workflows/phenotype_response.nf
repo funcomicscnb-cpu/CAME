@@ -10,10 +10,12 @@ process PHENOTYPE_NORMALIZE {
     val normalization
     path metadata_report
     path study_profile_report
+    path study_profile
 
     output:
     path 'tables/phenotype_long_normalized.tsv', emit: table
     path 'qc/normalization_summary.tsv', emit: summary
+    path 'qc/phenotype_design_summary.tsv', emit: design_summary
 
     script:
     """
@@ -24,7 +26,9 @@ process PHENOTYPE_NORMALIZE {
       --input ${phenotype_samplesheet} \\
       --normalization ${normalization} \\
       --output tables/phenotype_long_normalized.tsv \\
-      --summary qc/normalization_summary.tsv
+      --summary qc/normalization_summary.tsv \\
+      --study_profile ${study_profile} \\
+      --design_summary qc/phenotype_design_summary.tsv
     """
 }
 
@@ -37,7 +41,7 @@ workflow PHENOTYPE_RESPONSE {
     study_profile_report
 
     main:
-    PHENOTYPE_NORMALIZE(phenotype_samplesheet, normalization, metadata_report, study_profile_report)
+    PHENOTYPE_NORMALIZE(phenotype_samplesheet, normalization, metadata_report, study_profile_report, study_profile)
     PHENOTYPE_QC(PHENOTYPE_NORMALIZE.out.table, study_profile)
     CALC_PHENOTYPE_INDEX(PHENOTYPE_NORMALIZE.out.table, study_profile, PHENOTYPE_QC.out.metrics)
     PHENOTYPE_CONTRASTS(
@@ -50,6 +54,7 @@ workflow PHENOTYPE_RESPONSE {
 
     emit:
     phenotype_table = PHENOTYPE_NORMALIZE.out.table
+    design_summary = PHENOTYPE_NORMALIZE.out.design_summary
     index_by_sample = CALC_PHENOTYPE_INDEX.out.sample
     index_by_group = CALC_PHENOTYPE_INDEX.out.group
     index_contrasts = PHENOTYPE_CONTRASTS.out.index

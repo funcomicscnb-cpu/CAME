@@ -721,6 +721,102 @@ def hypothesis_validation(profile, pheno_fields, pheno_rows, trait_fields, trait
                 add(records, "ERROR", "hypotheses", field, idx, f"Variable is not resolvable or declared as derived: {variable}")
 
 
+def design_validation(profile, pheno_fields, records):
+    if "phenotype_design" not in profile:
+        return
+    design = profile.get("phenotype_design")
+    if not isinstance(design, dict):
+        add(
+            records,
+            "ERROR",
+            "phenotype_design",
+            "",
+            "",
+            "phenotype_design must be a mapping",
+            rule_id="PROFILE_DESIGN_INVALID_SECTION",
+        )
+        return
+
+    allowed_keys = {"replicate_key", "normalization_scope"}
+    for key in sorted(design):
+        if key not in allowed_keys:
+            add(
+                records,
+                "ERROR",
+                "phenotype_design",
+                key,
+                "",
+                f"Unsupported phenotype_design key: {key}",
+                rule_id="PROFILE_DESIGN_UNKNOWN_KEY",
+                suggestion="Use only replicate_key and normalization_scope in phenotype_design.",
+            )
+
+    field_set = {norm(field) for field in pheno_fields}
+    for key_name in ["replicate_key", "normalization_scope"]:
+        if key_name not in design:
+            continue
+        raw_values = design.get(key_name)
+        if not isinstance(raw_values, list):
+            add(
+                records,
+                "ERROR",
+                "phenotype_design",
+                key_name,
+                "",
+                f"{key_name} must be a non-empty list",
+                rule_id="PROFILE_DESIGN_EMPTY_KEY",
+            )
+            continue
+        values = [norm(value) for value in raw_values]
+        if not values or any(not value for value in values):
+            add(
+                records,
+                "ERROR",
+                "phenotype_design",
+                key_name,
+                "",
+                f"{key_name} must contain non-empty field names",
+                rule_id="PROFILE_DESIGN_EMPTY_KEY",
+            )
+        duplicates = sorted({value for value in values if value and values.count(value) > 1})
+        for duplicate in duplicates:
+            add(
+                records,
+                "ERROR",
+                "phenotype_design",
+                key_name,
+                "",
+                f"{key_name} contains duplicate field: {duplicate}",
+                rule_id="PROFILE_DESIGN_DUPLICATE_FIELD",
+            )
+        for col in values:
+            if col and col not in field_set:
+                add(
+                    records,
+                    "ERROR",
+                    "phenotype_design",
+                    key_name,
+                    "",
+                    f"Configured {key_name} field is absent from phenotype samplesheet columns: {col}",
+                    rule_id="PROFILE_DESIGN_UNKNOWN_FIELD",
+                    suggestion=f"Add '{col}' as a column to the phenotype samplesheet or correct the {key_name} list.",
+                )
+
+        if key_name == "replicate_key":
+            missing = sorted({"species", "condition", "timepoint"} - set(values))
+            for field in missing:
+                add(
+                    records,
+                    "ERROR",
+                    "phenotype_design",
+                    key_name,
+                    "",
+                    f"replicate_key must include fixed v1 group field: {field}",
+                    rule_id="PROFILE_DESIGN_MISSING_GROUP_FIELD",
+                    suggestion="Include species, condition, and timepoint in phenotype_design.replicate_key.",
+                )
+
+
 def promote_warnings(records, strict, rule_ids):
     if not strict:
         return
@@ -786,6 +882,7 @@ def main():
         formula_validation(profile, pheno_fields, pheno_rows, records)
         contrast_validation(profile, pheno_rows, records)
         hypothesis_validation(profile, pheno_fields, pheno_rows, trait_fields, trait_rows, records)
+        design_validation(profile, pheno_fields, records)
     add(records, "INFO", "validation", "", "", f"Validated study profile: {args.study_profile}")
     promote_warnings(records, args.validation_strict, STRICT_PROMOTIONS)
     write_report(args.output, records)

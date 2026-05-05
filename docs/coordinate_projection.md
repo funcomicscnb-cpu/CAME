@@ -1,6 +1,6 @@
 # CAME Optional Coordinate Projection
 
-This optional interface defines input contracts, validation, deterministic stub outputs, and summary manifests for coordinate projection across species.
+This optional scaffold interface defines input contracts, validation, deterministic stub outputs, and summary manifests for coordinate projection across species.
 
 This interface is optional. It is not part of the default v0.1 `--run_stage all` path, and it does not implement production lift-over. Core CAME remains phenotype-agnostic; projection behavior is driven by metadata tables and not by example study-profile biology.
 

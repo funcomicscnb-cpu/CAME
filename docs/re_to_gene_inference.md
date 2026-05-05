@@ -1,6 +1,6 @@
 # CAME Optional RE-To-Gene Inference
 
-This optional interface defines metadata contracts, validation, deterministic stub links, and summary outputs for regulatory-element-to-gene links inferred from promoter overlap, proximity, chromatin contacts, nearest genes, or precomputed maps.
+This optional scaffold interface defines metadata contracts, validation, deterministic stub links, and summary outputs for regulatory-element-to-gene links inferred from promoter overlap, proximity, chromatin contacts, nearest genes, or precomputed maps.
 
 This interface is optional. It is not part of the v0.1 `--run_stage all` path, and it does not replace the `--re_to_gene_links` input. Core CAME remains phenotype-agnostic; link behavior is driven by metadata tables, not by example study-profile biology.
 

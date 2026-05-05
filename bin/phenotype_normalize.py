@@ -9,11 +9,16 @@ import sys
 from collections import defaultdict
 
 from phenotype_utils import (
+    REPLICATE_KEY,
     format_value,
+    load_profile,
     normalize_species_label,
+    norm,
     parse_float,
+    profile_design,
     read_table,
     stderr,
+    validate_design_fields,
     write_tsv,
 )
 
@@ -91,42 +96,64 @@ def clean_rows(fields, rows, summary):
     return cleaned, numeric_errors
 
 
-def values_by_scope(rows):
+def design_summary_rows(design, normalization):
+    return [
+        {"parameter": "replicate_key", "configured_value": "|".join(design["replicate_key"])},
+        {"parameter": "normalization_scope", "configured_value": "|".join(design["normalization_scope"])},
+        {"parameter": "normalization_mode", "configured_value": normalization},
+    ]
+
+
+def summary_scope_value(scope_columns):
+    return "_".join(scope_columns)
+
+
+def scope_field_value(scope_columns, key, field):
+    if field not in scope_columns:
+        return ""
+    return key[scope_columns.index(field)]
+
+
+def values_by_scope(rows, scope_columns):
     grouped = defaultdict(list)
     for idx, row in enumerate(rows):
         value = parse_float(row.get("raw_value"))
         if value is None:
             continue
-        grouped[(row.get("assay", ""), row.get("measurement", ""))].append((idx, value))
+        key = tuple(norm(row.get(col)) for col in scope_columns)
+        grouped[key].append((idx, value))
     return grouped
 
 
-def apply_normalization(rows, mode, summary):
+def apply_normalization(rows, mode, summary, scope_columns):
     for row in rows:
         row["normalized_value"] = row.get("raw_value", "")
         row["value"] = row.get("raw_value", "")
 
-    grouped = values_by_scope(rows)
+    grouped = values_by_scope(rows, scope_columns)
     add_summary(summary, "INFO", "table", "", "", "normalization_mode", mode, "Selected normalization mode")
 
     if mode == "none":
         return
 
-    for (assay, measurement), items in sorted(grouped.items()):
+    scope_name = summary_scope_value(scope_columns)
+    for key, items in sorted(grouped.items()):
+        assay = scope_field_value(scope_columns, key, "assay")
+        measurement = scope_field_value(scope_columns, key, "measurement")
         values = [value for _, value in items]
         if mode == "zscore_within_assay":
             mean = sum(values) / len(values)
             sd = math.sqrt(sum((value - mean) ** 2 for value in values) / len(values))
             transformed = [(idx, 0.0 if sd == 0 else (value - mean) / sd) for idx, value in items]
-            add_summary(summary, "INFO", "assay_measurement", assay, measurement, "mean", format_value(mean), "Z-score center")
-            add_summary(summary, "INFO", "assay_measurement", assay, measurement, "sd", format_value(sd), "Z-score scale")
+            add_summary(summary, "INFO", scope_name, assay, measurement, "mean", format_value(mean), "Z-score center")
+            add_summary(summary, "INFO", scope_name, assay, measurement, "sd", format_value(sd), "Z-score scale")
         elif mode == "minmax_within_assay":
             minimum = min(values)
             maximum = max(values)
             span = maximum - minimum
             transformed = [(idx, 0.0 if span == 0 else (value - minimum) / span) for idx, value in items]
-            add_summary(summary, "INFO", "assay_measurement", assay, measurement, "min", format_value(minimum), "Min-max lower bound")
-            add_summary(summary, "INFO", "assay_measurement", assay, measurement, "max", format_value(maximum), "Min-max upper bound")
+            add_summary(summary, "INFO", scope_name, assay, measurement, "min", format_value(minimum), "Min-max lower bound")
+            add_summary(summary, "INFO", scope_name, assay, measurement, "max", format_value(maximum), "Min-max upper bound")
         elif mode == "log10_if_positive":
             transformed = []
             skipped = 0
@@ -140,7 +167,7 @@ def apply_normalization(rows, mode, summary):
                 add_summary(
                     summary,
                     "WARNING",
-                    "assay_measurement",
+                    scope_name,
                     assay,
                     measurement,
                     "log10_non_positive_values",
@@ -150,7 +177,7 @@ def apply_normalization(rows, mode, summary):
         elif mode == "median_center_within_assay":
             median = statistics.median(values)
             transformed = [(idx, value - median) for idx, value in items]
-            add_summary(summary, "INFO", "assay_measurement", assay, measurement, "median", format_value(median), "Median center")
+            add_summary(summary, "INFO", scope_name, assay, measurement, "median", format_value(median), "Median center")
         else:
             raise RuntimeError(f"Unsupported normalization mode: {mode}")
 
@@ -164,6 +191,8 @@ def parse_args():
     parser.add_argument("--input", "--phenotype_samplesheet", dest="input", required=True)
     parser.add_argument("--output", default="results/phenotype/tables/phenotype_long_normalized.tsv")
     parser.add_argument("--summary", default="results/phenotype/qc/normalization_summary.tsv")
+    parser.add_argument("--study_profile", default="")
+    parser.add_argument("--design_summary", default="results/phenotype/qc/phenotype_design_summary.tsv")
     parser.add_argument("--normalization", default="none", choices=sorted(NORMALIZATION_MODES))
     return parser.parse_args()
 
@@ -171,7 +200,21 @@ def parse_args():
 def main():
     args = parse_args()
     summary = []
+    design = {"replicate_key": list(REPLICATE_KEY), "normalization_scope": ["assay", "measurement"]}
+    if args.study_profile:
+        try:
+            design = profile_design(load_profile(args.study_profile))
+        except Exception as exc:
+            stderr(f"ERROR\tphenotype_normalize\tCould not load phenotype design: {exc}")
+            return 1
+    write_tsv(args.design_summary, ["parameter", "configured_value"], design_summary_rows(design, args.normalization))
+
     fields, rows = read_table(args.input)
+    try:
+        validate_design_fields(fields, design)
+    except Exception as exc:
+        stderr(f"ERROR\tphenotype_normalize\t{exc}")
+        return 1
     if "value" not in fields:
         add_summary(summary, "ERROR", "table", "", "", "missing_column", "value", "Missing required value column")
         write_tsv(args.summary, ["severity", "scope", "assay", "measurement", "metric", "value", "message"], summary)
@@ -185,7 +228,7 @@ def main():
             summary, "WARNING", "table", "", "", "low_row_count", len(cleaned),
             f"Only {len(cleaned)} row(s) remain after cleaning; normalization statistics may be unreliable",
         )
-    apply_normalization(cleaned, args.normalization, summary)
+    apply_normalization(cleaned, args.normalization, summary, design["normalization_scope"])
 
     output_fields = list(fields)
     for field in ["raw_value", "normalized_value"]:

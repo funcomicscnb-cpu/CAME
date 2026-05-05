@@ -12,12 +12,14 @@ from phenotype_utils import (
     format_value,
     load_profile,
     parse_float,
+    profile_design,
     profile_indexes,
     profile_qc_policy,
     profile_components,
     read_table,
     replicate_id_for_row,
     stderr,
+    validate_design_fields,
     write_tsv,
 )
 
@@ -48,14 +50,14 @@ def percentile(sorted_values, q):
     return sorted_values[low] + (sorted_values[high] - sorted_values[low]) * (pos - low)
 
 
-def group_counts(rows):
+def group_counts(rows, replicate_key=None):
     grouped = defaultdict(lambda: {"rows": 0, "samples": set(), "replicates": set()})
     for row in rows:
         key = (row.get("species", ""), row.get("condition", ""), row.get("assay", ""), row.get("timepoint", ""))
         grouped[key]["rows"] += 1
         if row.get("sample_id"):
             grouped[key]["samples"].add(row.get("sample_id"))
-        rep = replicate_id_for_row(row)
+        rep = replicate_id_for_row(row, replicate_key=replicate_key)
         if rep.strip("|"):
             grouped[key]["replicates"].add(rep)
 
@@ -112,7 +114,7 @@ def outlier_rows(rows):
     return output
 
 
-def build_metrics(fields, rows, index_components, qc_policy):
+def build_metrics(fields, rows, index_components, qc_policy, replicate_key=None):
     metrics = []
     metric(metrics, "INFO", "row_count", len(rows), "Rows available for phenotype QC")
 
@@ -134,7 +136,7 @@ def build_metrics(fields, rows, index_components, qc_policy):
     units_by_group = defaultdict(set)
     for row in rows:
         key = (row.get("species", ""), row.get("condition", ""), row.get("timepoint", ""))
-        units_by_group[key].add(replicate_id_for_row(row))
+        units_by_group[key].add(replicate_id_for_row(row, replicate_key=replicate_key))
     min_rep = qc_policy["min_replicates_per_group"]
     for (species, condition, timepoint), units in sorted(units_by_group.items()):
         replicate_n = len([unit for unit in units if unit.strip("|")])
@@ -193,6 +195,8 @@ def main():
     fields, rows = read_table(args.input)
     try:
         profile = load_profile(args.study_profile)
+        design = profile_design(profile)
+        validate_design_fields(fields, design)
         index_components = []
         for index in profile_indexes(profile):
             index_components.append((str(index.get("name", "")).strip(), [str(item).strip() for item in index.get("components", []) if str(item).strip()]))
@@ -203,8 +207,8 @@ def main():
         stderr(f"ERROR\tstudy_profile\t{exc}")
         return 1
 
-    metrics = build_metrics(fields, rows, index_components, qc_policy)
-    counts = group_counts(rows)
+    metrics = build_metrics(fields, rows, index_components, qc_policy, replicate_key=design["replicate_key"])
+    counts = group_counts(rows, replicate_key=design["replicate_key"])
     outliers = outlier_rows(rows)
 
     write_tsv(

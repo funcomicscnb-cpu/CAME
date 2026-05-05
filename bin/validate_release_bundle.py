@@ -36,6 +36,7 @@ REQUIRED_TESTS = [
     "tests/test_profile_examples.sh",
     "tests/test_study_profile_validation.sh",
     "tests/test_phenotype_processing.sh",
+    "tests/test_phenotype_design.sh",
     "tests/test_phylo_hypothesis.sh",
     "tests/test_bulk_omics.sh",
     "tests/test_coordinate_projection.sh",
@@ -115,6 +116,8 @@ REQUIRED_ENVIRONMENT = [
 ]
 
 REQUIRED_SCHEMAS = [
+    "assets/schema/study_profile.schema.json",
+    "assets/schema/phenotype_samplesheet.schema.json",
     "schemas/reference_manifest.schema.json",
     "schemas/real_mode_metadata.schema.json",
     "assets/schema/reference_manifest.schema.json",

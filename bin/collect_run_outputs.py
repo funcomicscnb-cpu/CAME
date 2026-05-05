@@ -49,6 +49,7 @@ EXPECTED_OUTPUTS = [
     ("stage_01_metadata_validation", "validation", "validation/metadata_validation_report.tsv"),
     ("stage_02_study_profile_validation", "validation", "validation/study_profile_validation_report.tsv"),
     ("stage_03_phenotype_response", "phenotype", "phenotype/qc/normalization_summary.tsv"),
+    ("stage_03_phenotype_response", "phenotype", "phenotype/qc/phenotype_design_summary.tsv"),
     ("stage_03_phenotype_response", "phenotype", "phenotype/qc/phenotype_qc_metrics.tsv"),
     ("stage_03_phenotype_response", "phenotype", "phenotype/index/phenotype_index_by_group.tsv"),
     ("stage_03_phenotype_response", "phenotype", "phenotype/index/phenotype_indexes_by_group.tsv"),
