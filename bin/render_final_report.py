@@ -407,8 +407,8 @@ def load_ceeg_section_data(results_dir: Path) -> dict:
     _, mapping_rows = read_table(ceeg_dir / "ceeg_mapping_summary.tsv")
     _, warnings_rows = read_table(ceeg_dir / "ceeg_compatibility_warnings.tsv")
 
-    r2_rows = [r for r in contract_rows if r.get("artifact_type") == "r2_overlay" and norm(r.get("validator_name"))]
-    r3_rows = [r for r in contract_rows if r.get("artifact_type") == "r3_mapping" and norm(r.get("validator_name"))]
+    r2_rows = [r for r in contract_rows if r.get("artifact_type") == "r2_overlay"]
+    r3_rows = [r for r in contract_rows if r.get("artifact_type") == "r3_mapping"]
 
     r1_consumed = "unknown"
     for r1_path in [
@@ -482,6 +482,8 @@ def _ceeg_section_md(data: dict) -> str:
             lines.append(f"- R3 validator version: {norm(r3.get('validator_version'))}")
             lines.append(f"- R3 status: {norm(r3.get('status'))}")
             lines.append(f"- R3 exit code: {norm(r3.get('exit_code'))}")
+            if norm(r3.get("message")):
+                lines.append(f"- R3 message: {norm(r3.get('message'))}")
         else:
             lines.append("No R3 mapping-contract artifacts were supplied.")
         lines.append("")
@@ -556,6 +558,8 @@ def _ceeg_section_html(data: dict) -> str:
             parts.append(f"<li>R3 validator version: {html.escape(norm(r3.get('validator_version')))}</li>")
             parts.append(f"<li>R3 status: {html.escape(norm(r3.get('status')))}</li>")
             parts.append(f"<li>R3 exit code: {html.escape(norm(r3.get('exit_code')))}</li>")
+            if norm(r3.get("message")):
+                parts.append(f"<li>R3 message: {html.escape(norm(r3.get('message')))}</li>")
             parts.append("</ul>")
         else:
             parts.append("<p>No R3 mapping-contract artifacts were supplied.</p>")

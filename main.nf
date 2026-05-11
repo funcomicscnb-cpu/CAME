@@ -130,13 +130,19 @@ params.slurm_queue = ''
 params.slurm_queue_high = ''
 params.slurm_account = ''
 params.outdir = 'results'
-params.ceeg_model_bundle          = null
-params.enable_ceeg_compatibility  = false
-params.ceeg_stub                  = false
-params.ceeg_r2_overlay_dir        = null
-params.ceeg_r3_mapping_dir        = null
-params.ceeg_validation_mode       = 'development'
-params.ceeg_fail_on_contract_error = true
+params.ceeg_model_bundle             = null
+params.enable_ceeg_compatibility     = false
+params.ceeg_stub                     = false
+params.ceeg_r2_overlay_dir           = null
+params.ceeg_r3_mapping_dir           = null
+params.ceeg_validation_mode          = 'development'
+params.ceeg_fail_on_contract_error   = true
+params.ceeg_run_came_overlay_cmd     = null
+params.ceeg_run_mapping_contract_cmd = null
+params.ceeg_r2_run_dir               = null
+params.ceeg_r3_run_dir               = null
+params.ceeg_orchestrate_contracts    = false
+params.ceeg_validator_created_at     = null
 
 workflow {
     def stageCatalog = [
@@ -228,6 +234,12 @@ workflow {
     def ceegBundlePath = params.ceeg_model_bundle ? file(params.ceeg_model_bundle.toString()).toAbsolutePath().toString() : null
     def ceegR2OverlayDir = params.ceeg_r2_overlay_dir ? file(params.ceeg_r2_overlay_dir.toString()).toAbsolutePath().toString() : null
     def ceegR3MappingDir = params.ceeg_r3_mapping_dir ? file(params.ceeg_r3_mapping_dir.toString()).toAbsolutePath().toString() : null
+    def ceegOrchestrateContracts = params.ceeg_orchestrate_contracts.toString().toBoolean()
+    def ceegR2RunDir             = params.ceeg_r2_run_dir ? file(params.ceeg_r2_run_dir.toString()).toAbsolutePath().toString() : ''
+    def ceegR3RunDir             = params.ceeg_r3_run_dir ? file(params.ceeg_r3_run_dir.toString()).toAbsolutePath().toString() : ''
+    def ceegR2Cmd                = params.ceeg_run_came_overlay_cmd ? params.ceeg_run_came_overlay_cmd.toString() : ''
+    def ceegR3Cmd                = params.ceeg_run_mapping_contract_cmd ? params.ceeg_run_mapping_contract_cmd.toString() : ''
+    def ceegValidatorCreatedAt   = params.ceeg_validator_created_at ? params.ceeg_validator_created_at.toString() : ''
     def phylogenyManifestPath = params.phylogeny_manifest ? file(params.phylogeny_manifest) : null
     def phylogenyBaseDir = phylogenyManifestPath ? (phylogenyManifestPath.parent ?: '.') : '.'
     def existingIndexByGroup = file("${params.outdir}/phenotype/index/phenotype_index_by_group.tsv")
@@ -388,11 +400,39 @@ workflow {
         if (!(ceegStub in ["true", "1", "yes"]) && !file(ceegBundlePath).exists()) {
             error "Stage ceeg_compatibility could not find ceeg_model_bundle at '${params.ceeg_model_bundle}'."
         }
-        if (!(ceegStub in ["true", "1", "yes"]) && ceegR2OverlayDir && !file(ceegR2OverlayDir).exists()) {
-            error "Stage ceeg_compatibility could not find ceeg_r2_overlay_dir at '${params.ceeg_r2_overlay_dir}'."
+        // Conflict detection: cannot supply both a user-provided dir and an orchestration command for the same artifact
+        if (ceegOrchestrateContracts && ceegR2Cmd && ceegR2OverlayDir) {
+            error "Cannot use both --ceeg_r2_overlay_dir and --ceeg_run_came_overlay_cmd. Supply one or the other."
         }
-        if (!(ceegStub in ["true", "1", "yes"]) && ceegR3MappingDir && !file(ceegR3MappingDir).exists()) {
-            error "Stage ceeg_compatibility could not find ceeg_r3_mapping_dir at '${params.ceeg_r3_mapping_dir}'."
+        if (ceegOrchestrateContracts && ceegR3Cmd && ceegR3MappingDir) {
+            error "Cannot use both --ceeg_r3_mapping_dir and --ceeg_run_mapping_contract_cmd. Supply one or the other."
+        }
+        // Orchestration requirements — only when orchestrating and not in stub mode
+        if (ceegOrchestrateContracts && !(ceegStub in ["true", "1", "yes"])) {
+            if (!ceegR2Cmd && !ceegR3Cmd) {
+                error "Stage ceeg_compatibility: --ceeg_orchestrate_contracts true requires at least one of --ceeg_run_came_overlay_cmd or --ceeg_run_mapping_contract_cmd."
+            }
+            if (ceegR2Cmd && !ceegR2RunDir) {
+                error "Stage ceeg_compatibility: --ceeg_run_came_overlay_cmd requires --ceeg_r2_run_dir."
+            }
+            if (ceegR3Cmd && !ceegR3RunDir) {
+                error "Stage ceeg_compatibility: --ceeg_run_mapping_contract_cmd requires --ceeg_r3_run_dir."
+            }
+            if (ceegR2RunDir && !file(ceegR2RunDir).exists()) {
+                error "Stage ceeg_compatibility could not find ceeg_r2_run_dir at '${params.ceeg_r2_run_dir}'."
+            }
+            if (ceegR3RunDir && !file(ceegR3RunDir).exists()) {
+                error "Stage ceeg_compatibility could not find ceeg_r3_run_dir at '${params.ceeg_r3_run_dir}'."
+            }
+        }
+        // Existence check for user-supplied artifact dirs — skip when orchestrating those artifacts
+        if (!(ceegStub in ["true", "1", "yes"])) {
+            if (!ceegOrchestrateContracts && ceegR2OverlayDir && !file(ceegR2OverlayDir).exists()) {
+                error "Stage ceeg_compatibility could not find ceeg_r2_overlay_dir at '${params.ceeg_r2_overlay_dir}'."
+            }
+            if (!ceegOrchestrateContracts && ceegR3MappingDir && !file(ceegR3MappingDir).exists()) {
+                error "Stage ceeg_compatibility could not find ceeg_r3_mapping_dir at '${params.ceeg_r3_mapping_dir}'."
+            }
         }
     } else if (!realModeValidationEnabled && (!params.phenotype_samplesheet || !params.omics_samplesheet || !params.species_traits ||
         !params.reference_manifest || !params.phylogeny_manifest || !params.study_design)) {
@@ -610,7 +650,13 @@ workflow {
             ceegR3MappingDir ?: '',
             params.ceeg_validation_mode.toString(),
             params.ceeg_fail_on_contract_error.toString().toBoolean(),
-            ceegStub
+            ceegStub,
+            ceegOrchestrateContracts,
+            ceegR2RunDir,
+            ceegR3RunDir,
+            ceegR2Cmd,
+            ceegR3Cmd,
+            ceegValidatorCreatedAt
         )
     } else if (params.run_stage == 'differential_omics' && !validateOnly) {
         def requestedOmicsTypes = params.omics_types.toString().split(',').collect { it.trim().toLowerCase() }.findAll { it }

@@ -9,10 +9,28 @@ workflow CEEG_COMPATIBILITY {
     validation_mode
     fail_on_contract_error
     ceeg_stub
+    orchestrate
+    r2_run_dir
+    r3_run_dir
+    r2_cmd
+    r3_cmd
+    created_at
 
     main:
     CEEG_MODEL_IMPORT(bundle_dir, ceeg_stub)
-    CEEG_CONTRACT_ARTIFACTS(r2_overlay_dir, r3_mapping_dir, validation_mode, fail_on_contract_error, ceeg_stub)
+    CEEG_CONTRACT_ARTIFACTS(
+        r2_overlay_dir,
+        r3_mapping_dir,
+        validation_mode,
+        fail_on_contract_error,
+        ceeg_stub,
+        orchestrate,
+        r2_run_dir,
+        r3_run_dir,
+        r2_cmd,
+        r3_cmd,
+        created_at
+    )
 
     emit:
     nodes             = CEEG_MODEL_IMPORT.out.nodes

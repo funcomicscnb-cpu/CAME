@@ -216,6 +216,12 @@ assert_grep "Ambiguous mappings" "$CASE5_OUT/came_final_report.html" \
   "case5: ambiguous count missing"
 assert_grep "Failed mappings" "$CASE5_OUT/came_final_report.html" \
   "case5: failed count missing"
+assert_grep "mock_mapping_validator" "$CASE5_OUT/came_final_report.html" \
+  "case5: R3 validator name missing"
+assert_grep "R3 status" "$CASE5_OUT/came_final_report.html" \
+  "case5: R3 status field missing"
+assert_grep "R3 exit code" "$CASE5_OUT/came_final_report.html" \
+  "case5: R3 exit code field missing"
 assert_grep "Failed mapping is not biological absence" \
   "$CASE5_OUT/came_final_report.html" \
   "case5: anti-overclaim note absent"
@@ -319,6 +325,54 @@ assert_grep "Failed mapping is not biological absence" \
   "$CASE9_OUT/came_final_report.html" \
   "case9: approved anti-overclaim form missing"
 pass "case9: no forbidden semantic phrases in report"
+
+# ==============================================================================
+# Case 10 — R2 missing manifest (adapter error): must render as error, not no-artifacts
+# ==============================================================================
+CASE10_RD="$TMP_DIR/case10_results"
+CASE10_OUT="$TMP_DIR/case10_out"
+mkdir -p "$CASE10_OUT"
+setup_min_fixture "$CASE10_RD"
+write_ceeg_headers "$CASE10_RD"
+# Simulate _parse_r2 output when came_report_manifest.json is absent
+printf 'r2_overlay\t/mock/r2_missing\tmissing_manifest\t2\t\t\t\tcame_report_manifest.json not found\n' \
+  >> "$CASE10_RD/ceeg_compatibility/ceeg_contract_summary.tsv"
+render "$CASE10_RD" "$CASE10_OUT"
+
+assert_grep "R2 Overlay Contract" "$CASE10_OUT/came_final_report.html" \
+  "case10: R2 section missing when manifest was absent (adapter error)"
+assert_grep "missing_manifest" "$CASE10_OUT/came_final_report.html" \
+  "case10: missing_manifest status not rendered"
+assert_grep "came_report_manifest.json not found" "$CASE10_OUT/came_final_report.html" \
+  "case10: R2 message (diagnostic) not rendered"
+assert_not_grep "No CEEG R2 overlay or R3 mapping audit artifacts were supplied" \
+  "$CASE10_OUT/came_final_report.html" \
+  "case10: adapter error misclassified as no-artifacts-supplied"
+pass "case10: R2 missing-manifest adapter error renders error status, message, not no-artifacts"
+
+# ==============================================================================
+# Case 11 — R3 missing manifest: message field rendered (symmetry with R2)
+# ==============================================================================
+CASE11_RD="$TMP_DIR/case11_results"
+CASE11_OUT="$TMP_DIR/case11_out"
+mkdir -p "$CASE11_OUT"
+setup_min_fixture "$CASE11_RD"
+write_ceeg_headers "$CASE11_RD"
+# Simulate _parse_r3 output when mapping_report_manifest.json is absent
+printf 'r3_mapping\t/mock/r3_missing\tmissing_manifest\t2\t\t\t\tmapping_report_manifest.json not found\n' \
+  >> "$CASE11_RD/ceeg_compatibility/ceeg_contract_summary.tsv"
+render "$CASE11_RD" "$CASE11_OUT"
+
+assert_grep "R3 Mapping Audit" "$CASE11_OUT/came_final_report.html" \
+  "case11: R3 section missing when manifest was absent (adapter error)"
+assert_grep "missing_manifest" "$CASE11_OUT/came_final_report.html" \
+  "case11: missing_manifest status not rendered for R3"
+assert_grep "mapping_report_manifest.json not found" "$CASE11_OUT/came_final_report.html" \
+  "case11: R3 message (diagnostic) not rendered"
+assert_not_grep "No R3 mapping-contract artifacts were supplied" \
+  "$CASE11_OUT/came_final_report.html" \
+  "case11: R3 adapter error misclassified as no-artifacts-supplied"
+pass "case11: R3 missing-manifest adapter error renders error status and message"
 
 # ==============================================================================
 # Summary

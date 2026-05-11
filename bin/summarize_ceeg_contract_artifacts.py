@@ -129,7 +129,11 @@ def _parse_r2(r2_dir: Path, warnings: list[dict]) -> dict:
             "message": f"parse error: {exc}",
         }
 
-    exit_code = manifest.get("exit_code", "")
+    exit_code_raw = manifest.get("exit_code", "")
+    try:
+        exit_code = int(exit_code_raw)
+    except (TypeError, ValueError):
+        exit_code = exit_code_raw
     status = manifest.get("status", "")
     run_id = manifest.get("run_id", "") or ""
     validator_name = manifest.get("validator_name", "") or ""
@@ -220,7 +224,11 @@ def _parse_r3(
             "message": f"parse error: {exc}",
         }
 
-    exit_code = manifest.get("exit_code", "")
+    exit_code_raw = manifest.get("exit_code", "")
+    try:
+        exit_code = int(exit_code_raw)
+    except (TypeError, ValueError):
+        exit_code = exit_code_raw
     status = manifest.get("status", "")
     run_id = manifest.get("run_id", "") or ""
     validator_name = manifest.get("validator_name", "") or ""
@@ -331,15 +339,23 @@ def main() -> None:
         row = _parse_r2(args.r2_dir, warning_rows)
         contract_rows.append(row)
         ec = row.get("exit_code")
-        if isinstance(ec, int) and ec > max_exit_code:
-            max_exit_code = ec
+        try:
+            ec_int = int(ec)
+            if ec_int > max_exit_code:
+                max_exit_code = ec_int
+        except (TypeError, ValueError):
+            pass
 
     if args.r3_dir:
         row = _parse_r3(args.r3_dir, warning_rows, mapping_rows, unmapped_rows, ambiguous_rows)
         contract_rows.append(row)
         ec = row.get("exit_code")
-        if isinstance(ec, int) and ec > max_exit_code:
-            max_exit_code = ec
+        try:
+            ec_int = int(ec)
+            if ec_int > max_exit_code:
+                max_exit_code = ec_int
+        except (TypeError, ValueError):
+            pass
 
     sources: list[str] = []
     if args.r2_dir:

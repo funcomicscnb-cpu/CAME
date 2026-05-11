@@ -8,6 +8,10 @@ CAME-I0 consumes read-only CEEG artifact directories and writes compact CAME-sid
 It does not call CEEG validators, does not perform candidate scoring, and does not infer
 biological conservation or functional equivalence.
 
+CAME-I2 adds optional command orchestration: when `--ceeg_orchestrate_contracts true`, CAME
+invokes external CEEG validator CLIs and feeds the resulting directories to the I0 adapter.
+CAME does not vendor CEEG validators or reimplement validation logic.
+
 ---
 
 ## Repository boundary
@@ -16,12 +20,12 @@ biological conservation or functional equivalence.
 |---|---|
 | R1/R2/R3 schemas and validation semantics | CEEG |
 | R0/R1/R2/R3 validators and CLIs | CEEG |
-| Generating R2/R3 artifact directories | CEEG (externally, before CAME invocation) |
+| Generating R2/R3 artifact directories | CEEG (externally); or CAME optionally via CAME-I2 |
 | Reading and summarizing R2/R3 artifacts | CAME (this stage) |
 | Biological inference, conservation scoring, admissibility | Neither — deferred or prohibited |
 
-CAME does not vendor CEEG validators. CEEG validators must be run separately in the CEEG
-repository before supplying the output directories to CAME.
+CAME does not vendor CEEG validators. When using CAME-I2, users must install or provide
+access to CEEG CLI paths. CAME invokes them as external programs.
 
 ---
 
@@ -29,7 +33,8 @@ repository before supplying the output directories to CAME.
 
 Run the following commands from the CEEG repository root before invoking CAME.
 CAME-I0 consumes the resulting output directories. It does not invoke CEEG validators.
-Automatic validator invocation from within CAME is deferred to CAME-I1.
+Alternatively, use `--ceeg_orchestrate_contracts true` (CAME-I2) to have CAME invoke the
+commands automatically.
 
 ```bash
 # From the CEEG repository root (e.g. cd ../CEEG)
@@ -79,12 +84,106 @@ processing. This is the safe default for testing and CI.
 |---|---|---|
 | `--ceeg_model_bundle` | `null` | Required. Path to the externally validated CEEG R1 bundle directory. |
 | `--enable_ceeg_compatibility` | `false` | When true, also runs ceeg_compatibility alongside `--run_stage validation`. |
-| `--ceeg_stub` | `false` | When true, writes header-only outputs and skips processing. |
-| `--ceeg_r2_overlay_dir` | `null` | Optional. Path to an externally generated R2 CAME overlay output directory. |
-| `--ceeg_r3_mapping_dir` | `null` | Optional. Path to an externally generated R3 mapping-contract output directory. |
+| `--ceeg_stub` | `false` | When true, writes header-only outputs and skips processing. Always takes precedence over orchestration. |
+| `--ceeg_r2_overlay_dir` | `null` | Optional. Path to an externally generated R2 CAME overlay output directory. Cannot be combined with `--ceeg_run_came_overlay_cmd`. |
+| `--ceeg_r3_mapping_dir` | `null` | Optional. Path to an externally generated R3 mapping-contract output directory. Cannot be combined with `--ceeg_run_mapping_contract_cmd`. |
 | `--ceeg_validation_mode` | `development` | Mirrors the CEEG `--validation-mode` value for provenance recording. |
 | `--ceeg_fail_on_contract_error` | `true` | When true, a non-zero CEEG validator exit code recorded in R2/R3 manifests causes CAME to fail. |
-| `--ceeg_validator_cmd` | — | Reserved for a future stage (CAME-I1) that will invoke CEEG CLIs from within CAME. Not wired in I0. |
+| `--ceeg_orchestrate_contracts` | `false` | When true, CAME invokes external CEEG validator commands and generates R2/R3 artifact directories. Default off. Not included in `--run_stage all`. |
+| `--ceeg_run_came_overlay_cmd` | `null` | Command prefix for the external R2 validator. CAME appends `--run-dir`, `--out-dir`, `--validation-mode`, and optionally `--created-at`. Example: `python3 /path/to/ceeg/bin/run_came_overlay.py`. |
+| `--ceeg_run_mapping_contract_cmd` | `null` | Command prefix for the external R3 validator. CAME appends the same arguments. Example: `python3 /path/to/ceeg/bin/run_mapping_contract.py`. |
+| `--ceeg_r2_run_dir` | `null` | Required when `--ceeg_run_came_overlay_cmd` is set. Path passed as `--run-dir` to the R2 validator. |
+| `--ceeg_r3_run_dir` | `null` | Required when `--ceeg_run_mapping_contract_cmd` is set. Path passed as `--run-dir` to the R3 validator. |
+| `--ceeg_validator_created_at` | `null` | Optional. When set, forwarded to CEEG CLIs as `--created-at`. Primarily useful for deterministic tests and reproducible fixture generation. Not required for production use. |
+
+---
+
+## CAME-I2: Orchestrated Validator Invocation
+
+When `--ceeg_orchestrate_contracts true`, CAME invokes the external CEEG validator CLIs,
+writes generated R2/R3 output directories under `results/ceeg_compatibility/generated/`, and
+then feeds those directories to the existing CAME-I0 consumption adapter.
+
+### `--ceeg_stub true` always takes precedence
+
+When `--ceeg_stub true` (the default), no external commands are invoked regardless of
+`--ceeg_orchestrate_contracts`. Stub mode produces deterministic header-only outputs with
+zero external dependencies.
+
+### Generated output locations
+
+- R2: `results/ceeg_compatibility/generated/r2_overlay/`
+- R3: `results/ceeg_compatibility/generated/r3_mapping/`
+- Command logs: `results/ceeg_compatibility/generated/r2_overlay/ceeg_command.log`
+  and `results/ceeg_compatibility/generated/r3_mapping/ceeg_command.log`
+
+### Command prefix contract
+
+CAME constructs the full command by appending arguments to the supplied prefix:
+
+```bash
+# R2
+<ceeg_run_came_overlay_cmd> \
+  --run-dir <ceeg_r2_run_dir> \
+  --out-dir <generated_r2_dir> \
+  --validation-mode <ceeg_validation_mode> \
+  [--created-at <ceeg_validator_created_at>]
+
+# R3
+<ceeg_run_mapping_contract_cmd> \
+  --run-dir <ceeg_r3_run_dir> \
+  --out-dir <generated_r3_dir> \
+  --validation-mode <ceeg_validation_mode> \
+  [--created-at <ceeg_validator_created_at>]
+```
+
+Command prefixes may include interpreter prefixes (e.g. `python3 /path/to/script.py`).
+**Paths containing spaces are not guaranteed to work** unless the user handles shell quoting
+correctly in the command string. Avoid paths with spaces for validator scripts.
+
+### Exit code behavior
+
+| Exit class | Meaning | CAME behavior |
+|---|---|---|
+| Validator exits 0, manifest exists | Completed successfully | CAME consumes generated artifact directory |
+| Validator exits 1, manifest exists | CEEG validator reported invalid contract | CAME consumes artifact; `ceeg_fail_on_contract_error` controls workflow failure |
+| Validator exits 2, manifest exists | CEEG validator reported fatal contract status | CAME consumes artifact; `ceeg_fail_on_contract_error` controls workflow failure |
+| Validator exits 0/1/2, manifest missing | Orchestration error / incomplete artifact handoff | `check_ceeg_orchestration.py` exits 10; workflow fails |
+| Validator exits other nonzero | Tooling or command-invocation failure | Workflow fails as orchestration/tooling failure, not as CEEG contract invalid/fatal |
+
+Exit 10 from `bin/check_ceeg_orchestration.py` signals "recognized validator exit code, but
+expected manifest missing." Exit 10 is not a CEEG validation result. Users should inspect
+`ceeg_command.log` and the generated output directory when this occurs.
+
+### Example command
+
+```bash
+nextflow run . \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle <path/to/ceeg_bundle> \
+  --ceeg_orchestrate_contracts true \
+  --ceeg_run_came_overlay_cmd "python3 /path/to/ceeg/bin/run_came_overlay.py" \
+  --ceeg_r2_run_dir <path/to/r2_run_inputs> \
+  --ceeg_run_mapping_contract_cmd "python3 /path/to/ceeg/bin/run_mapping_contract.py" \
+  --ceeg_r3_run_dir <path/to/r3_run_inputs> \
+  --ceeg_validation_mode development \
+  --ceeg_stub false
+```
+
+### Conflict rules
+
+- If both `--ceeg_r2_overlay_dir` and `--ceeg_run_came_overlay_cmd` are supplied,
+  CAME fails before invoking any command.
+- If both `--ceeg_r3_mapping_dir` and `--ceeg_run_mapping_contract_cmd` are supplied,
+  CAME fails before invoking any command.
+- CAME never silently prefers generated artifacts over supplied artifacts or vice versa.
+
+### CI and test strategy
+
+CAME-I2 tests use local mock commands (`tests/fixtures/mock_ceeg_validator.sh`) rather
+than a real CEEG repository checkout. The mock emits CAME-I0-compatible artifact schemas
+and is not a substitute for CEEG validation. A real integration test against an actual
+CEEG checkout is recommended as an optional external CI profile after CAME-I2 commits.
 
 ---
 
@@ -144,6 +243,9 @@ Outputs are written to `results/ceeg_compatibility/`:
 | `ceeg_compatibility_warnings.tsv` | Adapter-level warnings. Columns: `severity`, `source`, `message`. |
 | `ceeg_outputs_manifest.tsv` | Manifest of all CAME-I0 output files. |
 
+When CAME-I2 orchestration generates artifacts, the generated directories are also written
+under `results/ceeg_compatibility/generated/`.
+
 The `interpretation_note` for unmapped features is always:
 > `failed mapping is not biological absence`
 
@@ -156,16 +258,30 @@ A header-only ceeg_contract_summary.tsv (and related outputs) indicates that no 
 
 ## Failure semantics
 
-CEEG exit codes are preserved and summarized in `ceeg_contract_summary.tsv`:
+CEEG exit codes are preserved and summarized in `ceeg_contract_summary.tsv`.
+`ceeg_contract_summary.tsv` is **always published** to `results/ceeg_compatibility/`
+regardless of whether the pipeline subsequently fails.
 
 | CEEG exit code | Meaning | CAME behavior with `--ceeg_fail_on_contract_error true` |
 |---|---|---|
 | 0 | Compatible / valid | No action |
-| 1 | Invalid contract | CAME fails after writing outputs |
-| 2 | Fatal contract failure | CAME fails after writing outputs |
+| 1 | Invalid contract | Outputs published; CAME fails after publishing |
+| 2 | Fatal contract failure | Outputs published; CAME fails after publishing |
 
 When `--ceeg_fail_on_contract_error false`, both exit 1 and exit 2 are summarized as warnings
 and CAME continues. The exit code distinction is preserved in the summary.
+
+### Two distinct failure modes
+
+**Contract-error failure** (`exit_code` 1 or 2 in a CEEG manifest): `CONSUME_CEEG_CONTRACT_ARTIFACTS`
+always exits 0 and publishes all outputs. A downstream `CHECK_CEEG_CONTRACT_STATUS` process
+reads `ceeg_contract_summary.tsv`, finds the nonzero exit code, and fails the workflow.
+`results/ceeg_compatibility/ceeg_contract_summary.tsv` is on disk and readable.
+
+**Python adapter crash** (unhandled exception in `summarize_ceeg_contract_artifacts.py` due to
+a malformed input, permission error, or disk failure): `CONSUME_CEEG_CONTRACT_ARTIFACTS` itself
+exits nonzero and outputs may not be published. The appropriate response is to inspect the
+Nextflow work directory and report a bug — this failure mode is not a CEEG contract result.
 
 ---
 
@@ -198,6 +314,10 @@ This section is contract-status reporting only:
   not reinterpreted by the final-report stage.
 - The final-report stage exits 0 regardless of CEEG validator exit codes recorded in consumed
   artifacts. Final reporting is a renderer, not a validator gate.
+- Because `CONSUME_CEEG_CONTRACT_ARTIFACTS` always exits 0 and publishes outputs before
+  `CHECK_CEEG_CONTRACT_STATUS` enforces failure, the final report correctly renders the
+  contract-failed status rather than the "no artifacts supplied" branch, even when
+  `--ceeg_fail_on_contract_error true` and the contract was invalid.
 - The final report does not infer conservation, equivalence, absence, comparability, or
   admissibility from CEEG outputs.
 - Header-only CEEG compatibility output files indicate that no R2/R3 artifact directories were
@@ -218,13 +338,14 @@ This section is contract-status reporting only:
 
 ## Deferred items
 
-The following are intentionally out of scope for CAME-I0/I1:
+The following are intentionally out of scope for CAME-I0/I1/I2:
 
-- Calling CEEG CLIs (`bin/run_came_overlay.py`, `bin/run_mapping_contract.py`) from within
-  CAME — deferred to CAME-I2.
+- Real CEEG integration test against an actual CEEG repository checkout — recommended
+  as an optional external CI profile after CAME-I2 commits.
 - Artifact-only mode without `--ceeg_model_bundle`.
 - Candidate-prioritization use of R2/R3 outputs.
 - Orthology/GRA/phenotype-omics use of R3 mapping summaries.
-- R4 admissibility/biological-comparability scoring.
+- R4/R5 admissibility/biological-comparability scoring.
 - R3 `relation_type` controlled vocabulary.
+- Version compatibility checks between CAME and CEEG validators.
 - Real biological benchmarks.
