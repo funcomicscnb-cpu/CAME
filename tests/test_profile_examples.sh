@@ -85,12 +85,12 @@ run_profile_smoke() {
     --index_output "$out/index_contrasts.tsv" \
     --component_output "$out/component_contrasts.tsv" > "$out/contrasts.out" 2>&1
 
-  if ! awk -v name="$contrast" 'BEGIN{FS="\t"; ok=0} NR>1 && $1==name && $12=="OK"{ok++} END{exit ok>=4?0:1}' "$out/index_contrasts.tsv"; then
+  if ! awk -v name="$contrast" 'BEGIN{FS="\t"; ok=0} NR==1{for(i=1;i<=NF;i++) h[$i]=i} NR>1 && $h["contrast_name"]==name && $h["status"]=="OK"{ok++} END{exit ok>=4?0:1}' "$out/index_contrasts.tsv"; then
     cat "$out/index_contrasts.tsv"
     echo "FAIL: $name index contrast smoke check failed" >&2
     exit 1
   fi
-  if ! awk -v name="$contrast" 'BEGIN{FS="\t"; ok=0} NR>1 && $2==name && $13=="OK"{ok++} END{exit ok>=16?0:1}' "$out/component_contrasts.tsv"; then
+  if ! awk -v name="$contrast" 'BEGIN{FS="\t"; ok=0} NR==1{for(i=1;i<=NF;i++) h[$i]=i} NR>1 && $h["contrast_name"]==name && $h["status"]=="OK"{ok++} END{exit ok>=16?0:1}' "$out/component_contrasts.tsv"; then
     cat "$out/component_contrasts.tsv"
     echo "FAIL: $name component contrast smoke check failed" >&2
     exit 1

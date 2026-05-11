@@ -7,7 +7,6 @@ import sys
 from collections import Counter, defaultdict
 
 from phenotype_utils import (
-    REPLICATE_KEY,
     component_name_for_row,
     format_value,
     load_profile,
@@ -50,10 +49,13 @@ def percentile(sorted_values, q):
     return sorted_values[low] + (sorted_values[high] - sorted_values[low]) * (pos - low)
 
 
-def group_counts(rows, replicate_key=None):
+def group_counts(rows, replicate_key=None, group_key=None):
+    base_key_fields = ["species", "condition", "assay", "timepoint"]
+    extra_fields = [f for f in (group_key or []) if f not in set(base_key_fields)]
+    key_fields = base_key_fields + extra_fields
     grouped = defaultdict(lambda: {"rows": 0, "samples": set(), "replicates": set()})
     for row in rows:
-        key = (row.get("species", ""), row.get("condition", ""), row.get("assay", ""), row.get("timepoint", ""))
+        key = tuple(row.get(field, "") for field in key_fields)
         grouped[key]["rows"] += 1
         if row.get("sample_id"):
             grouped[key]["samples"].add(row.get("sample_id"))
@@ -62,19 +64,13 @@ def group_counts(rows, replicate_key=None):
             grouped[key]["replicates"].add(rep)
 
     output = []
-    for (species, condition, assay, timepoint), counts in sorted(grouped.items()):
-        output.append(
-            {
-                "species": species,
-                "condition": condition,
-                "assay": assay,
-                "timepoint": timepoint,
-                "row_count": counts["rows"],
-                "unique_sample_ids": len(counts["samples"]),
-                "replicate_n": len(counts["replicates"]),
-            }
-        )
-    return output
+    for key_values, counts in sorted(grouped.items()):
+        row_dict = dict(zip(key_fields, key_values))
+        row_dict["row_count"] = counts["rows"]
+        row_dict["unique_sample_ids"] = len(counts["samples"])
+        row_dict["replicate_n"] = len(counts["replicates"])
+        output.append(row_dict)
+    return output, key_fields
 
 
 def outlier_rows(rows):
@@ -114,9 +110,10 @@ def outlier_rows(rows):
     return output
 
 
-def build_metrics(fields, rows, index_components, qc_policy, replicate_key=None):
+def build_metrics(fields, rows, index_components, qc_policy, replicate_key=None, group_key=None):
     metrics = []
     metric(metrics, "INFO", "row_count", len(rows), "Rows available for phenotype QC")
+    group_key = group_key or ["species", "condition", "timepoint"]
 
     for field in fields:
         missing = sum(1 for row in rows if row.get(field, "") == "")
@@ -135,15 +132,34 @@ def build_metrics(fields, rows, index_components, qc_policy, replicate_key=None)
 
     units_by_group = defaultdict(set)
     for row in rows:
-        key = (row.get("species", ""), row.get("condition", ""), row.get("timepoint", ""))
+        key = tuple(row.get(field, "") for field in group_key)
         units_by_group[key].add(replicate_id_for_row(row, replicate_key=replicate_key))
     min_rep = qc_policy["min_replicates_per_group"]
-    for (species, condition, timepoint), units in sorted(units_by_group.items()):
+    for key_values, units in sorted(units_by_group.items()):
+        group_values = dict(zip(group_key, key_values))
         replicate_n = len([unit for unit in units if unit.strip("|")])
-        metric(metrics, "INFO", "replicate_count", replicate_n, "Replicate units in species/condition/timepoint group", species=species, condition=condition, timepoint=timepoint)
+        metric(
+            metrics,
+            "INFO",
+            "replicate_count",
+            replicate_n,
+            "Replicate units in configured phenotype group",
+            species=group_values.get("species", ""),
+            condition=group_values.get("condition", ""),
+            timepoint=group_values.get("timepoint", ""),
+        )
         if replicate_n < min_rep:
             severity = "ERROR" if qc_policy["fail_on_sparse_groups"] else "WARNING"
-            metric(metrics, severity, "sparse_group", replicate_n, f"Fewer than {min_rep} replicate unit(s) in group", species=species, condition=condition, timepoint=timepoint)
+            metric(
+                metrics,
+                severity,
+                "sparse_group",
+                replicate_n,
+                f"Fewer than {min_rep} replicate unit(s) in configured phenotype group",
+                species=group_values.get("species", ""),
+                condition=group_values.get("condition", ""),
+                timepoint=group_values.get("timepoint", ""),
+            )
 
     for index_name, components in index_components:
         present_components = set()
@@ -207,8 +223,15 @@ def main():
         stderr(f"ERROR\tstudy_profile\t{exc}")
         return 1
 
-    metrics = build_metrics(fields, rows, index_components, qc_policy, replicate_key=design["replicate_key"])
-    counts = group_counts(rows, replicate_key=design["replicate_key"])
+    metrics = build_metrics(
+        fields,
+        rows,
+        index_components,
+        qc_policy,
+        replicate_key=design["replicate_key"],
+        group_key=design["group_key"],
+    )
+    counts, count_key_fields = group_counts(rows, replicate_key=design["replicate_key"], group_key=design["group_key"])
     outliers = outlier_rows(rows)
 
     write_tsv(
@@ -218,7 +241,7 @@ def main():
     )
     write_tsv(
         args.group_counts,
-        ["species", "condition", "assay", "timepoint", "row_count", "unique_sample_ids", "replicate_n"],
+        count_key_fields + ["row_count", "unique_sample_ids", "replicate_n"],
         counts,
     )
     write_tsv(

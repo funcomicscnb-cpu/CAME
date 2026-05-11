@@ -51,6 +51,7 @@ REQUIRED_EXISTING_TESTS = [
     "tests/test_study_profile_validation.sh",
     "tests/test_phenotype_processing.sh",
     "tests/test_phenotype_design.sh",
+    "tests/test_phenotype_group_design.sh",
     "tests/test_phenotype_multi_index.sh",
     "tests/test_phylo_hypothesis.sh",
     "tests/test_bulk_omics.sh",

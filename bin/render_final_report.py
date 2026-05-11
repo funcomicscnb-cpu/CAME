@@ -32,6 +32,7 @@ SUMMARY_FILES = {
     "stage_03_phenotype_response": [
         "phenotype/qc/normalization_summary.tsv",
         "phenotype/qc/phenotype_design_summary.tsv",
+        "phenotype/qc/phenotype_contrast_pairs.tsv",
         "phenotype/qc/phenotype_qc_metrics.tsv",
         "phenotype/summary/phenotype_processing_manifest.tsv",
     ],

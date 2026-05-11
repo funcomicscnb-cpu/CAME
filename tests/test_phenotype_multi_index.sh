@@ -105,7 +105,7 @@ if grep -q '^ERROR' "$VALID_REPORT"; then
 fi
 
 BAD_SECONDARY="$TMP_DIR/bad_secondary.yaml"
-awk 'BEGIN{in_secondary=0; replaced_component=0} /name: secondary_sum_index/{in_secondary=1} in_secondary && /formula:/{print "    formula: \"component_a + component_d\""; next} in_secondary && !replaced_component && /^      - component_b/{print "      - component_d"; replaced_component=1; next} {print}' "$MULTI_PROFILE" > "$BAD_SECONDARY"
+awk 'BEGIN{in_secondary=0; replaced_component=0} /^  - name: secondary_sum_index/{in_secondary=1} /^  - name:/ && !/secondary_sum_index/{in_secondary=0} in_secondary && /^    formula:/{print "    formula: \"component_a + component_d\""; next} in_secondary && !replaced_component && /^      - component_b/{print "      - component_d"; replaced_component=1; next} {print}' "$MULTI_PROFILE" > "$BAD_SECONDARY"
 BAD_OUT="$TMP_DIR/bad_secondary"
 mkdir -p "$BAD_OUT"
 python3 "$ROOT_DIR/bin/phenotype_normalize.py" --input "$PHENO" --output "$BAD_OUT/normalized.tsv" --summary "$BAD_OUT/summary.tsv" > "$BAD_OUT/normalize.out" 2>&1

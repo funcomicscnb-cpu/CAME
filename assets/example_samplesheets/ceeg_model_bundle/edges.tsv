@@ -1,0 +1,3 @@
+edge_id	source_node_id	target_node_id	edge_type	projection_mode	biological_system	weight	notes
+E:proj_d_001	RE:obs_001	RE:proj_d_001	regulatory_projection	direct_alignment	generic_immune	0.87	Direct sequence alignment; weight reflects alignment identity; carries no functional conservation claim
+E:proj_i_001	RE:obs_001	RE:proj_i_001	regulatory_projection	synteny_block	generic_immune	0.54	Synteny-block inference; lower weight than direct alignment; projection_mode distinct from direct_alignment

@@ -7,8 +7,6 @@ import sys
 from collections import defaultdict
 
 from phenotype_utils import (
-    GROUP_KEY,
-    REPLICATE_KEY,
     aggregate,
     as_list,
     component_name_for_row,
@@ -52,9 +50,24 @@ SAMPLE_FIELDS = [
     "source_sample_ids",
 ]
 
+LEGACY_GROUP_FIELDS = [
+    "profile_id",
+    "phenotype_index_name",
+    "species",
+    "condition",
+    "timepoint",
+    "replicate_n",
+    "index_value",
+    "status",
+    "message",
+    "source_sample_ids",
+]
+
 GROUP_FIELDS = [
     "profile_id",
     "phenotype_index_name",
+    "phenotype_group_id",
+    "phenotype_group_key",
     "species",
     "condition",
     "timepoint",
@@ -80,33 +93,42 @@ MANIFEST_FIELDS = [
     "qc_fail_on_missing_components",
     "qc_fail_on_sparse_groups",
     "qc_fail_on_unit_inconsistency",
-    "sample_output",
-    "group_output",
+    "indexes_sample_output",
+    "indexes_group_output",
     "design_replicate_key",
+    "design_group_key",
     "design_normalization_scope",
 ]
 
 
-def unit_context(rows):
+def _sample_fields_for_group_key(group_key):
+    base = list(SAMPLE_FIELDS)
+    extra = [f for f in group_key if f not in set(base)]
+    if not extra:
+        return base
+    idx = base.index("timepoint") + 1
+    return base[:idx] + extra + base[idx:]
+
+
+def unit_context(rows, group_key):
     first = rows[0]
-    return {
+    context = {
         "species": first.get("species", ""),
         "condition": first.get("condition", ""),
         "timepoint": first.get("timepoint", ""),
         "individual_id": first.get("individual_id", ""),
         "replicate_id": first.get("replicate_id", ""),
     }
+    for field in group_key:
+        context[field] = first.get(field, "")
+    return context
 
 
 def source_sample_ids(rows):
     return ",".join(sorted({row.get("sample_id", "") for row in rows if row.get("sample_id", "")}))
 
 
-def stable_sample_id(context):
-    return "|".join(context[field] for field in ["species", "individual_id", "replicate_id", "condition", "timepoint"])
-
-
-def calculate_samples(rows, profile, sample_output=None, replicate_key=None):
+def calculate_samples(rows, profile, sample_output=None, replicate_key=None, group_key=None):
     index = phenotype_index(profile)
     components = profile_components(profile)
     if not components:
@@ -123,6 +145,7 @@ def calculate_samples(rows, profile, sample_output=None, replicate_key=None):
     component_set = set(components)
     profile_name = str(index.get("name", "")).strip()
     pid = profile_id(profile)
+    group_key = group_key or ["species", "condition", "timepoint"]
 
     grouped = defaultdict(list)
     for row in rows:
@@ -134,7 +157,7 @@ def calculate_samples(rows, profile, sample_output=None, replicate_key=None):
     fatal_errors = []
 
     for unit_id, unit_rows in sorted(grouped.items()):
-        context = unit_context(unit_rows)
+        context = unit_context(unit_rows, group_key)
         values_by_component = defaultdict(list)
         for row in unit_rows:
             component = component_name_for_row(row, component_set)
@@ -166,43 +189,48 @@ def calculate_samples(rows, profile, sample_output=None, replicate_key=None):
                 message = str(exc)
                 fatal_errors.append(f"{unit_id} {message}")
 
-        sample_rows.append(
-            {
-                "profile_id": pid,
-                "phenotype_index_name": profile_name,
-                "species": context["species"],
-                "condition": context["condition"],
-                "timepoint": context["timepoint"],
-                "sample_id": unit_id,
-                "individual_id": context["individual_id"],
-                "replicate_id": context["replicate_id"],
-                "replicate_n": "1",
-                "index_value": format_value(index_value),
-                "status": status,
-                "message": message,
-                "source_sample_ids": source_sample_ids(unit_rows),
-            }
-        )
+        sample_row = {
+            "profile_id": pid,
+            "phenotype_index_name": profile_name,
+            "species": context["species"],
+            "condition": context["condition"],
+            "timepoint": context["timepoint"],
+            "sample_id": unit_id,
+            "individual_id": context["individual_id"],
+            "replicate_id": context["replicate_id"],
+            "replicate_n": "1",
+            "index_value": format_value(index_value),
+            "status": status,
+            "message": message,
+            "source_sample_ids": source_sample_ids(unit_rows),
+        }
+        for field in group_key:
+            sample_row[field] = context.get(field, "")
+        sample_rows.append(sample_row)
 
     if not sample_rows:
         fatal_errors.append("No phenotype rows matched profile components")
 
     if sample_output:
-        write_tsv(sample_output, SAMPLE_FIELDS, sample_rows)
+        write_tsv(sample_output, _sample_fields_for_group_key(group_key or []), sample_rows)
     return sample_rows, aggregation, fatal_errors
 
 
-def calculate_groups(sample_rows, profile, aggregation, group_output=None):
+def calculate_groups(sample_rows, profile, aggregation, group_output=None, group_key=None):
     index = phenotype_index(profile)
     profile_name = str(index.get("name", "")).strip()
     pid = profile_id(profile)
+    group_key = group_key or ["species", "condition", "timepoint"]
     grouped = defaultdict(list)
     for row in sample_rows:
-        key = (row["species"], row["condition"], row["timepoint"])
+        key = tuple(row.get(field, "") for field in group_key)
         grouped[key].append(row)
 
     group_rows = []
-    for (species, condition, timepoint), rows in sorted(grouped.items()):
+    group_key_str = "|".join(group_key)
+    for key_values, rows in sorted(grouped.items()):
+        group_values = dict(zip(group_key, key_values))
+        phenotype_group_id = "|".join(key_values)
         values = []
         for row in rows:
             value = parse_float(row.get("index_value"))
@@ -215,9 +243,11 @@ def calculate_groups(sample_rows, profile, aggregation, group_output=None):
             {
                 "profile_id": pid,
                 "phenotype_index_name": profile_name,
-                "species": species,
-                "condition": condition,
-                "timepoint": timepoint,
+                "phenotype_group_id": phenotype_group_id,
+                "phenotype_group_key": group_key_str,
+                "species": group_values.get("species", ""),
+                "condition": group_values.get("condition", ""),
+                "timepoint": group_values.get("timepoint", ""),
                 "replicate_n": str(len(values)),
                 "index_value": format_value(index_value),
                 "status": status,
@@ -250,9 +280,10 @@ def manifest_row(profile, index_def, primary, qc_policy, normalization, sample_o
         "qc_fail_on_missing_components": str(qc_policy["fail_on_missing_components"]).lower(),
         "qc_fail_on_sparse_groups": str(qc_policy["fail_on_sparse_groups"]).lower(),
         "qc_fail_on_unit_inconsistency": str(qc_policy["fail_on_unit_inconsistency"]).lower(),
-        "sample_output": sample_output,
-        "group_output": group_output,
+        "indexes_sample_output": sample_output,
+        "indexes_group_output": group_output,
         "design_replicate_key": "|".join(design["replicate_key"]),
+        "design_group_key": "|".join(design["group_key"]),
         "design_normalization_scope": "|".join(design["normalization_scope"]),
     }
 
@@ -277,7 +308,7 @@ def main():
     if not args.indexes_group_output:
         args.indexes_group_output = os.path.join(os.path.dirname(args.group_output) or ".", "phenotype_indexes_by_group.tsv")
     if not args.manifest_output:
-        args.manifest_output = os.path.join(os.path.dirname(args.group_output) or ".", "phenotype_processing_manifest.tsv")
+        args.manifest_output = os.path.join(os.path.dirname(args.indexes_group_output) or ".", "phenotype_processing_manifest.tsv")
     all_sample_rows = []
     all_group_rows = []
     manifest_rows = []
@@ -300,8 +331,14 @@ def main():
                 rows,
                 single_profile,
                 replicate_key=design["replicate_key"],
+                group_key=design["group_key"],
             )
-            group_rows_for_index = calculate_groups(sample_rows_for_index, single_profile, aggregation)
+            group_rows_for_index = calculate_groups(
+                sample_rows_for_index,
+                single_profile,
+                aggregation,
+                group_key=design["group_key"],
+            )
             all_sample_rows.extend(sample_rows_for_index)
             all_group_rows.extend(group_rows_for_index)
             fatal_errors.extend(errors)
@@ -320,10 +357,11 @@ def main():
                     design,
                 )
             )
-        write_tsv(args.indexes_sample_output, SAMPLE_FIELDS, all_sample_rows)
+        sample_fields = _sample_fields_for_group_key(design["group_key"])
+        write_tsv(args.indexes_sample_output, sample_fields, all_sample_rows)
         write_tsv(args.indexes_group_output, GROUP_FIELDS, all_group_rows)
-        write_tsv(args.sample_output, SAMPLE_FIELDS, primary_sample_rows)
-        write_tsv(args.group_output, GROUP_FIELDS, primary_group_rows)
+        write_tsv(args.sample_output, sample_fields, primary_sample_rows)
+        write_tsv(args.group_output, LEGACY_GROUP_FIELDS, primary_group_rows)
         write_tsv(args.manifest_output, MANIFEST_FIELDS, manifest_rows)
     except Exception as exc:
         stderr(f"ERROR\tphenotype_index\t{exc}")

@@ -17,6 +17,7 @@ include { WGS_VARIANTS } from './workflows/wgs_variants'
 include { COORDINATE_PROJECTION } from './workflows/coordinate_projection'
 include { RE_TO_GENE_INFERENCE } from './workflows/re_to_gene_inference'
 include { ADVANCED_STATISTICS } from './workflows/advanced_statistics'
+include { CEEG_COMPATIBILITY } from './workflows/ceeg_compatibility'
 include { ALL } from './workflows/all'
 include { METADATA_VALIDATION; STUDY_PROFILE_VALIDATION; PHYLO_METADATA_VALIDATION; REAL_MODE_REQUIREMENTS_VALIDATION } from './subworkflows/validation'
 include { REFERENCE_QUALITY } from './subworkflows/reference_quality'
@@ -129,6 +130,9 @@ params.slurm_queue = ''
 params.slurm_queue_high = ''
 params.slurm_account = ''
 params.outdir = 'results'
+params.ceeg_model_bundle         = null
+params.enable_ceeg_compatibility  = false
+params.ceeg_stub                 = false
 
 workflow {
     def stageCatalog = [
@@ -149,6 +153,7 @@ workflow {
         [run_stage: 'coordinate_projection', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'comparative coordinates', notes: 'Optional scaffold; not production coordinate projection'],
         [run_stage: 're_to_gene_inference', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'regulatory links', notes: 'Optional scaffold; not production RE-to-gene inference'],
         [run_stage: 'advanced_statistics', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'advanced models', notes: 'Optional scaffold; not production advanced statistics'],
+        [run_stage: 'ceeg_compatibility', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'CEEG model bundle', notes: 'Optional CEEG-assisted candidate scoring; requires --ceeg_model_bundle'],
         [run_stage: 'all', maturity: 'orchestration', included_in_all: false, real_mode_scope: 'stub/real as configured', notes: 'Runs the core production chain; excludes optional/scaffold stages']
     ]
     if (params.list_stages.toString().toBoolean()) {
@@ -188,6 +193,7 @@ workflow {
     if (!params.outdir.toString().startsWith('/')) {
         log.warn "CAME: --outdir '${params.outdir}' is a relative path. Outputs will be written relative to the Nextflow launch directory. Use an absolute path to ensure consistent output locations across stages."
     }
+    def ceegEnabled = params.enable_ceeg_compatibility.toString().toBoolean()
     def activeProfileText = workflow.profile ? workflow.profile.toString() : ''
     if (['docker', 'apptainer', 'singularity'].any { activeProfileText.contains(it) }) {
         if (params.container_image) {
@@ -213,6 +219,9 @@ workflow {
     def isCoordinateProjectionStage = params.run_stage == 'coordinate_projection'
     def isReToGeneInferenceStage = params.run_stage == 're_to_gene_inference'
     def isAdvancedStatisticsStage = params.run_stage == 'advanced_statistics'
+    def isCeegCompatibilityStage = params.run_stage == 'ceeg_compatibility' || (ceegEnabled && params.run_stage == 'validation')
+    def ceegStub = params.ceeg_stub.toString().trim().toLowerCase()
+    def ceegBundlePath = params.ceeg_model_bundle ? file(params.ceeg_model_bundle.toString()).toAbsolutePath().toString() : null
     def phylogenyManifestPath = params.phylogeny_manifest ? file(params.phylogeny_manifest) : null
     def phylogenyBaseDir = phylogenyManifestPath ? (phylogenyManifestPath.parent ?: '.') : '.'
     def existingIndexByGroup = file("${params.outdir}/phenotype/index/phenotype_index_by_group.tsv")
@@ -366,6 +375,13 @@ workflow {
         if (!file(params.advanced_model_config).exists()) {
             error "Stage advanced_statistics could not find advanced_model_config at '${params.advanced_model_config}'."
         }
+    } else if (isCeegCompatibilityStage) {
+        if (!params.ceeg_model_bundle) {
+            error "Stage ceeg_compatibility requires --ceeg_model_bundle."
+        }
+        if (!(ceegStub in ["true", "1", "yes"]) && !file(ceegBundlePath).exists()) {
+            error "Stage ceeg_compatibility could not find ceeg_model_bundle at '${params.ceeg_model_bundle}'."
+        }
     } else if (!realModeValidationEnabled && (!params.phenotype_samplesheet || !params.omics_samplesheet || !params.species_traits ||
         !params.reference_manifest || !params.phylogeny_manifest || !params.study_design)) {
         error "Missing metadata input. Provide --phenotype_samplesheet, --omics_samplesheet, --species_traits, --reference_manifest, --phylogeny_manifest, and --study_design."
@@ -419,7 +435,7 @@ workflow {
     def activeGeneAnnotations = params.gene_annotations ? gateFile(params.gene_annotations) : null
     def activeGeneSets = params.gene_sets ? gateFile(params.gene_sets) : null
     def activeCandidateScoringConfigValue = params.candidate_scoring_config ? gateValue(file(params.candidate_scoring_config).toString()) : null
-    if (!isAllStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && hasFullMetadata) {
+    if (!isAllStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && !isCeegCompatibilityStage && hasFullMetadata) {
         METADATA_VALIDATION(
             activePhenotypeSamplesheet,
             activeOmicsSamplesheet,
@@ -430,7 +446,7 @@ workflow {
             params.validation_strict ?: false
         )
         metadataReport = METADATA_VALIDATION.out.report
-    } else if (!realModeValidationEnabled && !isAllStage && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage) {
+    } else if (!realModeValidationEnabled && !isAllStage && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && !isCeegCompatibilityStage) {
         PHYLO_METADATA_VALIDATION(
             activePhenotypeSamplesheet,
             activeSpeciesTraits,
@@ -449,7 +465,7 @@ workflow {
         log.info "Skipping full Stage 1 metadata validation for ${params.run_stage} because only downstream inputs were provided."
     }
 
-    if (!isAllStage && params.study_profile && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage) {
+    if (!isAllStage && params.study_profile && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && !isCeegCompatibilityStage) {
         STUDY_PROFILE_VALIDATION(
             activeStudyProfile,
             activePhenotypeSamplesheet,
@@ -463,7 +479,7 @@ workflow {
     }
 
     if (params.run_stage == 'all' && !validateOnly) {
-        log.warn "[CAME WARNING] --run_stage all excludes optional/scaffold stages: reference_prepare, reference_quality, wgs_variants, coordinate_projection, re_to_gene_inference, advanced_statistics. Run each explicitly with --run_stage <name>. Use --list_stages true for the full catalog."
+        log.warn "[CAME WARNING] --run_stage all excludes optional/scaffold stages: reference_prepare, reference_quality, wgs_variants, coordinate_projection, re_to_gene_inference, advanced_statistics, ceeg_compatibility. Run each explicitly with --run_stage <name>. Use --list_stages true for the full catalog."
         def functionalMinScore = params.functional_interpretation_min_score != null ? params.functional_interpretation_min_score.toString() : ''
         ALL(
             activePhenotypeSamplesheet,
@@ -574,6 +590,11 @@ workflow {
             advancedHypothesisModelResults,
             advancedPhenotypeOmicsModelTable.toString(),
             params.advanced_statistics_stub
+        )
+    } else if (isCeegCompatibilityStage && !validateOnly) {
+        CEEG_COMPATIBILITY(
+            ceegBundlePath,
+            ceegStub
         )
     } else if (params.run_stage == 'differential_omics' && !validateOnly) {
         def requestedOmicsTypes = params.omics_types.toString().split(',').collect { it.trim().toLowerCase() }.findAll { it }

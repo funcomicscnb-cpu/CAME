@@ -108,7 +108,7 @@ phenotype_qc:
 
 ## Phenotype Design
 
-`phenotype_design` can configure replicate identity and normalization scope without changing downstream table schemas:
+`phenotype_design` can configure replicate identity, group aggregation, and normalization scope:
 
 ```yaml
 phenotype_design:
@@ -119,11 +119,18 @@ phenotype_design:
     - condition
     - timepoint
     - batch
+  group_key:
+    - species
+    - condition
+    - timepoint
+    - tissue
   normalization_scope:
     - assay
 ```
 
-Both keys are optional. Defaults are `species`, `individual_id`, `replicate_id`, `condition`, `timepoint` for replicate identity and `assay`, `measurement` for normalization scope. Custom fields must exist as phenotype samplesheet columns, and `replicate_key` must include `species`, `condition`, and `timepoint` in v1.
+All keys are optional. Defaults are `species`, `individual_id`, `replicate_id`, `condition`, `timepoint` for replicate identity; `species`, `condition`, `timepoint` for group aggregation; and `assay`, `measurement` for normalization scope. Custom fields must exist as phenotype samplesheet columns. `group_key` must include `species`, and every `group_key` field must also be present in `replicate_key`.
+
+`group_key` controls group-level phenotype index aggregation, sparse-group QC checks, and contrast stratification. For example, adding `tissue` makes baseline/response contrasts pair only within the same species and tissue. Contrast generation also requires `group_key` to include the contrast axes it compares, such as `condition` and `timepoint` for `baseline_vs_response`.
 
 ## Derived Variables
 

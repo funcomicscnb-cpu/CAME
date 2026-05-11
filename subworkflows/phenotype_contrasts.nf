@@ -12,11 +12,12 @@ process PHENOTYPE_CONTRASTS {
     path 'contrasts/phenotype_index_contrasts.tsv', emit: index
     path 'contrasts/component_trait_contrasts.tsv', emit: components
     path 'contrasts/phenotype_index_contrasts_long.tsv', emit: index_long
+    path 'qc/phenotype_contrast_pairs.tsv', emit: audit
 
     script:
     """
     test -s ${index_by_sample}
-    mkdir -p contrasts
+    mkdir -p contrasts qc
     python3 ${projectDir}/bin/phenotype_contrasts.py \\
       --phenotype_table ${phenotype_table} \\
       --study_profile ${study_profile} \\
@@ -24,6 +25,7 @@ process PHENOTYPE_CONTRASTS {
       --indexes_by_group ${indexes_by_group} \\
       --index_output contrasts/phenotype_index_contrasts.tsv \\
       --component_output contrasts/component_trait_contrasts.tsv \\
-      --index_long_output contrasts/phenotype_index_contrasts_long.tsv
+      --index_long_output contrasts/phenotype_index_contrasts_long.tsv \\
+      --contrast_audit qc/phenotype_contrast_pairs.tsv
     """
 }

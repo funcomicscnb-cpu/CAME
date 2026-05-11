@@ -59,4 +59,5 @@ workflow PHENOTYPE_RESPONSE {
     index_by_group = CALC_PHENOTYPE_INDEX.out.group
     index_contrasts = PHENOTYPE_CONTRASTS.out.index
     component_contrasts = PHENOTYPE_CONTRASTS.out.components
+    contrast_audit = PHENOTYPE_CONTRASTS.out.audit
 }

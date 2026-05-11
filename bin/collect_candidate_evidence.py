@@ -25,7 +25,7 @@ EVIDENCE_FIELDS = [
     "p_value",
     "padj",
     "score_input_value",
-    "evidence_status",
+    "evidence_status",  # CAME pipeline status {OK, WARNING}; distinct from CEEG evidence_status {observed, projected_direct, projected_indirect}
     "source_table",
     "evidence_scope",
     "source_feature_id",

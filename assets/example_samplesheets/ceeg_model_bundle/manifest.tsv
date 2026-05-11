@@ -1,0 +1,2 @@
+bundle_id	biological_system	data_mode	source	version	nodes_file	edges_file	evidence_file	metrics_file	provenance_file	notes
+ceeg_example	generic_immune	bulk,single_cell,hybrid	example	0.1	nodes.tsv	edges.tsv	evidence.tsv	metrics.tsv	provenance.tsv	Minimal stub bundle for CEEG compatibility layer testing

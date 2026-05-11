@@ -1,0 +1,6 @@
+evidence_id	node_id	edge_id	evidence_type	data_mode	unknown_absent	provenance	notes
+EV:obs_001	RE:obs_001		direct_observation	bulk	absent	ceeg_v0.1:assay:ATAC-seq	Assayed in reference panel; unknown_absent=absent means the record exists and the feature is evidenced
+EV:proj_d_001	RE:proj_d_001	E:proj_d_001	direct_RE_projection	bulk	absent	ceeg_v0.1:align:lastz	Projected by direct alignment; absent means the projection record exists; does not imply functional conservation
+EV:proj_d_sc_001	RE:proj_d_sc_001		direct_RE_projection	single_cell	absent	ceeg_v0.1:align:lastz:sc_ref	Projected from single-cell CEEG reference using same alignment method; data_mode=single_cell
+EV:proj_i_001	RE:proj_i_001	E:proj_i_001	indirect_RE_projection	hybrid	absent	ceeg_v0.1:synteny:ensembl_v110	Indirect projection; provenance records synteny source; data_mode=hybrid reflects mixed reference
+EV:unk_001	RE:unk_001		unmappable	bulk	unknown	ceeg_v0.1:gap:assembly_v1	Alignment gap; unknown_absent=unknown means state is not determined; must not be treated as absent

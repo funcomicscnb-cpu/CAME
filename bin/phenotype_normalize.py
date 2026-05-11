@@ -99,6 +99,7 @@ def clean_rows(fields, rows, summary):
 def design_summary_rows(design, normalization):
     return [
         {"parameter": "replicate_key", "configured_value": "|".join(design["replicate_key"])},
+        {"parameter": "group_key", "configured_value": "|".join(design["group_key"])},
         {"parameter": "normalization_scope", "configured_value": "|".join(design["normalization_scope"])},
         {"parameter": "normalization_mode", "configured_value": normalization},
     ]
@@ -200,7 +201,11 @@ def parse_args():
 def main():
     args = parse_args()
     summary = []
-    design = {"replicate_key": list(REPLICATE_KEY), "normalization_scope": ["assay", "measurement"]}
+    design = {
+        "replicate_key": list(REPLICATE_KEY),
+        "group_key": ["species", "condition", "timepoint"],
+        "normalization_scope": ["assay", "measurement"],
+    }
     if args.study_profile:
         try:
             design = profile_design(load_profile(args.study_profile))

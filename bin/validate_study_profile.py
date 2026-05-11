@@ -8,7 +8,7 @@ import json
 import os
 import re
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 
 try:
@@ -523,9 +523,40 @@ def contrast_pair_specs(contrast, pheno_rows):
     return None
 
 
-def validate_contrast_executability(contrast, idx, components, pheno_rows, records, source="phenotype_index"):
+def effective_group_key(profile):
+    design = profile.get("phenotype_design")
+    if not isinstance(design, dict):
+        return ["species", "condition", "timepoint"]
+    raw_group_key = design.get("group_key")
+    if not isinstance(raw_group_key, list):
+        return ["species", "condition", "timepoint"]
+    group_key = [norm(field) for field in raw_group_key if norm(field)]
+    return group_key or ["species", "condition", "timepoint"]
+
+
+def paired_strata_present(species_rows, pair_specs, group_key):
+    for left_spec, right_spec in pair_specs:
+        axis_fields = set(left_spec) | set(right_spec)
+        strata_fields = [field for field in group_key if field != "species" and field not in axis_fields]
+        left_strata = {
+            tuple(norm(row.get(field)) for field in strata_fields)
+            for row in species_rows
+            if row_matches_group(row, left_spec)
+        }
+        right_strata = {
+            tuple(norm(row.get(field)) for field in strata_fields)
+            for row in species_rows
+            if row_matches_group(row, right_spec)
+        }
+        if left_strata & right_strata:
+            return True
+    return False
+
+
+def validate_contrast_executability(contrast, idx, components, pheno_rows, records, source="phenotype_index", group_key=None):
     if not components:
         return
+    group_key = group_key or ["species", "condition", "timepoint"]
     all_pair_specs = contrast_pair_specs(contrast, pheno_rows)
     if all_pair_specs is None:
         add(
@@ -575,16 +606,16 @@ def validate_contrast_executability(contrast, idx, components, pheno_rows, recor
                 suggestion="Add the required condition/timepoint fields for this contrast type.",
             )
             continue
-        if not pair_specs:
+        if not pair_specs or not paired_strata_present(species_rows_all, pair_specs, group_key):
             add(
                 records,
                 "ERROR",
                 "phenotype_samplesheet",
                 "condition/timepoint",
                 idx,
-                f"Contrast is not executable for species {species} because no shared phenotype groups match: {norm(contrast.get('name'))}",
+                f"Contrast is not executable for species {species} because no shared phenotype groups match within configured phenotype_design.group_key strata: {norm(contrast.get('name'))}",
                 rule_id="PROFILE_CONTRAST_NOT_EXECUTABLE",
-                suggestion="Add phenotype rows for matching baseline/response groups or remove the contrast.",
+                suggestion="Add phenotype rows for matching baseline/response groups within the same configured group strata or remove the contrast.",
             )
             continue
         for left_spec, right_spec in pair_specs:
@@ -657,6 +688,7 @@ def contrast_validation(profile, pheno_rows, records):
     conditions = {norm(row.get("condition")) for row in pheno_rows if norm(row.get("condition"))}
     timepoints = {norm(row.get("timepoint")) for row in pheno_rows if norm(row.get("timepoint"))}
     source = "phenotype_indexes" if "phenotype_indexes" in profile else "phenotype_index"
+    group_key = effective_group_key(profile)
     for index_number, index in enumerate(profile_indexes(profile), start=1):
         components = set(norm(x) for x in as_list(index.get("components")) if norm(x))
         contrasts = index.get("contrasts")
@@ -687,7 +719,7 @@ def contrast_validation(profile, pheno_rows, records):
                 if value and value not in timepoints:
                     add(records, "ERROR", "phenotype_samplesheet", field, row_id, f"Contrast timepoint not found in phenotype metadata: {value}")
             if ctype in CONTRAST_TYPES:
-                validate_contrast_executability(contrast, row_id, components, pheno_rows, records, source=source)
+                validate_contrast_executability(contrast, row_id, components, pheno_rows, records, source=source, group_key=group_key)
 
 
 def hypothesis_validation(profile, pheno_fields, pheno_rows, trait_fields, trait_rows, records):
@@ -721,6 +753,23 @@ def hypothesis_validation(profile, pheno_fields, pheno_rows, trait_fields, trait
                 add(records, "ERROR", "hypotheses", field, idx, f"Variable is not resolvable or declared as derived: {variable}")
 
 
+def _contrast_required_axes(contrast):
+    ctype = norm(contrast.get("type"))
+    if ctype == "baseline_vs_response":
+        return ["condition", "timepoint"]
+    if ctype in {"treated_vs_control", "condition_contrast"}:
+        axes = ["condition"]
+        if norm(contrast.get("baseline_timepoint")) or norm(contrast.get("response_timepoint")):
+            axes.append("timepoint")
+        return axes
+    if ctype == "timepoint_contrast":
+        axes = ["timepoint"]
+        if norm(contrast.get("baseline_condition")) or norm(contrast.get("response_condition")):
+            axes.append("condition")
+        return axes
+    return []
+
+
 def design_validation(profile, pheno_fields, records):
     if "phenotype_design" not in profile:
         return
@@ -737,7 +786,7 @@ def design_validation(profile, pheno_fields, records):
         )
         return
 
-    allowed_keys = {"replicate_key", "normalization_scope"}
+    allowed_keys = {"replicate_key", "group_key", "normalization_scope"}
     for key in sorted(design):
         if key not in allowed_keys:
             add(
@@ -748,11 +797,12 @@ def design_validation(profile, pheno_fields, records):
                 "",
                 f"Unsupported phenotype_design key: {key}",
                 rule_id="PROFILE_DESIGN_UNKNOWN_KEY",
-                suggestion="Use only replicate_key and normalization_scope in phenotype_design.",
+                suggestion="Use only replicate_key, group_key, and normalization_scope in phenotype_design.",
             )
 
     field_set = {norm(field) for field in pheno_fields}
-    for key_name in ["replicate_key", "normalization_scope"]:
+    design_values = {}
+    for key_name in ["replicate_key", "group_key", "normalization_scope"]:
         if key_name not in design:
             continue
         raw_values = design.get(key_name)
@@ -768,6 +818,7 @@ def design_validation(profile, pheno_fields, records):
             )
             continue
         values = [norm(value) for value in raw_values]
+        design_values[key_name] = values
         if not values or any(not value for value in values):
             add(
                 records,
@@ -802,18 +853,56 @@ def design_validation(profile, pheno_fields, records):
                     suggestion=f"Add '{col}' as a column to the phenotype samplesheet or correct the {key_name} list.",
                 )
 
-        if key_name == "replicate_key":
-            missing = sorted({"species", "condition", "timepoint"} - set(values))
-            for field in missing:
+        if key_name == "group_key" and "species" not in set(values):
+            add(
+                records,
+                "ERROR",
+                "phenotype_design",
+                key_name,
+                "",
+                "group_key must include species",
+                rule_id="PROFILE_DESIGN_MISSING_GROUP_FIELD",
+                suggestion="Include species in phenotype_design.group_key.",
+            )
+
+    replicate_values = design_values.get("replicate_key", ["species", "individual_id", "replicate_id", "condition", "timepoint"])
+    group_values = design_values.get("group_key", ["species", "condition", "timepoint"])
+    if replicate_values and group_values:
+        missing = sorted(set(group_values) - set(replicate_values))
+        for field in missing:
+            add(
+                records,
+                "ERROR",
+                "phenotype_design",
+                "replicate_key",
+                "",
+                f"replicate_key must include group_key field: {field}",
+                rule_id="PROFILE_DESIGN_MISSING_GROUP_FIELD",
+                suggestion="Include every phenotype_design.group_key field in phenotype_design.replicate_key.",
+            )
+
+    group_key_set = set(group_values)
+    for index in profile_indexes(profile):
+        contrasts = index.get("contrasts")
+        if isinstance(contrasts, dict):
+            contrasts = [contrasts]
+        if not isinstance(contrasts, list):
+            continue
+        for contrast in contrasts:
+            if not isinstance(contrast, dict):
+                continue
+            required_axes = _contrast_required_axes(contrast)
+            missing_axes = sorted(f for f in required_axes if f not in group_key_set)
+            if missing_axes:
                 add(
                     records,
                     "ERROR",
                     "phenotype_design",
-                    key_name,
+                    "group_key",
                     "",
-                    f"replicate_key must include fixed v1 group field: {field}",
-                    rule_id="PROFILE_DESIGN_MISSING_GROUP_FIELD",
-                    suggestion="Include species, condition, and timepoint in phenotype_design.replicate_key.",
+                    f"Contrast '{norm(contrast.get('name'))}' (type={norm(contrast.get('type'))}) requires group_key field(s): {','.join(missing_axes)}",
+                    rule_id="PROFILE_DESIGN_MISSING_CONTRAST_AXIS",
+                    suggestion=f"Add {','.join(missing_axes)} to phenotype_design.group_key, or change the contrast type.",
                 )
 
 

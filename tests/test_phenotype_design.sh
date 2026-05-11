@@ -149,7 +149,7 @@ mkdir -p "$DEFAULT_DIR"
 write_profile "$DEFAULT_DIR" ""
 run_pipeline "$DEFAULT_DIR/profile.yaml" "$DEFAULT_DIR/out"
 assert_grep '^replicate_key	species|individual_id|replicate_id|condition|timepoint$' "$DEFAULT_DIR/out/phenotype_design_summary.tsv" "default replicate key not recorded"
-assert_awk "$DEFAULT_DIR/out/index_by_group.tsv" 'BEGIN{FS="\t"; ok=0} NR>1 && $3=="Species_a" && $4=="baseline" && $5=="t0" && ($7>1.499 && $7<1.501){ok=1} END{exit ok?0:1}' "default index value changed"
+assert_awk "$DEFAULT_DIR/out/index_by_group.tsv" 'BEGIN{FS="\t"; ok=0} NR==1{for(i=1;i<=NF;i++) h[$i]=i} NR>1 && $h["species"]=="Species_a" && $h["condition"]=="baseline" && $h["timepoint"]=="t0" && ($h["index_value"]>1.499 && $h["index_value"]<1.501){ok=1} END{exit ok?0:1}' "default index value changed"
 
 NO_PROFILE_OUT="$TMP_DIR/no_profile"
 mkdir -p "$NO_PROFILE_OUT"

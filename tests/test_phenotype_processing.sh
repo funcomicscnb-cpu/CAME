@@ -82,12 +82,12 @@ write_phenotype "$PHENO"
 
 GENERIC_OUT="$TMP_DIR/generic"
 run_pipeline "$ROOT_DIR/profiles/generic/study_profile.yaml" "$PHENO" "$GENERIC_OUT"
-assert_value "$GENERIC_OUT/index_by_group.tsv" 'BEGIN{FS="\t"; ok=0} NR>1 && $3=="Species_a" && $4=="response" && $5=="t1" && ($7>1.999 && $7<2.001){ok=1} END{exit ok?0:1}' "generic response index value"
-assert_value "$GENERIC_OUT/index_contrasts.tsv" 'BEGIN{FS="\t"; ok=0} NR>1 && $1=="baseline_vs_response" && $3=="Species_a" && ($7>0.499 && $7<0.501){ok=1} END{exit ok?0:1}' "generic contrast difference"
+assert_value "$GENERIC_OUT/index_by_group.tsv" 'BEGIN{FS="\t"; ok=0} NR==1{for(i=1;i<=NF;i++) h[$i]=i} NR>1 && $h["species"]=="Species_a" && $h["condition"]=="response" && $h["timepoint"]=="t1" && ($h["index_value"]>1.999 && $h["index_value"]<2.001){ok=1} END{exit ok?0:1}' "generic response index value"
+assert_value "$GENERIC_OUT/index_contrasts.tsv" 'BEGIN{FS="\t"; ok=0} NR==1{for(i=1;i<=NF;i++) h[$i]=i} NR>1 && $h["contrast_name"]=="baseline_vs_response" && $h["species"]=="Species_a" && ($h["difference"]>0.499 && $h["difference"]<0.501){ok=1} END{exit ok?0:1}' "generic contrast difference"
 
 DDR_OUT="$TMP_DIR/ddr"
 run_pipeline "$ROOT_DIR/profiles/ddr_ror/study_profile.yaml" "$PHENO" "$DDR_OUT"
-assert_value "$DDR_OUT/index_by_group.tsv" 'BEGIN{FS="\t"; ok=0} NR>1 && $3=="Species_a" && $4=="damage" && $5=="24h" && ($7>0.444 && $7<0.445){ok=1} END{exit ok?0:1}' "DDR/RoR damage index value"
+assert_value "$DDR_OUT/index_by_group.tsv" 'BEGIN{FS="\t"; ok=0} NR==1{for(i=1;i<=NF;i++) h[$i]=i} NR>1 && $h["species"]=="Species_a" && $h["condition"]=="damage" && $h["timepoint"]=="24h" && ($h["index_value"]>0.444 && $h["index_value"]<0.445){ok=1} END{exit ok?0:1}' "DDR/RoR damage index value"
 
 MISSING="$TMP_DIR/missing_component.csv"
 awk -F, 'BEGIN{OFS=","} !($8=="component_c" && $5=="response" && $6=="t1"){print}' "$PHENO" > "$MISSING"

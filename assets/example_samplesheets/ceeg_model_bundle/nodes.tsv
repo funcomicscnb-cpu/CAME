@@ -1,0 +1,7 @@
+node_id	node_type	biological_system	data_mode	evidence_status	projection_type	mapping_state	label	species	notes
+BS:generic_immune	biological_system	generic_immune	bulk	observed	none	mappable	Generic immune response system	multi-species	Biological system context node; not a feature record
+RE:obs_001	regulatory_element	generic_immune	bulk	observed	none	mappable	Observed RE in query species	Mus_musculus	Directly assayed in bulk ATAC-seq; evidence_status=observed, not projected
+RE:proj_d_001	regulatory_element	generic_immune	bulk	projected_direct	direct	mappable	Direct-alignment projected RE	Danio_rerio	Positional projection by sequence alignment; carries no functional conservation claim
+RE:proj_d_sc_001	regulatory_element	generic_immune	single_cell	projected_direct	direct	mappable	Direct-projected RE from single-cell reference	Danio_rerio	Same alignment method applied to single-cell reference; data_mode=single_cell
+RE:proj_i_001	regulatory_element	generic_immune	hybrid	projected_indirect	indirect	mappable	Indirectly projected RE via synteny	Xenopus_tropicalis	Synteny-based; no direct sequence alignment; data_mode=hybrid
+RE:unk_001	regulatory_element	generic_immune	bulk	observed	none	unknown_unmappable	Observed RE with failed alignment	Mus_musculus	Alignment gap in query genome; state is unknown_unmappable, not absent

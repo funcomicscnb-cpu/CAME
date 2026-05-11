@@ -59,15 +59,16 @@ Keep component names stable, ASCII, and formula-safe: start with a letter or und
 
 ## Phenotype Design
 
-Use `phenotype_design` only when the default replicate or normalization assumptions do not match the study:
+Use `phenotype_design` only when the default replicate, group, or normalization assumptions do not match the study:
 
 ```yaml
 phenotype_design:
-  replicate_key: [species, individual_id, replicate_id, condition, timepoint, batch]
+  replicate_key: [species, individual_id, replicate_id, condition, timepoint, tissue, batch]
+  group_key: [species, condition, timepoint, tissue]
   normalization_scope: [assay]
 ```
 
-`replicate_key` controls replicate aggregation and phenotype index sample IDs. It may add columns such as `batch`, but must include `species`, `condition`, and `timepoint` because v1 group outputs are still grouped on those fields. `normalization_scope` controls the groups used by `_within_assay` normalization modes. All configured fields must be phenotype samplesheet columns.
+`replicate_key` controls replicate aggregation and phenotype index sample IDs. `group_key` controls group-level index aggregation, sparse-group QC checks, and contrast stratification. It must include `species`, every `group_key` field must also be included in `replicate_key`, and it must retain the axes used by configured contrasts. `normalization_scope` controls the groups used by `_within_assay` normalization modes and remains independent of `group_key`. All configured fields must be phenotype samplesheet columns.
 
 ## Safe Formula Syntax
 
@@ -186,7 +187,8 @@ python3 bin/phenotype_contrasts.py \
   --study_profile profiles/my_profile/study_profile.yaml \
   --index_by_group /tmp/came_profile_index_by_group.tsv \
   --index_output /tmp/came_profile_index_contrasts.tsv \
-  --component_output /tmp/came_profile_component_contrasts.tsv
+  --component_output /tmp/came_profile_component_contrasts.tsv \
+  --contrast_audit /tmp/came_profile_contrast_pairs.tsv
 ```
 
 Before sharing a profile, also run:

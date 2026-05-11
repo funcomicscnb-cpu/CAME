@@ -56,9 +56,19 @@ Component values are gathered by replicate unit:
 
 `species + individual_id + replicate_id + condition + timepoint`
 
-Profiles can optionally set `phenotype_design.replicate_key` to add replicate identity columns such as `batch`. Custom replicate keys must still include `species`, `condition`, and `timepoint` because v1 group outputs remain fixed to those columns.
+Profiles can optionally set `phenotype_design.replicate_key` to add replicate identity columns such as `batch` or `tissue`.
 
-The calculator resolves components from `measurement` first, with `assay` as a compatibility fallback. Missing required components fail the run. Division by zero writes `NA` and a warning instead of crashing. Group-level index values aggregate replicate index values by `species + condition + timepoint`.
+The calculator resolves components from `measurement` first, with `assay` as a compatibility fallback. Missing required components fail the run. Division by zero writes `NA` and a warning instead of crashing. Group-level index values aggregate replicate index values by `species + condition + timepoint` by default.
+
+Profiles can set `phenotype_design.group_key` to aggregate groups on additional phenotype columns:
+
+```yaml
+phenotype_design:
+  replicate_key: [species, individual_id, replicate_id, condition, timepoint, tissue]
+  group_key: [species, condition, timepoint, tissue]
+```
+
+`group_key` must include `species`, and every group field must also be present in `replicate_key`. Group outputs include `phenotype_group_id` and `phenotype_group_key` while retaining the legacy `species`, `condition`, and `timepoint` columns when those fields are present.
 
 Aggregation values are `mean`, `median`, `sum`, and `first`. Existing names such as `mean_by_species_condition_timepoint` map to `mean`.
 
@@ -103,13 +113,17 @@ Profile contrasts support:
 
 The direction is always `response - baseline`. Fold change is `response / baseline` when the baseline is nonzero. `log2_fold_change` is emitted only when baseline and response are positive.
 
+When `phenotype_design.group_key` contains extra dimensions, contrasts are stratified by the non-axis group fields. For `baseline_vs_response`, the axes are `condition` and `timepoint`, so a group key such as `species + condition + timepoint + tissue` pairs baseline and response only within the same species and tissue. A group key must include the axes required by the configured contrast type; otherwise contrast generation fails instead of collapsing distinct labels. The contrast tables keep the existing `group_id` contrast-pair meaning and add `group_strata_fields` plus `group_strata_values` for traceability.
+
 Outputs:
 
 - `results/phenotype/contrasts/phenotype_index_contrasts.tsv`
 - `results/phenotype/contrasts/component_trait_contrasts.tsv`
 - `results/phenotype/contrasts/phenotype_index_contrasts_long.tsv`
+- `results/phenotype/qc/phenotype_contrast_pairs.tsv`
 
 The legacy `phenotype_index_contrasts.tsv` file contains only the primary index. The long contrast table contains all indexes and prepends `phenotype_index_name`.
+The contrast-pair audit records paired and unpaired group lookups with `PAIRED`, `UNPAIRED_BASELINE`, and `UNPAIRED_RESPONSE` statuses.
 
 ## Examples
 

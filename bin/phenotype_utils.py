@@ -7,7 +7,6 @@ import math
 import os
 import statistics
 import sys
-from collections import defaultdict
 
 try:
     import yaml
@@ -20,6 +19,7 @@ ALLOWED_FUNCTIONS = {"abs": abs, "min": min, "max": max}
 ALLOWED_AGGREGATIONS = {"mean", "median", "sum", "first"}
 REPLICATE_KEY = ["species", "individual_id", "replicate_id", "condition", "timepoint"]
 GROUP_KEY = ["species", "condition", "timepoint"]
+DEFAULT_GROUP_KEY = ["species", "condition", "timepoint"]
 
 
 class FormulaError(Exception):
@@ -197,29 +197,44 @@ def profile_design(profile):
         design = {}
     if not isinstance(design, dict):
         raise RuntimeError("phenotype_design must be a mapping")
-    allowed = {"replicate_key", "normalization_scope"}
+    allowed = {"replicate_key", "normalization_scope", "group_key"}
     unknown = sorted(key for key in design if key not in allowed)
     if unknown:
         raise RuntimeError(f"phenotype_design contains unsupported key(s): {','.join(unknown)}")
     replicate_key = design_list(design, "replicate_key", REPLICATE_KEY)
     normalization_scope = design_list(design, "normalization_scope", ["assay", "measurement"])
-    required_group_fields = {"species", "condition", "timepoint"}
-    missing = sorted(required_group_fields - set(replicate_key))
-    if missing:
-        raise RuntimeError(
-            "phenotype_design.replicate_key must include species, condition, and timepoint "
-            f"for v1 group outputs; missing: {','.join(missing)}"
-        )
+    group_key = profile_group_key(profile, replicate_key=replicate_key)
     return {
         "replicate_key": replicate_key,
+        "group_key": group_key,
         "normalization_scope": normalization_scope,
     }
+
+
+def profile_group_key(profile, replicate_key=None):
+    design = profile.get("phenotype_design")
+    if design is None:
+        design = {}
+    if not isinstance(design, dict):
+        raise RuntimeError("phenotype_design must be a mapping")
+    group_key = design_list(design, "group_key", DEFAULT_GROUP_KEY)
+    if "species" not in set(group_key):
+        raise RuntimeError("phenotype_design.group_key must include species")
+    if replicate_key is None:
+        replicate_key = design_list(design, "replicate_key", REPLICATE_KEY)
+    missing = sorted(set(group_key) - set(replicate_key))
+    if missing:
+        raise RuntimeError(
+            "phenotype_design.group_key contains fields absent from replicate_key: "
+            + ",".join(missing)
+        )
+    return group_key
 
 
 def validate_design_fields(fields, design):
     field_set = {norm(field) for field in fields}
     missing = []
-    for key_name in ["replicate_key", "normalization_scope"]:
+    for key_name in ["replicate_key", "group_key", "normalization_scope"]:
         for field in design.get(key_name, []):
             if field not in field_set:
                 missing.append(f"{key_name}:{field}")
@@ -286,8 +301,8 @@ def replicate_id_for_row(row, replicate_key=None):
     return "|".join(norm(row.get(field)) for field in key)
 
 
-def group_id_for_row(row):
-    return "|".join(norm(row.get(field)) for field in GROUP_KEY)
+def group_id_for_row(row, group_key=None):
+    return "|".join(norm(row.get(field)) for field in (group_key or GROUP_KEY))
 
 
 def validate_formula_tree(formula, components):

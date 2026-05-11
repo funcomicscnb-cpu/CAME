@@ -1,0 +1,7 @@
+record_id	node_id	edge_id	source	version	pipeline_step	notes
+PR:001	RE:obs_001		ceeg_reference_panel	0.1	atac_peak_calling	MACS3 peaks on bulk ATAC-seq; reference is read-only
+PR:002	RE:proj_d_001	E:proj_d_001	ceeg_reference_panel	0.1	direct_alignment	lastz pairwise alignment; target genome is query; not a functional annotation
+PR:003	RE:proj_d_sc_001		ceeg_reference_panel	0.1	direct_alignment_sc	lastz applied to sc-ATAC consensus peaks; same alignment semantics as PR:002
+PR:004	RE:proj_i_001	E:proj_i_001	ceeg_reference_panel	0.1	synteny_projection	Ensembl v110 synteny blocks; indirect projection chain recorded here
+PR:005	RE:unk_001		ceeg_reference_panel	0.1	alignment_qc	Failed alignment QC; assembly gap at locus; provenance preserved to record failure reason
+PR:006	BS:generic_immune		ceeg_reference_panel	0.1	system_definition	Biological system node; no pipeline_step applies beyond initial definition
