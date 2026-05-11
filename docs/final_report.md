@@ -95,6 +95,47 @@ Release checks write:
 
 Release `WARNING` records do not fail the workflow. Release `ERROR` records fail the Nextflow stage after report, provenance, assets, and check outputs have been written.
 
+## CEEG Contract Consumption
+
+When CAME-I0 has been run (`--run_stage ceeg_compatibility`), the final report includes a
+compact "CEEG Contract Consumption" section between Stage Summaries and Release Checks.
+
+This section reports:
+
+- R1 bundle scaffold status (yes/unknown);
+- R2 overlay consumed: yes/no, with validator name, version, status, and exit code;
+- R3 mapping audit consumed: yes/no, with validator name, version, status, and exit code;
+- mapping counts (total features, mapped, ambiguous, failed) when R3 is consumed;
+- CEEG adapter warnings;
+- anti-overclaim notes (always present).
+
+**When CEEG outputs are absent or header-only:**
+
+If `results/ceeg_compatibility/` is absent, or if CAME-I0 was run without R2/R3 artifact
+directories (producing header-only outputs), the section renders:
+
+```
+No CEEG R2 overlay or R3 mapping audit artifacts were supplied.
+This is not a contract-validation failure.
+```
+
+This is not reported as an error, warning, or missing-data condition.
+
+**Fatal and invalid CEEG statuses:**
+
+Fatal (exit_code=2) and invalid (exit_code=1) CEEG statuses are displayed as recorded.
+The final-report stage itself exits 0 regardless of CEEG validator exit codes in consumed
+artifacts. Final reporting is a renderer, not a validator gate.
+
+**Forbidden fields:**
+
+The CEEG Contract Consumption section does not report: conservation scores, functional
+equivalence, biological absence, biological comparability scores, admissibility status,
+candidate scores, or any causal or statistical claims.
+
+See [ceeg_invariants.md](ceeg_invariants.md) for the CEEG/CAME semantic-invariants statement
+and [ceeg_compatibility.md](ceeg_compatibility.md) for CEEG artifact details.
+
 ## Limitations
 
 - Final reporting summarizes available outputs and does not prove missing upstream stages were unnecessary.

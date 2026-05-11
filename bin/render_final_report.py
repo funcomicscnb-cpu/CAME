@@ -73,6 +73,16 @@ LIMITATIONS = [
     "Orthology tables and regulatory-element-to-gene links are consumed, not inferred.",
 ]
 
+CEEG_ANTI_OVERCLAIM_NOTES = [
+    "Failed mapping is not biological absence.",
+    "Ambiguous mapping is not collapsed to one-to-one.",
+    "Orthology or homology-like mapping is not identity.",
+]
+
+CEEG_INVARIANTS_REF = (
+    "See docs/ceeg_invariants.md for the full CEEG/CAME semantic-invariants statement."
+)
+
 FALLBACK_CSS = """body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; color: #18212f; line-height: 1.45; }
 h1, h2, h3 { color: #12344d; }
 a { color: #0b5cad; }
@@ -391,6 +401,195 @@ def release_counts(release_summary: list[dict[str, str]]) -> str:
     return ", ".join(f"{key}={counts[key]}" for key in sorted(counts) if key) or "unavailable"
 
 
+def load_ceeg_section_data(results_dir: Path) -> dict:
+    ceeg_dir = results_dir / "ceeg_compatibility"
+    _, contract_rows = read_table(ceeg_dir / "ceeg_contract_summary.tsv")
+    _, mapping_rows = read_table(ceeg_dir / "ceeg_mapping_summary.tsv")
+    _, warnings_rows = read_table(ceeg_dir / "ceeg_compatibility_warnings.tsv")
+
+    r2_rows = [r for r in contract_rows if r.get("artifact_type") == "r2_overlay" and norm(r.get("validator_name"))]
+    r3_rows = [r for r in contract_rows if r.get("artifact_type") == "r3_mapping" and norm(r.get("validator_name"))]
+
+    r1_consumed = "unknown"
+    for r1_path in [
+        results_dir / "ceeg" / "summary" / "ceeg_compatibility_summary.tsv",
+        results_dir / "ceeg" / "imported" / "ceeg_imported_nodes.tsv",
+    ]:
+        if r1_path.is_file():
+            r1_consumed = "yes"
+            break
+
+    return {
+        "r2_rows": r2_rows,
+        "r3_rows": r3_rows,
+        "mapping_rows": mapping_rows,
+        "warnings_rows": warnings_rows,
+        "r1_consumed": r1_consumed,
+    }
+
+
+def _ceeg_no_artifacts_msg(r1_consumed: str) -> str:
+    if r1_consumed == "yes":
+        return (
+            "R1 CEEG scaffold artifacts were detected. "
+            "No CEEG R2 overlay or R3 mapping audit artifacts were supplied. "
+            "This is not a contract-validation failure."
+        )
+    return (
+        "No CEEG R2 overlay or R3 mapping audit artifacts were supplied. "
+        "This is not a contract-validation failure."
+    )
+
+
+def _ceeg_section_md(data: dict) -> str:
+    r2_rows = data["r2_rows"]
+    r3_rows = data["r3_rows"]
+    mapping_rows = data["mapping_rows"]
+    warnings_rows = data["warnings_rows"]
+    r1_consumed = data["r1_consumed"]
+
+    lines = ["## CEEG Contract Consumption", ""]
+    lines.append(f"R1 bundle scaffold: {r1_consumed}")
+    lines.append(f"R2 overlay consumed: {'yes' if r2_rows else 'no'}")
+    lines.append(f"R3 mapping audit consumed: {'yes' if r3_rows else 'no'}")
+    lines.append("")
+
+    if not r2_rows and not r3_rows:
+        lines.append(_ceeg_no_artifacts_msg(r1_consumed))
+        lines.append("")
+        lines.append("See docs/ceeg_compatibility.md for details on header-only CEEG compatibility outputs.")
+        lines.append("")
+    else:
+        lines.append("### R2 Overlay Contract")
+        lines.append("")
+        if r2_rows:
+            r2 = r2_rows[0]
+            lines.append(f"- R2 validator: {norm(r2.get('validator_name'))}")
+            lines.append(f"- R2 validator version: {norm(r2.get('validator_version'))}")
+            lines.append(f"- R2 status: {norm(r2.get('status'))}")
+            lines.append(f"- R2 exit code: {norm(r2.get('exit_code'))}")
+            if norm(r2.get("message")):
+                lines.append(f"- R2 message: {norm(r2.get('message'))}")
+        else:
+            lines.append("No R2 overlay contract artifacts were supplied.")
+        lines.append("")
+
+        lines.append("### R3 Mapping Audit")
+        lines.append("")
+        if r3_rows:
+            r3 = r3_rows[0]
+            lines.append(f"- R3 validator: {norm(r3.get('validator_name'))}")
+            lines.append(f"- R3 validator version: {norm(r3.get('validator_version'))}")
+            lines.append(f"- R3 status: {norm(r3.get('status'))}")
+            lines.append(f"- R3 exit code: {norm(r3.get('exit_code'))}")
+        else:
+            lines.append("No R3 mapping-contract artifacts were supplied.")
+        lines.append("")
+
+        if mapping_rows:
+            lines.append("### Mapping Counts")
+            lines.append("")
+            for mr in mapping_rows:
+                lines.append(f"- Total features: {norm(mr.get('total_features'))}")
+                lines.append(f"- Mapped features: {norm(mr.get('mapped_count'))}")
+                lines.append(f"- Ambiguous mappings: {norm(mr.get('ambiguous_count'))}")
+                lines.append(f"- Failed mappings: {norm(mr.get('failed_count'))}")
+            lines.append("")
+
+    if warnings_rows:
+        lines.append("### Warnings")
+        lines.append("")
+        for wr in warnings_rows[:10]:
+            lines.append(f"- [{norm(wr.get('severity'))}] {norm(wr.get('source'))}: {norm(wr.get('message'))}")
+        lines.append("")
+
+    lines.append("Notes:")
+    for note in CEEG_ANTI_OVERCLAIM_NOTES:
+        lines.append(f"- {note}")
+    lines.append("")
+    lines.append(CEEG_INVARIANTS_REF)
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def _ceeg_section_html(data: dict) -> str:
+    r2_rows = data["r2_rows"]
+    r3_rows = data["r3_rows"]
+    mapping_rows = data["mapping_rows"]
+    warnings_rows = data["warnings_rows"]
+    r1_consumed = data["r1_consumed"]
+
+    parts = [
+        "<section>",
+        "<h2>CEEG Contract Consumption</h2>",
+        "<ul>",
+        f"<li>R1 bundle scaffold: {html.escape(r1_consumed)}</li>",
+        f"<li>R2 overlay consumed: {html.escape('yes' if r2_rows else 'no')}</li>",
+        f"<li>R3 mapping audit consumed: {html.escape('yes' if r3_rows else 'no')}</li>",
+        "</ul>",
+    ]
+
+    if not r2_rows and not r3_rows:
+        parts.append(f"<p>{html.escape(_ceeg_no_artifacts_msg(r1_consumed))}</p>")
+        parts.append('<p class="note">See docs/ceeg_compatibility.md for details on header-only CEEG compatibility outputs.</p>')
+    else:
+        parts.append("<h3>R2 Overlay Contract</h3>")
+        if r2_rows:
+            r2 = r2_rows[0]
+            parts.append("<ul>")
+            parts.append(f"<li>R2 validator: {html.escape(norm(r2.get('validator_name')))}</li>")
+            parts.append(f"<li>R2 validator version: {html.escape(norm(r2.get('validator_version')))}</li>")
+            parts.append(f"<li>R2 status: {html.escape(norm(r2.get('status')))}</li>")
+            parts.append(f"<li>R2 exit code: {html.escape(norm(r2.get('exit_code')))}</li>")
+            if norm(r2.get("message")):
+                parts.append(f"<li>R2 message: {html.escape(norm(r2.get('message')))}</li>")
+            parts.append("</ul>")
+        else:
+            parts.append("<p>No R2 overlay contract artifacts were supplied.</p>")
+
+        parts.append("<h3>R3 Mapping Audit</h3>")
+        if r3_rows:
+            r3 = r3_rows[0]
+            parts.append("<ul>")
+            parts.append(f"<li>R3 validator: {html.escape(norm(r3.get('validator_name')))}</li>")
+            parts.append(f"<li>R3 validator version: {html.escape(norm(r3.get('validator_version')))}</li>")
+            parts.append(f"<li>R3 status: {html.escape(norm(r3.get('status')))}</li>")
+            parts.append(f"<li>R3 exit code: {html.escape(norm(r3.get('exit_code')))}</li>")
+            parts.append("</ul>")
+        else:
+            parts.append("<p>No R3 mapping-contract artifacts were supplied.</p>")
+
+        if mapping_rows:
+            parts.append("<h3>Mapping Counts</h3>")
+            for mr in mapping_rows:
+                parts.append("<ul>")
+                parts.append(f"<li>Total features: {html.escape(norm(mr.get('total_features')))}</li>")
+                parts.append(f"<li>Mapped features: {html.escape(norm(mr.get('mapped_count')))}</li>")
+                parts.append(f"<li>Ambiguous mappings: {html.escape(norm(mr.get('ambiguous_count')))}</li>")
+                parts.append(f"<li>Failed mappings: {html.escape(norm(mr.get('failed_count')))}</li>")
+                parts.append("</ul>")
+
+    if warnings_rows:
+        parts.append("<h3>Warnings</h3><ul>")
+        for wr in warnings_rows[:10]:
+            parts.append(
+                f"<li>[{html.escape(norm(wr.get('severity')))}] "
+                f"{html.escape(norm(wr.get('source')))}: "
+                f"{html.escape(norm(wr.get('message')))}</li>"
+            )
+        parts.append("</ul>")
+
+    parts.append("<h3>Notes</h3><ul>")
+    for note in CEEG_ANTI_OVERCLAIM_NOTES:
+        parts.append(f"<li>{html.escape(note)}</li>")
+    parts.append("</ul>")
+    parts.append(f'<p class="note">{html.escape(CEEG_INVARIANTS_REF)}</p>')
+    parts.append("</section>")
+
+    return "\n".join(parts)
+
+
 def build_markdown(profile: dict[str, str], sections: list[dict[str, object]], missing_rows: list[dict[str, str]], release_rows: list[dict[str, str]], release_summary: list[dict[str, str]], candidate_fields: list[str], candidate_rows: list[dict[str, str]], candidate_message: str, enrich_fields: list[str], enrich_rows: list[dict[str, str]], enrich_message: str, provenance_fields: list[str], provenance_rows: list[dict[str, str]], parameter_fields: list[str], parameter_rows: list[dict[str, str]], warning_fields: list[str], warning_rows: list[dict[str, str]], results_dir: Path) -> str:
     lines = [
         "# CAME Final Report",
@@ -439,6 +638,8 @@ def build_markdown(profile: dict[str, str], sections: list[dict[str, object]], m
                 lines.append(f"- {summary}")
         lines.append("")
 
+    ceeg_data = load_ceeg_section_data(results_dir)
+    lines.append(_ceeg_section_md(ceeg_data))
     lines.extend(["## Release Checks", ""])
     lines.append(f"- Release check counts: {release_counts(release_summary)}")
     lines.append(f"- Release check errors present: {str(any(row.get('status') == 'ERROR' for row in release_rows)).lower()}")
@@ -502,6 +703,8 @@ def build_html(profile: dict[str, str], sections: list[dict[str, object]], missi
             links.append(f'<li><a href="{html.escape(relative_link(results_dir, rel_path))}">{html.escape(label)}</a></li>')
     limitations = "".join(f"<li>{html.escape(item)}</li>" for item in LIMITATIONS)
     warning_table = html_table(warning_fields, warning_rows[:20]) if warning_rows else "<p>No warning groups were detected.</p>"
+    ceeg_data = load_ceeg_section_data(results_dir)
+    ceeg_html_block = _ceeg_section_html(ceeg_data)
     return f"""
 <h1>CAME Final Report</h1>
 <section>
@@ -536,6 +739,7 @@ def build_html(profile: dict[str, str], sections: list[dict[str, object]], missi
 <h2>Stage Summaries</h2>
 {''.join(stage_summaries)}
 </section>
+{ceeg_html_block}
 <section>
 <h2>Release Checks</h2>
 <ul>

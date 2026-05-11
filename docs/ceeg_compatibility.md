@@ -187,25 +187,42 @@ See also `docs/ceeg_invariants.md`.
 
 ---
 
+## Final-report integration
+
+CAME-I1 adds a compact "CEEG Contract Consumption" section to the CAME final report
+(`results/final/report/came_final_report.html` and `.md`).
+
+This section is contract-status reporting only:
+
+- Fatal and invalid CEEG statuses (exit_code 1 or 2) are displayed as recorded; they are
+  not reinterpreted by the final-report stage.
+- The final-report stage exits 0 regardless of CEEG validator exit codes recorded in consumed
+  artifacts. Final reporting is a renderer, not a validator gate.
+- The final report does not infer conservation, equivalence, absence, comparability, or
+  admissibility from CEEG outputs.
+- Header-only CEEG compatibility output files indicate that no R2/R3 artifact directories were
+  supplied. They are not a contract-validation failure.
+- Missing `results/ceeg_compatibility/` is not a contract-validation failure.
+
+---
+
 ## Relationship to existing CAME stages
 
 - Not part of `--run_stage all`.
 - Does not replace orthology projection.
 - Does not replace GRA analysis.
 - Does not replace candidate prioritization.
-- Does not feed final reporting in I0.
 - Does not change real-mode RNA/ATAC/WGS behavior.
 
 ---
 
 ## Deferred items
 
-The following are intentionally out of scope for CAME-I0:
+The following are intentionally out of scope for CAME-I0/I1:
 
 - Calling CEEG CLIs (`bin/run_came_overlay.py`, `bin/run_mapping_contract.py`) from within
-  CAME — deferred to CAME-I1.
+  CAME — deferred to CAME-I2.
 - Artifact-only mode without `--ceeg_model_bundle`.
-- Final-report integration (`results/final/report/` rendering of CEEG contract status).
 - Candidate-prioritization use of R2/R3 outputs.
 - Orthology/GRA/phenotype-omics use of R3 mapping summaries.
 - R4 admissibility/biological-comparability scoring.
