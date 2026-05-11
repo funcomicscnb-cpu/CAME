@@ -182,8 +182,61 @@ nextflow run . \
 
 CAME-I2 tests use local mock commands (`tests/fixtures/mock_ceeg_validator.sh`) rather
 than a real CEEG repository checkout. The mock emits CAME-I0-compatible artifact schemas
-and is not a substitute for CEEG validation. A real integration test against an actual
-CEEG checkout is recommended as an optional external CI profile after CAME-I2 commits.
+and is not a substitute for CEEG validation. An opt-in real-CEEG integration test is
+available at `tests/test_ceeg_external_integration.sh` (see below).
+
+### External integration testing
+
+`tests/test_ceeg_external_integration.sh` exercises the real cross-repository boundary:
+
+```
+CEEG validator CLI -> emitted R2/R3 artifacts -> CAME-I0 summarizer
+```
+
+It does **not** run the full Nextflow orchestration path
+(`ORCHESTRATE_CEEG_VALIDATORS -> CONSUME_CEEG_CONTRACT_ARTIFACTS -> CHECK_CEEG_CONTRACT_STATUS`).
+That path is already covered by mock-driven CAME tests. A real-CEEG full Nextflow E2E
+profile is deferred.
+
+**The test is skipped unless `CEEG_REPO` is set.** Default CAME CI is unaffected.
+
+```bash
+# Skip mode (default CI) — clean skip, exit 0
+unset CEEG_REPO
+bash tests/test_ceeg_external_integration.sh
+
+# Real-CEEG mode
+export CEEG_REPO=/path/to/ceeg
+bash tests/test_ceeg_external_integration.sh
+```
+
+**Environment variables:**
+
+| Variable | Default | Description |
+|---|---|---|
+| `CEEG_REPO` | — | Required. Path to a real CEEG checkout. Skipped if unset. |
+| `CEEG_R2_RUN_DIR` | `$CEEG_REPO/examples/R2_came_overlay_valid/enabled` | R2 valid run dir. |
+| `CEEG_R3_RUN_DIR` | `$CEEG_REPO/examples/R3_mapping_contract_valid/basic` | R3 valid run dir. |
+| `CEEG_R2_INVALID_RUN_DIR` | `$CEEG_REPO/examples/R2_came_overlay_invalid/core/incompatible_contract_version` | R2 invalid run dir. |
+| `CEEG_R3_INVALID_RUN_DIR` | `$CEEG_REPO/examples/R3_mapping_contract_invalid/core/invalid_mapping_status` | R3 invalid run dir. |
+| `CEEG_R2_FATAL_RUN_DIR` | — | Optional. Fatal R2 run dir. Tested only if set; exit 2 empirically confirmed. |
+| `CEEG_R3_FATAL_RUN_DIR` | — | Optional. Fatal R3 run dir. Tested only if set; exit 2 empirically confirmed. |
+| `CEEG_VALIDATION_MODE` | `development` | Forwarded as `--validation-mode`. |
+| `CEEG_CREATED_AT` | — | Optional. Forwarded as `--created-at` when set. |
+
+**Coverage:** valid (exit 0), invalid (exit 1), and fatal (exit 2, if empirically confirmed).
+Fatal fixture coverage is skipped if no fatal environment variable is set — mock-driven CAME
+tests remain the current coverage for exit-2 orchestration behavior.
+
+**Failure categories distinguished:**
+- skipped: `CEEG_REPO` unset;
+- failed: CLI missing or help surface changed;
+- failed: chosen validation mode rejected by real CLI;
+- failed: run dir missing;
+- failed: expected artifacts absent after validator run;
+- failed: CAME checker rejected the validator exit code;
+- failed: CAME summarizer produced unexpected output or exit code;
+- failed: `exit_code` column in summary does not match expected value.
 
 ---
 
@@ -340,8 +393,13 @@ This section is contract-status reporting only:
 
 The following are intentionally out of scope for CAME-I0/I1/I2:
 
-- Real CEEG integration test against an actual CEEG repository checkout — recommended
-  as an optional external CI profile after CAME-I2 commits.
+- Real-CEEG full Nextflow E2E coverage for `--ceeg_orchestrate_contracts true` — the
+  opt-in CLI+adapter test (`tests/test_ceeg_external_integration.sh`) covers the
+  CEEG CLI → CAME-I0 boundary; full Nextflow orchestration path testing against a real
+  CEEG checkout is deferred.
+- Real CEEG fatal/exit-2 fixture coverage — mock-driven CAME tests cover exit-2 behavior;
+  real fatal fixtures can be added via `CEEG_R2_FATAL_RUN_DIR` / `CEEG_R3_FATAL_RUN_DIR`
+  once canonical CEEG fatal fixtures exist.
 - Artifact-only mode without `--ceeg_model_bundle`.
 - Candidate-prioritization use of R2/R3 outputs.
 - Orthology/GRA/phenotype-omics use of R3 mapping summaries.
