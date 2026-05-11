@@ -130,9 +130,13 @@ params.slurm_queue = ''
 params.slurm_queue_high = ''
 params.slurm_account = ''
 params.outdir = 'results'
-params.ceeg_model_bundle         = null
+params.ceeg_model_bundle          = null
 params.enable_ceeg_compatibility  = false
-params.ceeg_stub                 = false
+params.ceeg_stub                  = false
+params.ceeg_r2_overlay_dir        = null
+params.ceeg_r3_mapping_dir        = null
+params.ceeg_validation_mode       = 'development'
+params.ceeg_fail_on_contract_error = true
 
 workflow {
     def stageCatalog = [
@@ -153,7 +157,7 @@ workflow {
         [run_stage: 'coordinate_projection', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'comparative coordinates', notes: 'Optional scaffold; not production coordinate projection'],
         [run_stage: 're_to_gene_inference', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'regulatory links', notes: 'Optional scaffold; not production RE-to-gene inference'],
         [run_stage: 'advanced_statistics', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'advanced models', notes: 'Optional scaffold; not production advanced statistics'],
-        [run_stage: 'ceeg_compatibility', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'CEEG model bundle', notes: 'Optional CEEG-assisted candidate scoring; requires --ceeg_model_bundle'],
+        [run_stage: 'ceeg_compatibility', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'CEEG model bundle', notes: 'Optional CEEG contract artifact consumption interface; requires --ceeg_model_bundle'],
         [run_stage: 'all', maturity: 'orchestration', included_in_all: false, real_mode_scope: 'stub/real as configured', notes: 'Runs the core production chain; excludes optional/scaffold stages']
     ]
     if (params.list_stages.toString().toBoolean()) {
@@ -222,6 +226,8 @@ workflow {
     def isCeegCompatibilityStage = params.run_stage == 'ceeg_compatibility' || (ceegEnabled && params.run_stage == 'validation')
     def ceegStub = params.ceeg_stub.toString().trim().toLowerCase()
     def ceegBundlePath = params.ceeg_model_bundle ? file(params.ceeg_model_bundle.toString()).toAbsolutePath().toString() : null
+    def ceegR2OverlayDir = params.ceeg_r2_overlay_dir ? file(params.ceeg_r2_overlay_dir.toString()).toAbsolutePath().toString() : null
+    def ceegR3MappingDir = params.ceeg_r3_mapping_dir ? file(params.ceeg_r3_mapping_dir.toString()).toAbsolutePath().toString() : null
     def phylogenyManifestPath = params.phylogeny_manifest ? file(params.phylogeny_manifest) : null
     def phylogenyBaseDir = phylogenyManifestPath ? (phylogenyManifestPath.parent ?: '.') : '.'
     def existingIndexByGroup = file("${params.outdir}/phenotype/index/phenotype_index_by_group.tsv")
@@ -381,6 +387,12 @@ workflow {
         }
         if (!(ceegStub in ["true", "1", "yes"]) && !file(ceegBundlePath).exists()) {
             error "Stage ceeg_compatibility could not find ceeg_model_bundle at '${params.ceeg_model_bundle}'."
+        }
+        if (!(ceegStub in ["true", "1", "yes"]) && ceegR2OverlayDir && !file(ceegR2OverlayDir).exists()) {
+            error "Stage ceeg_compatibility could not find ceeg_r2_overlay_dir at '${params.ceeg_r2_overlay_dir}'."
+        }
+        if (!(ceegStub in ["true", "1", "yes"]) && ceegR3MappingDir && !file(ceegR3MappingDir).exists()) {
+            error "Stage ceeg_compatibility could not find ceeg_r3_mapping_dir at '${params.ceeg_r3_mapping_dir}'."
         }
     } else if (!realModeValidationEnabled && (!params.phenotype_samplesheet || !params.omics_samplesheet || !params.species_traits ||
         !params.reference_manifest || !params.phylogeny_manifest || !params.study_design)) {
@@ -594,6 +606,10 @@ workflow {
     } else if (isCeegCompatibilityStage && !validateOnly) {
         CEEG_COMPATIBILITY(
             ceegBundlePath,
+            ceegR2OverlayDir ?: '',
+            ceegR3MappingDir ?: '',
+            params.ceeg_validation_mode.toString(),
+            params.ceeg_fail_on_contract_error.toString().toBoolean(),
             ceegStub
         )
     } else if (params.run_stage == 'differential_omics' && !validateOnly) {

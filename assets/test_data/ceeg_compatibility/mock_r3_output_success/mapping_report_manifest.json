@@ -1,0 +1,20 @@
+{
+  "run_id": "mock_r3_run_001",
+  "validator_name": "mapping_contract_validator",
+  "validator_version": "0.1.0",
+  "validation_mode": "development",
+  "mapping_policy": "report_only",
+  "status": "valid",
+  "exit_code": 0,
+  "output_files": [
+    "validation_summary.tsv",
+    "run_mapping_results.tsv",
+    "run_mapping_matches.tsv",
+    "mapping_summary.tsv",
+    "unmapped_features.tsv",
+    "ambiguous_mappings.tsv",
+    "mapping_report_manifest.json",
+    "final_report.md"
+  ],
+  "created_at": "2026-05-11T00:00:00Z"
+}

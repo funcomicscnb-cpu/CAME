@@ -1,0 +1,17 @@
+{
+  "validator_name": "came_overlay_validator",
+  "validator_version": "0.1.0",
+  "validation_mode": "development",
+  "strict": false,
+  "run_id": "mock_r2_run_001",
+  "ceeg_enabled": true,
+  "overlay_mode": "report_only",
+  "ceeg_bundle_path": "/mock/ceeg_bundle",
+  "ceeg_bundle_status": "valid",
+  "ceeg_schema_version": "0.1.0",
+  "ceeg_contract_version": "0.1.0",
+  "compatibility_result": "compatible",
+  "warnings_count": 0,
+  "exit_code": 0,
+  "created_at": "2026-05-11T00:00:00Z"
+}

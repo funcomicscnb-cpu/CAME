@@ -16,7 +16,7 @@ The following commands are optional interfaces and are not production implementa
 - `coordinate_projection`: coordinate lift-over and regulatory-element orthology interface.
 - `re_to_gene_inference`: regulatory-element-to-gene inference interface.
 - `advanced_statistics`: optional advanced statistics and lightweight model-comparison interface.
-- `ceeg_compatibility`: optional CEEG-assisted candidate scoring interface; requires `--ceeg_model_bundle`.
+- `ceeg_compatibility`: optional CEEG contract artifact consumption interface; requires `--ceeg_model_bundle` and optionally consumes externally generated `--ceeg_r2_overlay_dir` and `--ceeg_r3_mapping_dir` artifact directories.
 
 Stub outputs are deterministic contract fixtures for validation and review. They should not be interpreted as production biological results.
 

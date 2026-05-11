@@ -1,0 +1,20 @@
+{
+  "run_id": "mock_r2_run_001",
+  "validator_name": "came_overlay_validator",
+  "validator_version": "0.1.0",
+  "validation_mode": "development",
+  "ceeg_enabled": true,
+  "overlay_mode": "report_only",
+  "status": "compatible",
+  "exit_code": 0,
+  "output_files": [
+    "compatibility_summary.json",
+    "validation_summary.tsv",
+    "run_warnings.tsv",
+    "run_provenance.tsv",
+    "run_activities.tsv",
+    "came_report_manifest.json",
+    "final_report.md"
+  ],
+  "created_at": "2026-05-11T00:00:00Z"
+}

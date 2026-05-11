@@ -1,0 +1,3 @@
+unmapped_id	feature_id	failure_reason	notes
+unmapped_001	FEAT_A	no_target_found	mock unmapped feature
+unmapped_002	FEAT_B	no_target_found	mock unmapped feature
