@@ -348,31 +348,21 @@ def _summary_row_for_comparison(
 
 
 def _annotate_evidence_rows(
-    upstream_fields: list[str],
     upstream_rows: list[dict],
     r4_dir: Path,
-) -> tuple[list[str], list[dict]]:
-    """Pass-through copy of upstream R4 evidence rows with provenance annotations."""
-    base_columns = [c for c in EVIDENCE_OUTPUT_COLUMNS if c in upstream_fields]
-    extras = [c for c in upstream_fields if c not in EVIDENCE_OUTPUT_COLUMNS]
-    output_columns: list[str] = []
-    for col in EVIDENCE_OUTPUT_COLUMNS:
-        if col in upstream_fields:
-            output_columns.append(col)
-    for col in extras:
-        output_columns.append(col)
-    if "source_artifact" not in output_columns:
-        output_columns.append("source_artifact")
-    if "interpretation_note" not in output_columns:
-        output_columns.append("interpretation_note")
+) -> list[dict]:
+    """Pass-through copy of upstream R4 evidence rows under the unified CAME
+    EVIDENCE_OUTPUT_COLUMNS schema, annotated with source_artifact and an
+    interpretation_note. Upstream columns not in the schema are dropped on
+    purpose so the CAME-side evidence TSV has a stable shape."""
     rows = []
     for row in upstream_rows:
-        new_row = {c: _safe_str(row.get(c, "")) for c in output_columns}
+        new_row = {c: _safe_str(row.get(c, "")) for c in EVIDENCE_OUTPUT_COLUMNS}
         if not new_row.get("source_artifact"):
             new_row["source_artifact"] = str(r4_dir / "comparability_evidence.tsv")
         new_row["interpretation_note"] = EVIDENCE_INTERPRETATION_NOTE
         rows.append(new_row)
-    return output_columns, rows
+    return rows
 
 
 def _primary_limitation_for(comparison_id: str, limitations_rows: list[dict]) -> str:
@@ -418,16 +408,9 @@ def main() -> int:
 
     # Evidence pass-through copy (header-only when upstream absent).
     if evidence_in_path.is_file():
-        evidence_fields, evidence_rows = _read_tsv(evidence_in_path)
-        evidence_columns, annotated_evidence = _annotate_evidence_rows(
-            evidence_fields, evidence_rows, r4_dir
-        )
-        # Ensure consistent column ordering by overriding output schema.
-        # Persist annotated rows under the unified schema; extras are dropped
-        # silently (we never invent or merge upstream extras into the summary).
-        _write_tsv(evidence_out, EVIDENCE_OUTPUT_COLUMNS, [
-            {c: row.get(c, "") for c in EVIDENCE_OUTPUT_COLUMNS} for row in annotated_evidence
-        ])
+        _, evidence_rows = _read_tsv(evidence_in_path)
+        annotated_evidence = _annotate_evidence_rows(evidence_rows, r4_dir)
+        _write_tsv(evidence_out, EVIDENCE_OUTPUT_COLUMNS, annotated_evidence)
         evidence_row_count = len(annotated_evidence)
     else:
         _write_tsv(evidence_out, EVIDENCE_OUTPUT_COLUMNS, [])

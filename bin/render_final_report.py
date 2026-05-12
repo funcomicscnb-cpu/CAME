@@ -855,14 +855,17 @@ def _ceeg_r4_section_md(data: dict) -> str:
     if not summary_rows:
         return ""
 
+    multi_row = len(summary_rows) > 1
+    group_md = "####" if multi_row else "###"
+
     lines = ["## CEEG R4 Comparability Evidence", ""]
     for idx, row in enumerate(summary_rows):
-        if len(summary_rows) > 1:
+        if multi_row:
             comparison_id = norm(row.get("comparison_id")) or f"row {idx + 1}"
             lines.append(f"### Comparison {comparison_id}")
             lines.append("")
         for group_name, fields in R4_GROUPS:
-            lines.append(f"### {group_name}")
+            lines.append(f"{group_md} {group_name}")
             lines.append("")
             for key, label in fields:
                 lines.append(f"- {label}: {norm(row.get(key))}")
@@ -875,7 +878,7 @@ def _ceeg_r4_section_md(data: dict) -> str:
             ]
         else:
             scoped = list(limitations_rows)
-        lines.append("### Limitations")
+        lines.append(f"{group_md} Limitations")
         lines.append("")
         lines.append(f"- Limitations count: {norm(row.get('limitations_count'))}")
         lines.append(f"- Primary limitation: {norm(row.get('primary_limitation'))}")
@@ -906,16 +909,19 @@ def _ceeg_r4_section_html(data: dict) -> str:
     if not summary_rows:
         return ""
 
+    multi_row = len(summary_rows) > 1
+    group_tag = "h4" if multi_row else "h3"
+
     parts = [
         "<section>",
         "<h2>CEEG R4 Comparability Evidence</h2>",
     ]
     for idx, row in enumerate(summary_rows):
-        if len(summary_rows) > 1:
+        if multi_row:
             comparison_id = norm(row.get("comparison_id")) or f"row {idx + 1}"
             parts.append(f"<h3>Comparison {html.escape(comparison_id)}</h3>")
         for group_name, fields in R4_GROUPS:
-            parts.append(f"<h3>{html.escape(group_name)}</h3>")
+            parts.append(f"<{group_tag}>{html.escape(group_name)}</{group_tag}>")
             parts.append("<ul>")
             for key, label in fields:
                 parts.append(
@@ -929,7 +935,7 @@ def _ceeg_r4_section_html(data: dict) -> str:
             ]
         else:
             scoped = list(limitations_rows)
-        parts.append("<h3>Limitations</h3>")
+        parts.append(f"<{group_tag}>Limitations</{group_tag}>")
         parts.append("<ul>")
         parts.append(
             f"<li>Limitations count: {html.escape(norm(row.get('limitations_count')))}</li>"

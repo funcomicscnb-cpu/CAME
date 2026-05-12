@@ -299,22 +299,80 @@ for fmt in md html; do
 done
 pass "case11: R4 outputs contain no forbidden verdict phrasing"
 
-# ── case 12: R2/R3 body text reinforces R4 distinction (Track A wording) ─────
-CASE12="$TMP_DIR/case12"
-CASE12_OUT="$TMP_DIR/case12_out"
-setup_min_fixture "$CASE12"
-write_ceeg_headers "$CASE12"
-write_r2_success "$CASE12"
-mkdir -p "$CASE12_OUT"
-render "$CASE12" "$CASE12_OUT" "ceeg_contract_checked"
+# ── case 12: multi-row R4 summary renders one block per comparison ────────────
+# Uses a hand-written 2-row summary to confirm grouped headings use #### / h4
+# when wrapped under per-comparison ### / h3 (heading-hierarchy bug fix).
+CASE_MULTI="$TMP_DIR/case_multi"
+CASE_MULTI_OUT="$TMP_DIR/case_multi_out"
+setup_min_fixture "$CASE_MULTI"
+write_ceeg_headers "$CASE_MULTI"
+mkdir -p "$CASE_MULTI/ceeg_compatibility"
+# Two synthetic R4 comparison rows under the canonical 28-column schema.
+{
+  printf 'artifact_type\tartifact_path\tvalidator_name\tvalidator_version\tvalidation_mode\tstatus\texit_code\tcreated_at\tmodel_id\tcontext_id\tcomparison_count\tcomparison_id\tleft_system_id\tright_system_id\tentity_scope\tcomparability_status\tstatus_basis\tsupporting_evidence_count\tweakening_evidence_count\tmixed_evidence_count\tunresolved_evidence_count\tambiguity_count\tunknown_count\tunknown_unmappable_count\tabsent_count\tlimitations_count\tprimary_limitation\tmessage\n'
+  printf 'r4_comparability_report\t/mock/r4\tmock_validator\t1.0.0\tdevelopment\tevidence_supports_comparability\t0\t2026-05-11T00:00:00Z\tmodel_alpha\tcontext_beta\t2\tcmp_A001\tsys_L\tsys_R\tscope_X\tevidence_supports_comparability\tsupporting_evidence_majority\t3\t0\t0\t0\t0\t0\t0\t0\t0\t\tstatus=ok\n'
+  printf 'r4_comparability_report\t/mock/r4\tmock_validator\t1.0.0\tdevelopment\tevidence_mixed_for_comparability\t0\t2026-05-11T00:00:00Z\tmodel_alpha\tcontext_beta\t2\tcmp_B002\tsys_L\tsys_R\tscope_X\tevidence_mixed_for_comparability\tmixed_evidence\t1\t1\t2\t0\t0\t0\t0\t0\t0\t\tstatus=mixed\n'
+} > "$CASE_MULTI/ceeg_compatibility/ceeg_r4_comparability_summary.tsv"
+printf 'comparison_id\tcontext_id\tlimitation_id\tlimitation_type\tseverity\taffected_scope\tdescription\trecommended_interpretation\n' \
+  > "$CASE_MULTI/ceeg_compatibility/ceeg_r4_comparability_limitations.tsv"
+printf 'evidence_id\tcomparison_id\tcontext_id\tevidence_type\tevidence_class\tconfidence\tnotes\tsource_artifact\tinterpretation_note\n' \
+  > "$CASE_MULTI/ceeg_compatibility/ceeg_r4_comparability_evidence.tsv"
+mkdir -p "$CASE_MULTI_OUT"
+render "$CASE_MULTI" "$CASE_MULTI_OUT" "ceeg_comparability_evidence_consumed"
+# Both comparison_ids are surfaced.
+assert_grep "cmp_A001" "$CASE_MULTI_OUT/came_final_report.md" "case_multi/md: first comparison_id surfaced"
+assert_grep "cmp_B002" "$CASE_MULTI_OUT/came_final_report.md" "case_multi/md: second comparison_id surfaced"
+assert_grep "cmp_A001" "$CASE_MULTI_OUT/came_final_report.html" "case_multi/html: first comparison_id surfaced"
+assert_grep "cmp_B002" "$CASE_MULTI_OUT/came_final_report.html" "case_multi/html: second comparison_id surfaced"
+# Multi-row Markdown wraps each row under `### Comparison ...` and uses
+# `#### <group>` for the group subsections.
+assert_grep "^### Comparison cmp_A001" "$CASE_MULTI_OUT/came_final_report.md" \
+  "case_multi/md: per-comparison h3 wrapper for cmp_A001"
+assert_grep "^### Comparison cmp_B002" "$CASE_MULTI_OUT/came_final_report.md" \
+  "case_multi/md: per-comparison h3 wrapper for cmp_B002"
+assert_grep "^#### Validator metadata" "$CASE_MULTI_OUT/came_final_report.md" \
+  "case_multi/md: group subsection at h4 when multi-row"
+assert_grep "^#### Limitations" "$CASE_MULTI_OUT/came_final_report.md" \
+  "case_multi/md: limitations subsection at h4 when multi-row"
+# Multi-row HTML wraps each row under <h3>Comparison ...</h3> and uses <h4>
+# for the group subsections.
+assert_grep "<h3>Comparison cmp_A001</h3>" "$CASE_MULTI_OUT/came_final_report.html" \
+  "case_multi/html: per-comparison h3 wrapper for cmp_A001"
+assert_grep "<h3>Comparison cmp_B002</h3>" "$CASE_MULTI_OUT/came_final_report.html" \
+  "case_multi/html: per-comparison h3 wrapper for cmp_B002"
+assert_grep "<h4>Validator metadata</h4>" "$CASE_MULTI_OUT/came_final_report.html" \
+  "case_multi/html: group subsection at h4 when multi-row"
+assert_grep "<h4>Limitations</h4>" "$CASE_MULTI_OUT/came_final_report.html" \
+  "case_multi/html: limitations subsection at h4 when multi-row"
+pass "case_multi: multi-row R4 summary renders one block per comparison with correct heading hierarchy"
+
+# ── case 13: single-row R4 summary keeps groups at ### / h3 ─────────────────
+# Regression: when only one comparison row exists, group subsections use h3
+# (single-level structure). This pins the single-row hierarchy.
+assert_grep "^### Validator metadata" "$CASE1_OUT/came_final_report.md" \
+  "case_single: group subsection at h3 when single-row"
+assert_grep "<h3>Validator metadata</h3>" "$CASE1_OUT/came_final_report.html" \
+  "case_single/html: group subsection at h3 when single-row"
+assert_not_grep "^### Comparison" "$CASE1_OUT/came_final_report.md" \
+  "case_single: no per-comparison wrapper heading when single-row"
+pass "case_single: single-row R4 summary uses h3 groups and no per-comparison wrapper"
+
+# ── case 14: R2/R3 body text reinforces R4 distinction (Track A wording) ─────
+CASE14="$TMP_DIR/case14"
+CASE14_OUT="$TMP_DIR/case14_out"
+setup_min_fixture "$CASE14"
+write_ceeg_headers "$CASE14"
+write_r2_success "$CASE14"
+mkdir -p "$CASE14_OUT"
+render "$CASE14" "$CASE14_OUT" "ceeg_contract_checked"
 for fmt in md html; do
-  f="$CASE12_OUT/came_final_report.$fmt"
+  f="$CASE14_OUT/came_final_report.$fmt"
   assert_grep "CAME consumed CEEG R2/R3 contract artifacts in this run" "$f" \
-    "case12/$fmt: existing R2/R3 body retained"
+    "case14/$fmt: existing R2/R3 body retained"
   assert_grep "R2/R3 contract artifacts do not substitute for R4 comparability-evidence reporting" "$f" \
-    "case12/$fmt: R4 distinction sentence present"
+    "case14/$fmt: R4 distinction sentence present"
 done
-pass "case12: ceeg_contract_checked body retains R2/R3 wording and adds R4 distinction"
+pass "case14: ceeg_contract_checked body retains R2/R3 wording and adds R4 distinction"
 
 # ── Results ──────────────────────────────────────────────────────────────────
 echo "Results: $PASS passed, $FAIL failed"
