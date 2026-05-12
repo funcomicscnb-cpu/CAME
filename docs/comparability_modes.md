@@ -43,6 +43,11 @@ When a future R4 design lands (Track B), the proposed mode name must be compared
 
 CAME validates that the declared mode is consistent with the supplied inputs. Mixing `ceeg_contract_checked` with no R2/R3 inputs, or `design_assumed` with supplied R2/R3 inputs or orchestration commands, is a parameter-validation error.
 
+Consistency is enforced at two layers:
+
+- **Input-flag layer (`main.nf`):** rejects any run whose declared `--comparability_mode` contradicts the supplied `--ceeg_r2_overlay_dir` / `--ceeg_r3_mapping_dir` / orchestration flags.
+- **On-disk layer (`bin/render_final_report.py`):** the final-report renderer also reads `results/ceeg_compatibility/ceeg_contract_summary.tsv` and rejects any render whose declared mode contradicts the R2/R3 rows actually present on disk. This catches the case where a user re-runs `--run_stage final_report` against an existing results directory: a stale `ceeg_contract_checked` results tree cannot be re-rendered as `design_assumed`, and vice versa, without an explicit mode change or a clean results tree.
+
 ## Anti-overclaim rules
 
 This document does not restate or fork CAME's mapping-status invariants. Those are defined canonically in [`AGENTS.md`](../AGENTS.md), specifically:

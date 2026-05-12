@@ -110,7 +110,10 @@ or as informed by CEEG R2/R3 contract artifacts (`ceeg_contract_checked`).
 
 The mode is set by `--comparability_mode`. CAME's parameter validation rejects mode/input
 combinations that are inconsistent (e.g. `ceeg_contract_checked` without supplied R2/R3
-inputs). See [comparability_modes.md](comparability_modes.md) for the full vocabulary.
+inputs). The final-report renderer additionally cross-checks the declared mode against
+the R2/R3 contract rows actually present in `results/ceeg_compatibility/`, so a stale
+results tree cannot be re-rendered with a contradictory mode. See
+[comparability_modes.md](comparability_modes.md) for the full vocabulary.
 
 ## CEEG Contract Consumption
 
