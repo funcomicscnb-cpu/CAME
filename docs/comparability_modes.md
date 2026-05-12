@@ -35,7 +35,7 @@ These are the only values accepted by `--comparability_mode`. Supplying any othe
 - R2/R3 artifacts may be supplied in the same run; the final report renders both sections side by side. R4 artifacts are not required to also engage R2/R3.
 - CAME-I3 does not implement R4 orchestration. R4 orchestration may be added by a later CAME-I4 task if needed.
 
-### Names not currently accepted
+## Names not currently accepted
 
 - **`ceeg_comparability_validated`** — not accepted. R4 does not validate biological comparability as a verdict; it reports evidence state. The `_validated` suffix would overclaim.
 - **`ceeg_admissibility_validated`** — not accepted. R5 admissibility remains future and unscoped; no R5 design exists yet.
