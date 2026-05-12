@@ -154,6 +154,34 @@ assert_column_eq "$CASE6/ceeg_r4_comparability_summary.tsv" "status" "missing_ma
   && assert_column_eq "$CASE6/ceeg_r4_comparability_summary.tsv" "exit_code" "2" "case6: missing_manifest exit_code=2" \
   && pass "case6: missing R4 manifest → diagnostic row with exit_code=2"
 
+# ── 6b. Non-object JSON manifest (null, list, string) → parse_error row ───────
+# Regression for the second-pass review: json.loads("null") returns Python None
+# which has no .get(), so a malformed manifest that is valid JSON but not a
+# dict used to silently emit a header-only summary (and crash defensively at
+# the outer try/except in __main__). It must emit a parse_error diagnostic row
+# with exit_code=2 and a TypeError-derived message, identical in shape to the
+# malformed-JSON path.
+for content in 'null' '[]' '"hello"'; do
+  CASE6B="$TMP_DIR/case6b_$$_$RANDOM"
+  CASE6B_INPUT="$TMP_DIR/case6b_input_$$_$RANDOM"
+  mkdir -p "$CASE6B" "$CASE6B_INPUT"
+  printf '%s' "$content" > "$CASE6B_INPUT/comparability_report_manifest.json"
+  python3 "$ADAPTER" --out-dir "$CASE6B" --r4-dir "$CASE6B_INPUT" --created-at 2026-05-11T00:00:00Z
+  assert_column_eq "$CASE6B/ceeg_r4_comparability_summary.tsv" "status" "parse_error" "case6b ($content): parse_error status" \
+    && assert_column_eq "$CASE6B/ceeg_r4_comparability_summary.tsv" "exit_code" "2" "case6b ($content): exit_code=2" \
+    && assert_contains "$CASE6B/ceeg_r4_comparability_summary.tsv" "top-level value is" "case6b ($content): TypeError-derived message"
+  # --fail-on-error must surface exit 2 for these inputs.
+  set +e
+  python3 "$ADAPTER" --out-dir "$CASE6B" --r4-dir "$CASE6B_INPUT" --fail-on-error >/dev/null 2>&1
+  rcb=$?
+  set -e
+  if [ "$rcb" -eq 2 ]; then
+    pass "case6b ($content): --fail-on-error → exit 2 for non-object JSON manifest"
+  else
+    fail "case6b ($content): expected exit 2, got $rcb"
+  fi
+done
+
 # ── 7. Anti-overclaim: forbidden verdict strings must NOT appear in outputs ────
 CASE7="$TMP_DIR/case7"
 mkdir -p "$CASE7"

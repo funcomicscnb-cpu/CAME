@@ -431,12 +431,31 @@ def main() -> int:
         summary_rows.append(_build_missing_manifest_row(r4_dir))
         manifest_exit_code = 2
     else:
+        manifest: object | None
         try:
             manifest = json.loads(manifest_path.read_text())
         except Exception as exc:
             summary_rows.append(_build_parse_error_row(r4_dir, exc))
             manifest_exit_code = 2
+            manifest = None
         else:
+            if not isinstance(manifest, dict):
+                # JSON parsed but the top-level value is not an object (e.g.
+                # bare `null`, a list, or a string). Treat as a parse error so
+                # CHECK and the renderer see a diagnostic row instead of
+                # silently emitting a header-only summary.
+                summary_rows.append(
+                    _build_parse_error_row(
+                        r4_dir,
+                        TypeError(
+                            f"comparability_report_manifest.json top-level value is "
+                            f"{type(manifest).__name__!s}, expected object"
+                        ),
+                    )
+                )
+                manifest_exit_code = 2
+                manifest = None
+        if manifest is not None:
             manifest_exit_code = _safe_int(manifest.get("exit_code"))
             manifest_status = _safe_str(manifest.get("status"))
 
