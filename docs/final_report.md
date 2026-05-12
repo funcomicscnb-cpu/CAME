@@ -99,21 +99,33 @@ Release `WARNING` records do not fail the workflow. Release `ERROR` records fail
 
 The final report includes a "Comparability Mode" section immediately above the CEEG Contract
 Consumption section. It declares whether the current run treats cross-condition or
-cross-system comparability as assumed from experimental design (`design_assumed`, the default)
-or as informed by CEEG R2/R3 contract artifacts (`ceeg_contract_checked`).
+cross-system comparability as assumed from experimental design (`design_assumed`, the default),
+as informed by CEEG R2/R3 contract artifacts (`ceeg_contract_checked`), or as informed by
+CEEG R4 comparability evidence artifacts (`ceeg_comparability_evidence_consumed`).
 
-- `design_assumed`: the report states that no CEEG R2/R3 contract artifacts were consumed and
+- `design_assumed`: the report states that no CEEG R2/R3 or R4 artifacts were consumed and
   that comparability is assumed by the supplied experimental design.
 - `ceeg_contract_checked`: the report states that CEEG R2/R3 contract artifacts were consumed
   and explicitly notes that R2/R3 status is **not** R4 comparability validation and **not**
-  R5 admissibility validation.
+  R5 admissibility validation, and that R2/R3 contract artifacts do not substitute for R4
+  comparability-evidence reporting.
+- `ceeg_comparability_evidence_consumed`: the report states that CEEG R4 comparability evidence
+  artifacts were consumed (CAME-I3) and explicitly notes that R4 reports structured evidence
+  state under a bound analysis context, that it does not validate biological comparability as
+  a verdict, does not establish R5 admissibility, and does not alter CAME analysis outputs or
+  candidate rankings.
 
 The mode is set by `--comparability_mode`. CAME's parameter validation rejects mode/input
 combinations that are inconsistent (e.g. `ceeg_contract_checked` without supplied R2/R3
-inputs). The final-report renderer additionally cross-checks the declared mode against
-the R2/R3 contract rows actually present in `results/ceeg_compatibility/`, so a stale
-results tree cannot be re-rendered with a contradictory mode. See
-[comparability_modes.md](comparability_modes.md) for the full vocabulary.
+inputs, `ceeg_contract_checked` with supplied R4 inputs, or
+`ceeg_comparability_evidence_consumed` without `--ceeg_r4_comparability_dir`). The
+final-report renderer additionally cross-checks the declared mode against the R2/R3 contract
+rows and R4 comparability rows actually present in `results/ceeg_compatibility/`, so a stale
+results tree cannot be re-rendered with a contradictory mode. The renderer uses a centralized
+(mode, R2/R3 rows present, R4 rows present) truth table and emits an error message that names
+the declared mode, which rows were found or missing, the path of the relevant summary file,
+and the corrective action. See [comparability_modes.md](comparability_modes.md) for the full
+vocabulary.
 
 ## CEEG Contract Consumption
 
@@ -155,6 +167,41 @@ candidate scores, or any causal or statistical claims.
 
 See [ceeg_invariants.md](ceeg_invariants.md) for the CEEG/CAME semantic-invariants statement
 and [ceeg_compatibility.md](ceeg_compatibility.md) for CEEG artifact details.
+
+## CEEG R4 Comparability Evidence
+
+When CAME-I3 has been run with `--ceeg_r4_comparability_dir <dir>` and
+`--comparability_mode ceeg_comparability_evidence_consumed`, the final report includes a
+"CEEG R4 Comparability Evidence" section immediately after the CEEG Contract Consumption
+section. The section is hidden when no R4 rows are present.
+
+Fields are grouped into five subsections for readability. Markdown and HTML are
+string-by-string parallel:
+
+1. **Validator metadata** — R4 validator name, version, validation mode, created-at
+   timestamp, manifest exit code.
+2. **Context** — model ID, context ID, comparison count, comparison ID, left/right system
+   IDs, entity scope.
+3. **Evidence state** — manifest status, comparability status, status basis.
+4. **Evidence counts** — supporting, weakening, mixed, unresolved, ambiguity, unknown,
+   unknown-unmappable, and absent counts. These counts are preserved verbatim from the R4
+   summary; `unknown`, `unknown_unmappable`, and `absent` are not collapsed.
+5. **Limitations** — limitations count, primary limitation, and the top limitation rows
+   (limit 10) sorted by severity then limitation_type.
+
+The section ends with the verbatim anti-overclaim note: *"R4 reports structured
+evidence-state status under a bound analysis context. It does not validate biological
+comparability as a verdict, does not establish R5 admissibility, and does not alter CAME
+analysis outputs or candidate rankings."*
+
+When the R4 manifest reports `contract_error` (exit code 1 or 2), the section renders the
+CAME-side diagnostic row produced by `summarize_ceeg_r4_comparability_artifacts.py`. The
+diagnostic row exposes the manifest exit code so the user can see the failure even when
+the upstream `comparability_summary.tsv` is empty or absent.
+
+The R4 section never renders verdict phrasing such as "validated comparability",
+"biologically comparable", "biologically incomparable", "admissible candidate",
+"conserved candidate", "equivalent system", or "absent because unmappable".
 
 ## Limitations
 

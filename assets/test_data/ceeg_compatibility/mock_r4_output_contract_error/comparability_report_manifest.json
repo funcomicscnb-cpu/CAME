@@ -1,0 +1,23 @@
+{
+  "r4_contract_version": "1.0.0",
+  "artifact_type": "r4_comparability_report",
+  "run_id": "mock_r4_run_002",
+  "validator_name": "comparability_contract_validator",
+  "validator_version": "0.1.0",
+  "validation_mode": "development",
+  "status": "contract_error",
+  "exit_code": 1,
+  "created_at": "2026-05-11T00:00:00Z",
+  "model_id": "mock_model_alpha",
+  "context_id": "mock_context_beta",
+  "comparison_count": 0,
+  "input_artifacts": [
+    "r2_overlay/came_report_manifest.json"
+  ],
+  "output_files": [
+    "comparability_summary.tsv",
+    "comparability_evidence.tsv",
+    "comparability_limitations.tsv",
+    "comparability_report_manifest.json"
+  ]
+}

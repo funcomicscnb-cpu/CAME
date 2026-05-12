@@ -1,0 +1,2 @@
+evidence_id	comparison_id	context_id	evidence_type	evidence_class	source_artifact	confidence	notes
+ev_0001	cmp_0001	mock_context_beta	mapping_overlap	supporting	r3_mapping/mapping_summary.tsv	high	mock evidence row for fixture validation

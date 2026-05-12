@@ -622,5 +622,287 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# GROUP 3 — CAME-I3 R4 comparability evidence consumption (Nextflow)
+# ═══════════════════════════════════════════════════════════════════════════════
+R4_SUCCESS="$ROOT_DIR/assets/test_data/ceeg_compatibility/mock_r4_output_success"
+R4_CONTRACT_ERROR="$ROOT_DIR/assets/test_data/ceeg_compatibility/mock_r4_output_contract_error"
+R4_FATAL="$ROOT_DIR/assets/test_data/ceeg_compatibility/mock_r4_output_fatal"
+
+# ── Case R4-mode-A — design_assumed + R4 dir must fail at param validation ───
+NF_R4A_OUT="$TMP_DIR/nf_r4a_out"
+NF_R4A_WORK="$TMP_DIR/nf_r4a_work"
+NF_R4A_LOG="$TMP_DIR/nf_r4a.log"
+set +e
+nextflow run "$ROOT_DIR/main.nf" \
+  -work-dir "$NF_R4A_WORK" \
+  --outdir "$NF_R4A_OUT" \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle "$FIXTURE_BUNDLE" \
+  --ceeg_stub false \
+  --ceeg_r4_comparability_dir "$R4_SUCCESS" \
+  --comparability_mode design_assumed \
+  > "$NF_R4A_LOG" 2>&1
+NF_R4A_RC=$?
+set -e
+if [ "$NF_R4A_RC" != "0" ]; then
+  pass "R4-mode-A: design_assumed + R4 dir: workflow exits nonzero at param validation"
+else
+  cat "$NF_R4A_LOG"
+  fail "R4-mode-A: design_assumed + R4 dir: expected nonzero exit, got 0"
+fi
+if grep -q "comparability_mode" "$NF_R4A_LOG"; then
+  pass "R4-mode-A: error names comparability_mode"
+else
+  cat "$NF_R4A_LOG"
+  fail "R4-mode-A: error does not name comparability_mode"
+fi
+
+# ── Case R4-mode-B — ceeg_contract_checked + R4 dir must fail ────────────────
+NF_R4B_OUT="$TMP_DIR/nf_r4b_out"
+NF_R4B_WORK="$TMP_DIR/nf_r4b_work"
+NF_R4B_LOG="$TMP_DIR/nf_r4b.log"
+set +e
+nextflow run "$ROOT_DIR/main.nf" \
+  -work-dir "$NF_R4B_WORK" \
+  --outdir "$NF_R4B_OUT" \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle "$FIXTURE_BUNDLE" \
+  --ceeg_stub false \
+  --ceeg_r4_comparability_dir "$R4_SUCCESS" \
+  --comparability_mode ceeg_contract_checked \
+  > "$NF_R4B_LOG" 2>&1
+NF_R4B_RC=$?
+set -e
+if [ "$NF_R4B_RC" != "0" ]; then
+  pass "R4-mode-B: ceeg_contract_checked + R4 dir: workflow exits nonzero"
+else
+  cat "$NF_R4B_LOG"
+  fail "R4-mode-B: expected nonzero exit, got 0"
+fi
+if grep -q "ceeg_comparability_evidence_consumed" "$NF_R4B_LOG"; then
+  pass "R4-mode-B: error suggests ceeg_comparability_evidence_consumed"
+else
+  cat "$NF_R4B_LOG"
+  fail "R4-mode-B: error does not name ceeg_comparability_evidence_consumed"
+fi
+
+# ── Case R4-mode-C — ceeg_comparability_evidence_consumed + no R4 dir fails ──
+NF_R4C_OUT="$TMP_DIR/nf_r4c_out"
+NF_R4C_WORK="$TMP_DIR/nf_r4c_work"
+NF_R4C_LOG="$TMP_DIR/nf_r4c.log"
+set +e
+nextflow run "$ROOT_DIR/main.nf" \
+  -work-dir "$NF_R4C_WORK" \
+  --outdir "$NF_R4C_OUT" \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle "$FIXTURE_BUNDLE" \
+  --ceeg_stub false \
+  --comparability_mode ceeg_comparability_evidence_consumed \
+  > "$NF_R4C_LOG" 2>&1
+NF_R4C_RC=$?
+set -e
+if [ "$NF_R4C_RC" != "0" ]; then
+  pass "R4-mode-C: ceeg_comparability_evidence_consumed + no R4 dir: workflow exits nonzero"
+else
+  cat "$NF_R4C_LOG"
+  fail "R4-mode-C: expected nonzero exit, got 0"
+fi
+if grep -q "comparability_mode" "$NF_R4C_LOG"; then
+  pass "R4-mode-C: error names comparability_mode"
+else
+  cat "$NF_R4C_LOG"
+  fail "R4-mode-C: error does not name comparability_mode"
+fi
+
+# ── Case R4-success — R4 success + fail_on_contract_error=true → exit 0 ──────
+NF_R4S_OUT="$TMP_DIR/nf_r4s_out"
+NF_R4S_WORK="$TMP_DIR/nf_r4s_work"
+NF_R4S_LOG="$TMP_DIR/nf_r4s.log"
+set +e
+nextflow run "$ROOT_DIR/main.nf" \
+  -work-dir "$NF_R4S_WORK" \
+  --outdir "$NF_R4S_OUT" \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle "$FIXTURE_BUNDLE" \
+  --ceeg_stub false \
+  --ceeg_r4_comparability_dir "$R4_SUCCESS" \
+  --ceeg_fail_on_contract_error true \
+  --comparability_mode ceeg_comparability_evidence_consumed \
+  > "$NF_R4S_LOG" 2>&1
+NF_R4S_RC=$?
+set -e
+if [ "$NF_R4S_RC" = "0" ]; then
+  pass "R4-success: R4 success fixture + fail_on_contract_error=true exits 0"
+else
+  cat "$NF_R4S_LOG"
+  fail "R4-success: expected exit 0, got $NF_R4S_RC"
+fi
+R4_SUMMARY_S="$NF_R4S_OUT/ceeg_compatibility/ceeg_r4_comparability_summary.tsv"
+if [ -f "$R4_SUMMARY_S" ] && grep -q "evidence_supports_comparability" "$R4_SUMMARY_S"; then
+  pass "R4-success: R4 summary published with comparability_status=evidence_supports_comparability"
+else
+  cat "$NF_R4S_LOG"
+  fail "R4-success: R4 summary missing or lacks expected comparability_status"
+fi
+
+# ── Case R4-soft-fail — R4 contract_error + fail_on_contract_error=false ─────
+NF_R4SF_OUT="$TMP_DIR/nf_r4sf_out"
+NF_R4SF_WORK="$TMP_DIR/nf_r4sf_work"
+NF_R4SF_LOG="$TMP_DIR/nf_r4sf.log"
+set +e
+nextflow run "$ROOT_DIR/main.nf" \
+  -work-dir "$NF_R4SF_WORK" \
+  --outdir "$NF_R4SF_OUT" \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle "$FIXTURE_BUNDLE" \
+  --ceeg_stub false \
+  --ceeg_r4_comparability_dir "$R4_CONTRACT_ERROR" \
+  --ceeg_fail_on_contract_error false \
+  --comparability_mode ceeg_comparability_evidence_consumed \
+  > "$NF_R4SF_LOG" 2>&1
+NF_R4SF_RC=$?
+set -e
+if [ "$NF_R4SF_RC" = "0" ]; then
+  pass "R4-soft-fail: contract_error fixture + fail=false exits 0"
+else
+  cat "$NF_R4SF_LOG"
+  fail "R4-soft-fail: expected exit 0, got $NF_R4SF_RC"
+fi
+R4_SUMMARY_SF="$NF_R4SF_OUT/ceeg_compatibility/ceeg_r4_comparability_summary.tsv"
+if [ -f "$R4_SUMMARY_SF" ] && grep -q "contract_error" "$R4_SUMMARY_SF"; then
+  pass "R4-soft-fail: R4 summary published with diagnostic contract_error row"
+else
+  cat "$NF_R4SF_LOG"
+  fail "R4-soft-fail: R4 summary missing or lacks diagnostic contract_error row"
+fi
+
+# ── Case R4-fail (Refinement 4) — publish-before-fail, exit 1 ────────────────
+NF_R4F_OUT="$TMP_DIR/nf_r4f_out"
+NF_R4F_WORK="$TMP_DIR/nf_r4f_work"
+NF_R4F_LOG="$TMP_DIR/nf_r4f.log"
+set +e
+nextflow run "$ROOT_DIR/main.nf" \
+  -work-dir "$NF_R4F_WORK" \
+  --outdir "$NF_R4F_OUT" \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle "$FIXTURE_BUNDLE" \
+  --ceeg_stub false \
+  --ceeg_r4_comparability_dir "$R4_CONTRACT_ERROR" \
+  --ceeg_fail_on_contract_error true \
+  --comparability_mode ceeg_comparability_evidence_consumed \
+  > "$NF_R4F_LOG" 2>&1
+NF_R4F_RC=$?
+set -e
+if [ "$NF_R4F_RC" != "0" ]; then
+  pass "R4-fail: R4 contract_error + fail=true: workflow exits nonzero"
+else
+  cat "$NF_R4F_LOG"
+  fail "R4-fail: expected nonzero exit, got 0"
+fi
+R4_SUMMARY_F="$NF_R4F_OUT/ceeg_compatibility/ceeg_r4_comparability_summary.tsv"
+R4_LIM_F="$NF_R4F_OUT/ceeg_compatibility/ceeg_r4_comparability_limitations.tsv"
+if [ -f "$R4_SUMMARY_F" ]; then
+  pass "R4-fail: ceeg_r4_comparability_summary.tsv published before failure"
+else
+  cat "$NF_R4F_LOG"
+  fail "R4-fail: ceeg_r4_comparability_summary.tsv NOT published (publish-before-fail invariant)"
+fi
+if [ -f "$R4_SUMMARY_F" ] && awk -F'\t' '
+  NR == 1 {
+    for (i = 1; i <= NF; i++) if ($i == "exit_code") col = i
+    next
+  }
+  col > 0 && NR == 2 { print $col; exit }
+' "$R4_SUMMARY_F" | grep -q '^1$'; then
+  pass "R4-fail: published R4 summary contains exit_code=1 in diagnostic row"
+else
+  cat "$R4_SUMMARY_F"
+  fail "R4-fail: published R4 summary lacks exit_code=1"
+fi
+if [ -f "$R4_SUMMARY_F" ] && grep -q "contract_error" "$R4_SUMMARY_F"; then
+  pass "R4-fail: published R4 summary contains status=contract_error"
+else
+  fail "R4-fail: published R4 summary lacks contract_error status"
+fi
+if [ -f "$R4_LIM_F" ] && [ "$(wc -l < "$R4_LIM_F" | tr -d ' ')" -gt 1 ]; then
+  pass "R4-fail: ceeg_r4_comparability_limitations.tsv published and non-empty"
+else
+  fail "R4-fail: limitations TSV missing or header-only"
+fi
+if grep -q "ceeg_r4_comparability_summary.tsv" "$NF_R4F_LOG"; then
+  pass "R4-fail: failure message identifies ceeg_r4_comparability_summary.tsv"
+else
+  cat "$NF_R4F_LOG"
+  fail "R4-fail: failure message does not name ceeg_r4_comparability_summary.tsv"
+fi
+
+# ── Case R4-fatal-fail — R4 fatal (exit 2) + fail=true → exit 2 ──────────────
+NF_R4FF_OUT="$TMP_DIR/nf_r4ff_out"
+NF_R4FF_WORK="$TMP_DIR/nf_r4ff_work"
+NF_R4FF_LOG="$TMP_DIR/nf_r4ff.log"
+set +e
+nextflow run "$ROOT_DIR/main.nf" \
+  -work-dir "$NF_R4FF_WORK" \
+  --outdir "$NF_R4FF_OUT" \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle "$FIXTURE_BUNDLE" \
+  --ceeg_stub false \
+  --ceeg_r4_comparability_dir "$R4_FATAL" \
+  --ceeg_fail_on_contract_error true \
+  --comparability_mode ceeg_comparability_evidence_consumed \
+  > "$NF_R4FF_LOG" 2>&1
+NF_R4FF_RC=$?
+set -e
+if [ "$NF_R4FF_RC" != "0" ]; then
+  pass "R4-fatal-fail: R4 fatal exit-2 fixture + fail=true: workflow exits nonzero"
+else
+  cat "$NF_R4FF_LOG"
+  fail "R4-fatal-fail: expected nonzero exit, got 0"
+fi
+R4_SUMMARY_FF="$NF_R4FF_OUT/ceeg_compatibility/ceeg_r4_comparability_summary.tsv"
+if [ -f "$R4_SUMMARY_FF" ] && awk -F'\t' '
+  NR == 1 {
+    for (i = 1; i <= NF; i++) if ($i == "exit_code") col = i
+    next
+  }
+  col > 0 && NR == 2 { print $col; exit }
+' "$R4_SUMMARY_FF" | grep -q '^2$'; then
+  pass "R4-fatal-fail: published R4 summary contains exit_code=2 in diagnostic row"
+else
+  cat "$R4_SUMMARY_FF"
+  fail "R4-fatal-fail: published R4 summary lacks exit_code=2"
+fi
+
+# ── Case R4-stub-pass-through (Refinement 1) — stub + supplied R4 dir ────────
+NF_R4ST_OUT="$TMP_DIR/nf_r4st_out"
+NF_R4ST_WORK="$TMP_DIR/nf_r4st_work"
+NF_R4ST_LOG="$TMP_DIR/nf_r4st.log"
+set +e
+nextflow run "$ROOT_DIR/main.nf" \
+  -work-dir "$NF_R4ST_WORK" \
+  --outdir "$NF_R4ST_OUT" \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle "$FIXTURE_BUNDLE" \
+  --ceeg_stub true \
+  --ceeg_r4_comparability_dir "$R4_SUCCESS" \
+  --comparability_mode ceeg_comparability_evidence_consumed \
+  > "$NF_R4ST_LOG" 2>&1
+NF_R4ST_RC=$?
+set -e
+if [ "$NF_R4ST_RC" = "0" ]; then
+  pass "R4-stub-pass-through: stub + R4 success fixture exits 0"
+else
+  cat "$NF_R4ST_LOG"
+  fail "R4-stub-pass-through: expected exit 0, got $NF_R4ST_RC"
+fi
+R4_SUMMARY_ST="$NF_R4ST_OUT/ceeg_compatibility/ceeg_r4_comparability_summary.tsv"
+if [ -f "$R4_SUMMARY_ST" ] && grep -q "evidence_supports_comparability" "$R4_SUMMARY_ST"; then
+  pass "R4-stub-pass-through: stub mode consumed the supplied R4 directory (not fabricated)"
+else
+  cat "$NF_R4ST_LOG"
+  fail "R4-stub-pass-through: stub mode did not consume the supplied R4 directory"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
 printf 'Results: %d passed, %d failed\n' "$PASS" "$FAIL"
 exit "$( [ "$FAIL" = "0" ] && echo 0 || echo 1 )"

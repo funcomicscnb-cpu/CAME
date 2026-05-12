@@ -102,6 +102,7 @@ processing. This is the safe default for testing and CI.
 | `--ceeg_r2_run_dir` | `null` | Required when `--ceeg_run_came_overlay_cmd` is set. Path passed as `--run-dir` to the R2 validator. |
 | `--ceeg_r3_run_dir` | `null` | Required when `--ceeg_run_mapping_contract_cmd` is set. Path passed as `--run-dir` to the R3 validator. |
 | `--ceeg_validator_created_at` | `null` | Optional. When set, forwarded to CEEG CLIs as `--created-at`. Primarily useful for deterministic tests and reproducible fixture generation. Not required for production use. |
+| `--ceeg_r4_comparability_dir` | `null` | Optional. Path to an externally generated CEEG R4 comparability evidence output directory (CAME-I3). Read-only consumption; CAME does not invoke the R4 validator. Requires `--comparability_mode ceeg_comparability_evidence_consumed`. |
 
 ---
 
@@ -184,6 +185,49 @@ nextflow run . \
 - If both `--ceeg_r3_mapping_dir` and `--ceeg_run_mapping_contract_cmd` are supplied,
   CAME fails before invoking any command.
 - CAME never silently prefers generated artifacts over supplied artifacts or vice versa.
+
+---
+
+## CAME-I3: R4 Comparability Evidence Consumption
+
+CAME-I3 reads externally generated CEEG R4 comparability evidence artifacts and
+summarizes them into CAME-side TSVs. CAME-I3 is **read-only consumption**. CAME does
+not invoke the R4 validator. R4 orchestration is out of scope for CAME-I3 and may be
+added by a later CAME-I4 task if needed.
+
+**Required inputs** (under `--ceeg_r4_comparability_dir <dir>`):
+- `comparability_report_manifest.json`
+- `comparability_summary.tsv`
+- `comparability_evidence.tsv`
+- `comparability_limitations.tsv`
+
+The F0e fatal-shape (`exit_code: 2`) artifact contains only the manifest and
+`comparability_limitations.tsv`. CAME-I3 accepts that shape and emits a
+single CAME diagnostic row so the failure remains visible.
+
+**Required mode:** runs that supply `--ceeg_r4_comparability_dir` must declare
+`--comparability_mode ceeg_comparability_evidence_consumed`. R2/R3 artifacts may also
+be consumed in the same run; both sections appear in the final report.
+
+**Stub-mode policy.** `--ceeg_stub true` means "do not invoke external validators." When
+`--ceeg_r4_comparability_dir` is supplied alongside `--ceeg_stub true`, CAME still
+consumes the supplied R4 directory (the summarizer is a pure parser, not a validator
+invocation). When no R4 directory is supplied under stub mode, CAME writes header-only
+R4 TSVs and does not fabricate evidence.
+
+**Failure semantics.** A non-zero R4 manifest `exit_code` is recorded in the CAME
+diagnostic row of `ceeg_r4_comparability_summary.tsv`. `CHECK_CEEG_CONTRACT_STATUS`
+reads both `ceeg_contract_summary.tsv` and `ceeg_r4_comparability_summary.tsv`, takes
+the maximum exit code, and fails the workflow after publication when
+`--ceeg_fail_on_contract_error true`. The failure message identifies the source file
+(R2/R3 summary or R4 summary) so the user can locate the responsible artifact.
+
+**Anti-overclaim.** R4 reports structured evidence state under a bound analysis context.
+CAME-I3 does not infer biological comparability, conservation, equivalence, or
+absence from R4 evidence state. R4 `evidence_against_comparability` is not rendered
+as "biologically absent" or "incomparable". The eight count columns
+(`supporting_evidence_count` … `absent_count`) are preserved verbatim; `unknown`,
+`unknown_unmappable`, and `absent` are not collapsed.
 
 ### CI and test strategy
 
@@ -302,6 +346,10 @@ Outputs are written to `results/ceeg_compatibility/`:
 | `ceeg_ambiguous_mappings.tsv` | R3 ambiguous mappings pass-through plus `source_artifact` and `interpretation_note`. |
 | `ceeg_compatibility_warnings.tsv` | Adapter-level warnings. Columns: `severity`, `source`, `message`. |
 | `ceeg_outputs_manifest.tsv` | Manifest of all CAME-I0 output files. |
+| `ceeg_r4_comparability_summary.tsv` | CAME-I3. One row per R4 comparison, plus a single CAME diagnostic row when the R4 manifest reports `contract_error`. 28 columns including `artifact_type`, `validator_name`, `validator_version`, `status`, `exit_code`, `model_id`, `context_id`, `comparison_id`, `entity_scope`, `comparability_status`, `status_basis`, evidence counts, and `primary_limitation`. |
+| `ceeg_r4_comparability_limitations.tsv` | CAME-I3. Pass-through of R4 `comparability_limitations.tsv` (8 columns). |
+| `ceeg_r4_comparability_evidence.tsv` | CAME-I3. Pass-through copy of R4 `comparability_evidence.tsv` annotated with `source_artifact` and the constant `interpretation_note` `"R4 evidence state is not biological comparability validation."`. |
+| `ceeg_r4_outputs_manifest.tsv` | CAME-I3 outputs manifest. |
 
 When CAME-I2 orchestration generates artifacts, the generated directories are also written
 under `results/ceeg_compatibility/generated/`.

@@ -1,0 +1,2 @@
+comparison_id	context_id	limitation_id	limitation_type	severity	affected_scope	description	recommended_interpretation
+	mock_context_beta	lim_0001	upstream_contract_error	blocking	r2_overlay,r3_mapping	Upstream R2/R3 contract reported a fatal error; R4 cannot evaluate comparability evidence.	Do not interpret as biological evidence; resolve the upstream contract error and re-run R4.

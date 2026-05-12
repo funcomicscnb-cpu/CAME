@@ -143,6 +143,7 @@ params.ceeg_r2_run_dir               = null
 params.ceeg_r3_run_dir               = null
 params.ceeg_orchestrate_contracts    = false
 params.ceeg_validator_created_at     = null
+params.ceeg_r4_comparability_dir     = null
 params.comparability_mode            = 'design_assumed'
 
 workflow {
@@ -235,6 +236,7 @@ workflow {
     def ceegBundlePath = params.ceeg_model_bundle ? file(params.ceeg_model_bundle.toString()).toAbsolutePath().toString() : null
     def ceegR2OverlayDir = params.ceeg_r2_overlay_dir ? file(params.ceeg_r2_overlay_dir.toString()).toAbsolutePath().toString() : null
     def ceegR3MappingDir = params.ceeg_r3_mapping_dir ? file(params.ceeg_r3_mapping_dir.toString()).toAbsolutePath().toString() : null
+    def ceegR4ComparabilityDir = params.ceeg_r4_comparability_dir ? file(params.ceeg_r4_comparability_dir.toString()).toAbsolutePath().toString() : null
     def ceegOrchestrateContracts = params.ceeg_orchestrate_contracts.toString().toBoolean()
     def ceegR2RunDir             = params.ceeg_r2_run_dir ? file(params.ceeg_r2_run_dir.toString()).toAbsolutePath().toString() : ''
     def ceegR3RunDir             = params.ceeg_r3_run_dir ? file(params.ceeg_r3_run_dir.toString()).toAbsolutePath().toString() : ''
@@ -242,16 +244,26 @@ workflow {
     def ceegR3Cmd                = params.ceeg_run_mapping_contract_cmd ? params.ceeg_run_mapping_contract_cmd.toString() : ''
     def ceegValidatorCreatedAt   = params.ceeg_validator_created_at ? params.ceeg_validator_created_at.toString() : ''
     def comparabilityMode = params.comparability_mode ? params.comparability_mode.toString().trim() : 'design_assumed'
-    def allowedComparabilityModes = ['design_assumed', 'ceeg_contract_checked']
+    def allowedComparabilityModes = ['design_assumed', 'ceeg_contract_checked', 'ceeg_comparability_evidence_consumed']
     if (!(comparabilityMode in allowedComparabilityModes)) {
         error "Unsupported --comparability_mode '${params.comparability_mode}'. Supported values: ${allowedComparabilityModes.join(', ')}."
     }
     def r2r3Engaged = (ceegR2OverlayDir as boolean) || (ceegR3MappingDir as boolean) || (ceegOrchestrateContracts && ((ceegR2Cmd as boolean) || (ceegR3Cmd as boolean)))
+    def r4Engaged = (ceegR4ComparabilityDir as boolean)
+    if (comparabilityMode == 'design_assumed' && (r2r3Engaged || r4Engaged)) {
+        error "Comparability mode 'design_assumed' is incompatible with supplied CEEG artifacts or orchestration. Set --comparability_mode ceeg_contract_checked (R2/R3 only) or --comparability_mode ceeg_comparability_evidence_consumed (R4), or remove --ceeg_r2_overlay_dir / --ceeg_r3_mapping_dir / --ceeg_orchestrate_contracts / --ceeg_r4_comparability_dir."
+    }
+    // R4-vs-mode incompatibility checks fire before "missing R2/R3" so that a user
+    // who supplied --ceeg_r4_comparability_dir is told to switch to
+    // ceeg_comparability_evidence_consumed instead of being asked for R2/R3 inputs.
+    if (comparabilityMode == 'ceeg_contract_checked' && r4Engaged) {
+        error "Comparability mode 'ceeg_contract_checked' is incompatible with --ceeg_r4_comparability_dir. R4 comparability evidence artifacts must be consumed under 'ceeg_comparability_evidence_consumed'. Set --comparability_mode ceeg_comparability_evidence_consumed, or remove --ceeg_r4_comparability_dir."
+    }
     if (comparabilityMode == 'ceeg_contract_checked' && !r2r3Engaged) {
         error "Comparability mode 'ceeg_contract_checked' requires CEEG R2/R3 contract artifacts. Supply --ceeg_r2_overlay_dir or --ceeg_r3_mapping_dir, or enable --ceeg_orchestrate_contracts with at least one of --ceeg_run_came_overlay_cmd / --ceeg_run_mapping_contract_cmd. Otherwise set --comparability_mode design_assumed."
     }
-    if (comparabilityMode == 'design_assumed' && r2r3Engaged) {
-        error "Comparability mode 'design_assumed' is incompatible with supplied CEEG R2/R3 artifacts or orchestration. Set --comparability_mode ceeg_contract_checked, or remove --ceeg_r2_overlay_dir / --ceeg_r3_mapping_dir / --ceeg_orchestrate_contracts."
+    if (comparabilityMode == 'ceeg_comparability_evidence_consumed' && !r4Engaged) {
+        error "Comparability mode 'ceeg_comparability_evidence_consumed' requires --ceeg_r4_comparability_dir pointing to a directory of externally generated CEEG R4 comparability evidence artifacts. Otherwise set --comparability_mode design_assumed or --comparability_mode ceeg_contract_checked."
     }
     def phylogenyManifestPath = params.phylogeny_manifest ? file(params.phylogeny_manifest) : null
     def phylogenyBaseDir = phylogenyManifestPath ? (phylogenyManifestPath.parent ?: '.') : '.'
@@ -445,6 +457,9 @@ workflow {
             }
             if (!ceegOrchestrateContracts && ceegR3MappingDir && !file(ceegR3MappingDir).exists()) {
                 error "Stage ceeg_compatibility could not find ceeg_r3_mapping_dir at '${params.ceeg_r3_mapping_dir}'."
+            }
+            if (ceegR4ComparabilityDir && !file(ceegR4ComparabilityDir).exists()) {
+                error "Stage ceeg_compatibility could not find ceeg_r4_comparability_dir at '${params.ceeg_r4_comparability_dir}'."
             }
         }
     } else if (!realModeValidationEnabled && (!params.phenotype_samplesheet || !params.omics_samplesheet || !params.species_traits ||
@@ -661,6 +676,7 @@ workflow {
             ceegBundlePath,
             ceegR2OverlayDir ?: '',
             ceegR3MappingDir ?: '',
+            ceegR4ComparabilityDir ?: '',
             params.ceeg_validation_mode.toString(),
             params.ceeg_fail_on_contract_error.toString().toBoolean(),
             ceegStub,

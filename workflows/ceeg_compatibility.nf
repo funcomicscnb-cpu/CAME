@@ -6,6 +6,7 @@ workflow CEEG_COMPATIBILITY {
     bundle_dir
     r2_overlay_dir
     r3_mapping_dir
+    r4_comparability_dir
     validation_mode
     fail_on_contract_error
     ceeg_stub
@@ -21,6 +22,7 @@ workflow CEEG_COMPATIBILITY {
     CEEG_CONTRACT_ARTIFACTS(
         r2_overlay_dir,
         r3_mapping_dir,
+        r4_comparability_dir,
         validation_mode,
         fail_on_contract_error,
         ceeg_stub,

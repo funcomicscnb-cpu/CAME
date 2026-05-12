@@ -95,9 +95,60 @@ COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_HEADING = "Comparability mode: CEEG con
 COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_BODY = (
     "CAME consumed CEEG R2/R3 contract artifacts in this run. "
     "These artifacts report contract and mapping-artifact status. "
+    "R2/R3 contract artifacts do not substitute for R4 comparability-evidence reporting. "
     "They do not by themselves constitute R4 comparability validation or R5 admissibility validation."
 )
+COMPARABILITY_MODE_CEEG_COMPARABILITY_EVIDENCE_CONSUMED_HEADING = (
+    "Comparability mode: CEEG R4 evidence-state consumed"
+)
+COMPARABILITY_MODE_CEEG_COMPARABILITY_EVIDENCE_CONSUMED_BODY = (
+    "CAME consumed CEEG R4 comparability evidence artifacts in this run. "
+    "These artifacts report structured evidence-state status under a bound analysis context. "
+    "They do not validate biological comparability as a verdict, do not establish R5 admissibility, "
+    "and do not alter CAME analysis outputs or candidate rankings."
+)
+CEEG_R4_ANTI_OVERCLAIM_NOTE = (
+    "R4 reports structured evidence-state status under a bound analysis context. "
+    "It does not validate biological comparability as a verdict, does not establish R5 admissibility, "
+    "and does not alter CAME analysis outputs or candidate rankings."
+)
 COMPARABILITY_MODE_REF = "See docs/comparability_modes.md for the full vocabulary."
+
+R4_GROUPS = [
+    ("Validator metadata", [
+        ("validator_name", "R4 validator"),
+        ("validator_version", "R4 validator version"),
+        ("validation_mode", "R4 validation mode"),
+        ("created_at", "R4 created at"),
+        ("exit_code", "R4 exit code"),
+    ]),
+    ("Context", [
+        ("model_id", "Model ID"),
+        ("context_id", "Context ID"),
+        ("comparison_count", "Comparison count"),
+        ("comparison_id", "Comparison ID"),
+        ("left_system_id", "Left system ID"),
+        ("right_system_id", "Right system ID"),
+        ("entity_scope", "Entity scope"),
+    ]),
+    ("Evidence state", [
+        ("status", "R4 manifest status"),
+        ("comparability_status", "Comparability status"),
+        ("status_basis", "Status basis"),
+    ]),
+    ("Evidence counts", [
+        ("supporting_evidence_count", "Supporting evidence count"),
+        ("weakening_evidence_count", "Weakening evidence count"),
+        ("mixed_evidence_count", "Mixed evidence count"),
+        ("unresolved_evidence_count", "Unresolved evidence count"),
+        ("ambiguity_count", "Ambiguity count"),
+        ("unknown_count", "Unknown count"),
+        ("unknown_unmappable_count", "Unknown-unmappable count"),
+        ("absent_count", "Absent count"),
+    ]),
+]
+R4_LIMITATION_SEVERITY_ORDER = {"blocking": 0, "high": 1, "medium": 2, "low": 3}
+R4_LIMITATION_DISPLAY_LIMIT = 10
 
 FALLBACK_CSS = """body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; color: #18212f; line-height: 1.45; }
 h1, h2, h3 { color: #12344d; }
@@ -444,10 +495,64 @@ def load_ceeg_section_data(results_dir: Path) -> dict:
     }
 
 
-def _validate_mode_against_ceeg(mode: str, ceeg_section_data: dict, results_dir: Path) -> int:
+def load_ceeg_r4_section_data(results_dir: Path) -> dict:
+    ceeg_dir = results_dir / "ceeg_compatibility"
+    _, summary_rows = read_table(ceeg_dir / "ceeg_r4_comparability_summary.tsv")
+    _, limitations_rows = read_table(ceeg_dir / "ceeg_r4_comparability_limitations.tsv")
+    return {
+        "summary_rows": summary_rows,
+        "limitations_rows": limitations_rows,
+    }
+
+
+# Refinement 5: centralized truth-table validator. Maps
+# (mode, r2r3_rows_present, r4_rows_present) -> (valid, error_kind | None).
+# `error_kind` selects which message template to emit; templates are looked up
+# below so error text stays close to the table.
+_MODE_VALIDITY_TABLE: dict[tuple[str, bool, bool], tuple[bool, str | None]] = {
+    ("design_assumed", False, False): (True, None),
+    ("design_assumed", True, False): (False, "design_assumed_r2r3"),
+    ("design_assumed", False, True): (False, "design_assumed_r4"),
+    ("design_assumed", True, True): (False, "design_assumed_both"),
+    ("ceeg_contract_checked", True, False): (True, None),
+    ("ceeg_contract_checked", False, False): (False, "ceeg_contract_checked_missing_r2r3"),
+    ("ceeg_contract_checked", False, True): (False, "ceeg_contract_checked_r4_only"),
+    ("ceeg_contract_checked", True, True): (False, "ceeg_contract_checked_with_r4"),
+    ("ceeg_comparability_evidence_consumed", False, True): (True, None),
+    ("ceeg_comparability_evidence_consumed", True, True): (True, None),
+    ("ceeg_comparability_evidence_consumed", False, False): (False, "evidence_consumed_no_r4"),
+    ("ceeg_comparability_evidence_consumed", True, False): (False, "evidence_consumed_r2r3_only"),
+}
+
+
+def _validate_mode_against_ceeg(
+    mode: str,
+    ceeg_section_data: dict,
+    results_dir: Path,
+    ceeg_r4_section_data: dict | None = None,
+) -> int:
+    r4_data = ceeg_r4_section_data if ceeg_r4_section_data is not None else {"summary_rows": []}
     has_contract_rows = bool(ceeg_section_data["r2_rows"] or ceeg_section_data["r3_rows"])
+    has_r4_rows = bool(r4_data.get("summary_rows"))
     summary_path = results_dir / "ceeg_compatibility" / "ceeg_contract_summary.tsv"
-    if mode == "design_assumed" and has_contract_rows:
+    r4_summary_path = results_dir / "ceeg_compatibility" / "ceeg_r4_comparability_summary.tsv"
+
+    entry = _MODE_VALIDITY_TABLE.get((mode, has_contract_rows, has_r4_rows))
+    if entry is None:
+        print(
+            f"render_final_report: unknown --comparability_mode '{mode}'. "
+            f"Supported values: design_assumed, ceeg_contract_checked, "
+            f"ceeg_comparability_evidence_consumed.",
+            file=sys.stderr,
+        )
+        return 2
+    valid, error_kind = entry
+    if valid:
+        return 0
+
+    # The existing R2/R3 messages are kept verbatim because
+    # tests/test_ceeg_final_report.sh asserts substrings against them.
+    if error_kind == "design_assumed_r2r3":
         print(
             f"render_final_report: --comparability_mode is 'design_assumed' but CEEG R2/R3 "
             f"contract rows are present in {summary_path}. The declared mode is inconsistent "
@@ -456,8 +561,25 @@ def _validate_mode_against_ceeg(mode: str, ceeg_section_data: dict, results_dir:
             f"compatibility outputs from {summary_path.parent}.",
             file=sys.stderr,
         )
-        return 2
-    if mode == "ceeg_contract_checked" and not has_contract_rows:
+    elif error_kind == "design_assumed_r4":
+        print(
+            f"render_final_report: --comparability_mode is 'design_assumed' but CEEG R4 "
+            f"comparability rows are present in {r4_summary_path}. The declared mode is "
+            f"inconsistent with the on-disk CEEG R4 outputs. Re-render with "
+            f"--comparability_mode ceeg_comparability_evidence_consumed, or remove the prior "
+            f"CEEG R4 comparability outputs from {r4_summary_path.parent}.",
+            file=sys.stderr,
+        )
+    elif error_kind == "design_assumed_both":
+        print(
+            f"render_final_report: --comparability_mode is 'design_assumed' but both CEEG R2/R3 "
+            f"contract rows ({summary_path}) and CEEG R4 comparability rows ({r4_summary_path}) "
+            f"are present. The declared mode is inconsistent with the on-disk CEEG outputs. "
+            f"Re-render with --comparability_mode ceeg_comparability_evidence_consumed, or "
+            f"remove the prior CEEG compatibility outputs from {summary_path.parent}.",
+            file=sys.stderr,
+        )
+    elif error_kind == "ceeg_contract_checked_missing_r2r3":
         print(
             f"render_final_report: --comparability_mode is 'ceeg_contract_checked' but no "
             f"CEEG R2/R3 contract rows are present in {summary_path}. The declared mode is "
@@ -466,8 +588,47 @@ def _validate_mode_against_ceeg(mode: str, ceeg_section_data: dict, results_dir:
             f"to produce R2/R3 artifacts.",
             file=sys.stderr,
         )
-        return 2
-    return 0
+    elif error_kind == "ceeg_contract_checked_r4_only":
+        print(
+            f"render_final_report: --comparability_mode is 'ceeg_contract_checked' but no "
+            f"CEEG R2/R3 contract rows are present in {summary_path} while CEEG R4 "
+            f"comparability rows are present in {r4_summary_path}. R4 artifacts must be "
+            f"consumed under --comparability_mode ceeg_comparability_evidence_consumed. "
+            f"Re-render with --comparability_mode ceeg_comparability_evidence_consumed, or "
+            f"remove the prior CEEG R4 outputs from {r4_summary_path.parent}.",
+            file=sys.stderr,
+        )
+    elif error_kind == "ceeg_contract_checked_with_r4":
+        print(
+            f"render_final_report: --comparability_mode is 'ceeg_contract_checked' but CEEG R4 "
+            f"comparability rows are also present in {r4_summary_path}. R4 artifacts must be "
+            f"consumed under --comparability_mode ceeg_comparability_evidence_consumed. "
+            f"Re-render with --comparability_mode ceeg_comparability_evidence_consumed, or "
+            f"remove the prior CEEG R4 outputs from {r4_summary_path.parent}.",
+            file=sys.stderr,
+        )
+    elif error_kind == "evidence_consumed_no_r4":
+        print(
+            f"render_final_report: --comparability_mode is "
+            f"'ceeg_comparability_evidence_consumed' but no CEEG R4 comparability rows are "
+            f"present in {r4_summary_path}. The declared mode is inconsistent with the "
+            f"on-disk CEEG R4 outputs. Re-render with --comparability_mode design_assumed, "
+            f"or run the ceeg_compatibility stage with --ceeg_r4_comparability_dir to "
+            f"produce R4 artifacts.",
+            file=sys.stderr,
+        )
+    elif error_kind == "evidence_consumed_r2r3_only":
+        print(
+            f"render_final_report: --comparability_mode is "
+            f"'ceeg_comparability_evidence_consumed' but no CEEG R4 comparability rows are "
+            f"present in {r4_summary_path} while CEEG R2/R3 contract rows are present in "
+            f"{summary_path}. R4 artifacts are required for "
+            f"'ceeg_comparability_evidence_consumed'. Re-render with "
+            f"--comparability_mode ceeg_contract_checked, or run the ceeg_compatibility stage "
+            f"with --ceeg_r4_comparability_dir to produce R4 artifacts.",
+            file=sys.stderr,
+        )
+    return 2
 
 
 def _ceeg_no_artifacts_msg(r1_consumed: str) -> str:
@@ -483,13 +644,25 @@ def _ceeg_no_artifacts_msg(r1_consumed: str) -> str:
     )
 
 
-def _comparability_mode_md(mode: str) -> str:
+def _comparability_mode_text(mode: str) -> tuple[str, str]:
     if mode == "ceeg_contract_checked":
-        heading = COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_HEADING
-        body = COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_BODY
-    else:
-        heading = COMPARABILITY_MODE_DESIGN_ASSUMED_HEADING
-        body = COMPARABILITY_MODE_DESIGN_ASSUMED_BODY
+        return (
+            COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_HEADING,
+            COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_BODY,
+        )
+    if mode == "ceeg_comparability_evidence_consumed":
+        return (
+            COMPARABILITY_MODE_CEEG_COMPARABILITY_EVIDENCE_CONSUMED_HEADING,
+            COMPARABILITY_MODE_CEEG_COMPARABILITY_EVIDENCE_CONSUMED_BODY,
+        )
+    return (
+        COMPARABILITY_MODE_DESIGN_ASSUMED_HEADING,
+        COMPARABILITY_MODE_DESIGN_ASSUMED_BODY,
+    )
+
+
+def _comparability_mode_md(mode: str) -> str:
+    heading, body = _comparability_mode_text(mode)
     return "\n".join([
         "## Comparability Mode",
         "",
@@ -503,12 +676,7 @@ def _comparability_mode_md(mode: str) -> str:
 
 
 def _comparability_mode_html(mode: str) -> str:
-    if mode == "ceeg_contract_checked":
-        heading = COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_HEADING
-        body = COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_BODY
-    else:
-        heading = COMPARABILITY_MODE_DESIGN_ASSUMED_HEADING
-        body = COMPARABILITY_MODE_DESIGN_ASSUMED_BODY
+    heading, body = _comparability_mode_text(mode)
     return "\n".join([
         "<section>",
         "<h2>Comparability Mode</h2>",
@@ -672,6 +840,123 @@ def _ceeg_section_html(data: dict) -> str:
     return "\n".join(parts)
 
 
+def _r4_limitation_sort_key(row: dict) -> tuple[int, str]:
+    severity = norm(row.get("severity")).lower()
+    return (
+        R4_LIMITATION_SEVERITY_ORDER.get(severity, 99),
+        norm(row.get("limitation_type")),
+    )
+
+
+def _ceeg_r4_section_md(data: dict) -> str:
+    summary_rows = data.get("summary_rows") or []
+    limitations_rows = data.get("limitations_rows") or []
+
+    if not summary_rows:
+        return ""
+
+    lines = ["## CEEG R4 Comparability Evidence", ""]
+    for idx, row in enumerate(summary_rows):
+        if len(summary_rows) > 1:
+            comparison_id = norm(row.get("comparison_id")) or f"row {idx + 1}"
+            lines.append(f"### Comparison {comparison_id}")
+            lines.append("")
+        for group_name, fields in R4_GROUPS:
+            lines.append(f"### {group_name}")
+            lines.append("")
+            for key, label in fields:
+                lines.append(f"- {label}: {norm(row.get(key))}")
+            lines.append("")
+        # Limitations subsection, scoped to the comparison when an id is present.
+        comparison_id = norm(row.get("comparison_id"))
+        if comparison_id:
+            scoped = [
+                r for r in limitations_rows if norm(r.get("comparison_id")) == comparison_id
+            ]
+        else:
+            scoped = list(limitations_rows)
+        lines.append("### Limitations")
+        lines.append("")
+        lines.append(f"- Limitations count: {norm(row.get('limitations_count'))}")
+        lines.append(f"- Primary limitation: {norm(row.get('primary_limitation'))}")
+        lines.append("")
+        if scoped:
+            scoped_sorted = sorted(scoped, key=_r4_limitation_sort_key)
+            for lim in scoped_sorted[:R4_LIMITATION_DISPLAY_LIMIT]:
+                lines.append(
+                    f"- [{norm(lim.get('severity'))}] "
+                    f"{norm(lim.get('limitation_type'))}: "
+                    f"{norm(lim.get('description'))}"
+                )
+            lines.append("")
+        message = norm(row.get("message"))
+        if message:
+            lines.append(f"Message: {message}")
+            lines.append("")
+
+    lines.append(CEEG_R4_ANTI_OVERCLAIM_NOTE)
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _ceeg_r4_section_html(data: dict) -> str:
+    summary_rows = data.get("summary_rows") or []
+    limitations_rows = data.get("limitations_rows") or []
+
+    if not summary_rows:
+        return ""
+
+    parts = [
+        "<section>",
+        "<h2>CEEG R4 Comparability Evidence</h2>",
+    ]
+    for idx, row in enumerate(summary_rows):
+        if len(summary_rows) > 1:
+            comparison_id = norm(row.get("comparison_id")) or f"row {idx + 1}"
+            parts.append(f"<h3>Comparison {html.escape(comparison_id)}</h3>")
+        for group_name, fields in R4_GROUPS:
+            parts.append(f"<h3>{html.escape(group_name)}</h3>")
+            parts.append("<ul>")
+            for key, label in fields:
+                parts.append(
+                    f"<li>{html.escape(label)}: {html.escape(norm(row.get(key)))}</li>"
+                )
+            parts.append("</ul>")
+        comparison_id = norm(row.get("comparison_id"))
+        if comparison_id:
+            scoped = [
+                r for r in limitations_rows if norm(r.get("comparison_id")) == comparison_id
+            ]
+        else:
+            scoped = list(limitations_rows)
+        parts.append("<h3>Limitations</h3>")
+        parts.append("<ul>")
+        parts.append(
+            f"<li>Limitations count: {html.escape(norm(row.get('limitations_count')))}</li>"
+        )
+        parts.append(
+            f"<li>Primary limitation: {html.escape(norm(row.get('primary_limitation')))}</li>"
+        )
+        parts.append("</ul>")
+        if scoped:
+            scoped_sorted = sorted(scoped, key=_r4_limitation_sort_key)
+            parts.append("<ul>")
+            for lim in scoped_sorted[:R4_LIMITATION_DISPLAY_LIMIT]:
+                parts.append(
+                    f"<li>[{html.escape(norm(lim.get('severity')))}] "
+                    f"{html.escape(norm(lim.get('limitation_type')))}: "
+                    f"{html.escape(norm(lim.get('description')))}</li>"
+                )
+            parts.append("</ul>")
+        message = norm(row.get("message"))
+        if message:
+            parts.append(f"<p>Message: {html.escape(message)}</p>")
+
+    parts.append(f'<p class="note">{html.escape(CEEG_R4_ANTI_OVERCLAIM_NOTE)}</p>')
+    parts.append("</section>")
+    return "\n".join(parts)
+
+
 def build_markdown(profile: dict[str, str], sections: list[dict[str, object]], missing_rows: list[dict[str, str]], release_rows: list[dict[str, str]], release_summary: list[dict[str, str]], candidate_fields: list[str], candidate_rows: list[dict[str, str]], candidate_message: str, enrich_fields: list[str], enrich_rows: list[dict[str, str]], enrich_message: str, provenance_fields: list[str], provenance_rows: list[dict[str, str]], parameter_fields: list[str], parameter_rows: list[dict[str, str]], warning_fields: list[str], warning_rows: list[dict[str, str]], results_dir: Path, comparability_mode: str) -> str:
     lines = [
         "# CAME Final Report",
@@ -723,6 +1008,10 @@ def build_markdown(profile: dict[str, str], sections: list[dict[str, object]], m
     lines.append(_comparability_mode_md(comparability_mode))
     ceeg_data = load_ceeg_section_data(results_dir)
     lines.append(_ceeg_section_md(ceeg_data))
+    ceeg_r4_data = load_ceeg_r4_section_data(results_dir)
+    r4_section_md = _ceeg_r4_section_md(ceeg_r4_data)
+    if r4_section_md:
+        lines.append(r4_section_md)
     lines.extend(["## Release Checks", ""])
     lines.append(f"- Release check counts: {release_counts(release_summary)}")
     lines.append(f"- Release check errors present: {str(any(row.get('status') == 'ERROR' for row in release_rows)).lower()}")
@@ -788,6 +1077,8 @@ def build_html(profile: dict[str, str], sections: list[dict[str, object]], missi
     warning_table = html_table(warning_fields, warning_rows[:20]) if warning_rows else "<p>No warning groups were detected.</p>"
     ceeg_data = load_ceeg_section_data(results_dir)
     ceeg_html_block = _ceeg_section_html(ceeg_data)
+    ceeg_r4_data = load_ceeg_r4_section_data(results_dir)
+    ceeg_r4_html_block = _ceeg_r4_section_html(ceeg_r4_data)
     comparability_mode_html_block = _comparability_mode_html(comparability_mode)
     return f"""
 <h1>CAME Final Report</h1>
@@ -825,6 +1116,7 @@ def build_html(profile: dict[str, str], sections: list[dict[str, object]], missi
 </section>
 {comparability_mode_html_block}
 {ceeg_html_block}
+{ceeg_r4_html_block}
 <section>
 <h2>Release Checks</h2>
 <ul>
@@ -891,9 +1183,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--asset_top_candidates")
     parser.add_argument("--asset_top_enriched_gene_sets")
     parser.add_argument("--asset_warning_summary")
-    # main.nf enforces mode vs supplied --ceeg_r2_overlay_dir / --ceeg_r3_mapping_dir / orchestration flags.
-    # This renderer also enforces mode vs on-disk CEEG R2/R3 rows via _validate_mode_against_ceeg below.
-    parser.add_argument("--comparability_mode", default="design_assumed", choices=["design_assumed", "ceeg_contract_checked"])
+    # main.nf enforces mode vs supplied --ceeg_r2_overlay_dir / --ceeg_r3_mapping_dir /
+    # --ceeg_r4_comparability_dir / orchestration flags. This renderer also enforces mode
+    # vs on-disk CEEG R2/R3 and R4 rows via _validate_mode_against_ceeg below.
+    parser.add_argument(
+        "--comparability_mode",
+        default="design_assumed",
+        choices=[
+            "design_assumed",
+            "ceeg_contract_checked",
+            "ceeg_comparability_evidence_consumed",
+        ],
+    )
     args = parser.parse_args(argv)
 
     results_dir = Path(args.results_dir).resolve()
@@ -901,7 +1202,10 @@ def main(argv: list[str] | None = None) -> int:
     template_dir = Path(args.template_dir).resolve()
     profile = load_profile(args.study_profile, results_dir)
     mode_check_rc = _validate_mode_against_ceeg(
-        args.comparability_mode, load_ceeg_section_data(results_dir), results_dir
+        args.comparability_mode,
+        load_ceeg_section_data(results_dir),
+        results_dir,
+        load_ceeg_r4_section_data(results_dir),
     )
     if mode_check_rc != 0:
         return mode_check_rc

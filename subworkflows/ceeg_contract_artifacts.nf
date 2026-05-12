@@ -1,11 +1,13 @@
-include { CONSUME_CEEG_CONTRACT_ARTIFACTS } from '../modules/local/consume_ceeg_contract_artifacts'
-include { ORCHESTRATE_CEEG_VALIDATORS     } from '../modules/local/orchestrate_ceeg_validators'
-include { CHECK_CEEG_CONTRACT_STATUS      } from '../modules/local/check_ceeg_contract_status'
+include { CONSUME_CEEG_CONTRACT_ARTIFACTS              } from '../modules/local/consume_ceeg_contract_artifacts'
+include { CONSUME_CEEG_R4_COMPARABILITY_ARTIFACTS     } from '../modules/local/consume_ceeg_r4_comparability_artifacts'
+include { ORCHESTRATE_CEEG_VALIDATORS                 } from '../modules/local/orchestrate_ceeg_validators'
+include { CHECK_CEEG_CONTRACT_STATUS                  } from '../modules/local/check_ceeg_contract_status'
 
 workflow CEEG_CONTRACT_ARTIFACTS {
     take:
     r2_overlay_dir
     r3_mapping_dir
+    r4_comparability_dir
     validation_mode
     fail_on_contract_error
     ceeg_stub
@@ -43,8 +45,15 @@ workflow CEEG_CONTRACT_ARTIFACTS {
         ceeg_stub
     )
 
+    CONSUME_CEEG_R4_COMPARABILITY_ARTIFACTS(
+        r4_comparability_dir,
+        validation_mode,
+        ceeg_stub
+    )
+
     CHECK_CEEG_CONTRACT_STATUS(
         CONSUME_CEEG_CONTRACT_ARTIFACTS.out.contract_summary,
+        CONSUME_CEEG_R4_COMPARABILITY_ARTIFACTS.out.r4_summary,
         fail_on_contract_error,
         ceeg_stub
     )
@@ -56,4 +65,8 @@ workflow CEEG_CONTRACT_ARTIFACTS {
     ambiguous_mappings = CONSUME_CEEG_CONTRACT_ARTIFACTS.out.ambiguous_mappings
     warnings           = CONSUME_CEEG_CONTRACT_ARTIFACTS.out.warnings
     manifest           = CONSUME_CEEG_CONTRACT_ARTIFACTS.out.manifest
+    r4_summary         = CONSUME_CEEG_R4_COMPARABILITY_ARTIFACTS.out.r4_summary
+    r4_limitations     = CONSUME_CEEG_R4_COMPARABILITY_ARTIFACTS.out.r4_limitations
+    r4_evidence        = CONSUME_CEEG_R4_COMPARABILITY_ARTIFACTS.out.r4_evidence
+    r4_manifest        = CONSUME_CEEG_R4_COMPARABILITY_ARTIFACTS.out.r4_manifest
 }
