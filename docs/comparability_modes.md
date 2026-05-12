@@ -28,13 +28,39 @@ These are the only values accepted by `--comparability_mode`. Supplying any othe
 
 ## Future modes (not implemented)
 
-Future CEEG R4/R5 contracts may add additional `ceeg_*_validated` modes once their schemas and validator semantics are defined in a future, explicit design. Until then:
+### Naming convention
 
-- No `ceeg_comparability_validated` value is accepted.
-- No `ceeg_admissibility_validated` value is accepted.
-- These names appear only in this future-prose paragraph. They are not part of any allowed-values list, enum, or `choices=[...]` entry in CAME's code or tests.
+Future CAME mode names must reflect what CAME actually consumed or validated:
 
-When a future R4 design lands (Track B), the proposed mode name must be compared against this vocabulary before any CAME-I3 R4 artifact-consumption stage is created.
+- **`_consumed` suffix** for layers that consume an evidence-reporting contract. CAME consumed the artifact; the artifact reports evidence state, not a verdict. Using `_consumed` keeps the mode name honest about that.
+- **`_validated` suffix** only when the underlying contract semantics explicitly justify a validation claim. A `_validated` mode would assert that CAME (via the consumed contract) validated the thing it names.
+
+R4 (currently in CEEG-side design at [CEEG `docs/r4_comparability_contract.md`](../../CEEG/docs/r4_comparability_contract.md)) is an **evidence-bearing comparability contract**. It emits structured evidence states (e.g. `evidence_supports_comparability`, `evidence_against_comparability`, `evidence_insufficient_for_comparability`, `comparability_not_assessable`) and explicitly does not emit verdicts: per CEEG R4 §1.1, "R4 statuses describe the state of evidence regarding a comparability hypothesis under a bound analysis context. They are not assertions about the systems or entities themselves."
+
+R4 is therefore evidence-state reporting, not biological comparability validation. A future CAME mode consuming R4 artifacts must use the `_consumed` form.
+
+### Proposed future name (non-authoritative)
+
+When R4 consumption is added (future CAME-I3 stage), the proposed name is:
+
+```text
+ceeg_comparability_evidence_consumed
+```
+
+Rationale:
+
+- uses the `_consumed` suffix, correct for an evidence-reporting layer;
+- is **semantic** (describes what was consumed: comparability evidence) rather than R-layer-numbered, matching the precedent of `ceeg_contract_checked` (which does not encode `r2_r3` in the user-facing name);
+- remains forward-compatible if future contract revisions preserve evidence-state semantics.
+
+The earlier draft placeholder `ceeg_r4_evidence_consumed` (sketched in CEEG R4 §13) is **rejected** as the final name. It is layer-numbered rather than semantic, and bakes the R-layer identifier into a user-facing mode in a way the existing CAME vocabulary does not.
+
+### Names not currently accepted
+
+- **`ceeg_comparability_validated`** — not accepted. R4 does not validate biological comparability as a verdict; it reports evidence state. The `_validated` suffix would overclaim.
+- **`ceeg_admissibility_validated`** — not accepted. R5 admissibility remains future and unscoped; no R5 design exists yet.
+
+None of these names — proposed or rejected — are active enum values or reserved implementation values. They appear only in this future-prose section. They are not part of any allowed-values list, `choices=[...]` entry, params default, validator branch, or test fixture in CAME's code or tests. Reconciliation against CEEG's R4 design must complete and the F0e R4 fixture packet must stabilize before any CAME-I3 prompt is authored or any of these names is promoted to an active value.
 
 ## When to use each mode
 
@@ -57,7 +83,7 @@ This document does not restate or fork CAME's mapping-status invariants. Those a
 
 The Track A–specific rule documented here, and only here, is:
 
-> **R2/R3 contract success is not R4 biological comparability validation, and not R5 admissibility validation.** A `ceeg_contract_checked` declaration in the final report indicates that contract artifacts were consumed. It does not by itself establish that the underlying biological systems are comparable.
+> **R2/R3 contract success is not R4 comparability-evidence consumption and does not substitute for R4 evidence-state reporting. R4 itself does not validate biological comparability; it reports structured evidence state. R2/R3 and R4 do not constitute R5 admissibility validation.** A `ceeg_contract_checked` declaration in the final report indicates that contract artifacts were consumed. It does not by itself establish that the underlying biological systems are comparable.
 
 ## Cross-references
 
