@@ -891,7 +891,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--asset_top_candidates")
     parser.add_argument("--asset_top_enriched_gene_sets")
     parser.add_argument("--asset_warning_summary")
-    # Consistency between the declared mode and R2/R3 inputs is enforced upstream in main.nf.
+    # main.nf enforces mode vs supplied --ceeg_r2_overlay_dir / --ceeg_r3_mapping_dir / orchestration flags.
+    # This renderer also enforces mode vs on-disk CEEG R2/R3 rows via _validate_mode_against_ceeg below.
     parser.add_argument("--comparability_mode", default="design_assumed", choices=["design_assumed", "ceeg_contract_checked"])
     args = parser.parse_args(argv)
 
