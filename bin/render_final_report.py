@@ -83,6 +83,21 @@ CEEG_INVARIANTS_REF = (
     "See docs/ceeg_invariants.md for the full CEEG/CAME semantic-invariants statement."
 )
 
+COMPARABILITY_MODE_DESIGN_ASSUMED_HEADING = "Comparability mode: standard / design-assumed"
+COMPARABILITY_MODE_DESIGN_ASSUMED_BODY = (
+    "CAME did not consume CEEG R2/R3 contract artifacts in this run. "
+    "Cross-condition or cross-system comparability is assumed from the experimental design, "
+    "supplied feature mappings, and user-provided inputs. "
+    "Interpret comparative results conditional on that design assumption."
+)
+COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_HEADING = "Comparability mode: CEEG contract-checked"
+COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_BODY = (
+    "CAME consumed CEEG R2/R3 contract artifacts in this run. "
+    "These artifacts report contract and mapping-artifact status. "
+    "They do not by themselves constitute R4 comparability validation or R5 admissibility validation."
+)
+COMPARABILITY_MODE_REF = "See docs/comparability_modes.md for the full vocabulary."
+
 FALLBACK_CSS = """body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem; color: #18212f; line-height: 1.45; }
 h1, h2, h3 { color: #12344d; }
 a { color: #0b5cad; }
@@ -441,6 +456,42 @@ def _ceeg_no_artifacts_msg(r1_consumed: str) -> str:
     )
 
 
+def _comparability_mode_md(mode: str) -> str:
+    if mode == "ceeg_contract_checked":
+        heading = COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_HEADING
+        body = COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_BODY
+    else:
+        heading = COMPARABILITY_MODE_DESIGN_ASSUMED_HEADING
+        body = COMPARABILITY_MODE_DESIGN_ASSUMED_BODY
+    return "\n".join([
+        "## Comparability Mode",
+        "",
+        heading,
+        "",
+        body,
+        "",
+        COMPARABILITY_MODE_REF,
+        "",
+    ])
+
+
+def _comparability_mode_html(mode: str) -> str:
+    if mode == "ceeg_contract_checked":
+        heading = COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_HEADING
+        body = COMPARABILITY_MODE_CEEG_CONTRACT_CHECKED_BODY
+    else:
+        heading = COMPARABILITY_MODE_DESIGN_ASSUMED_HEADING
+        body = COMPARABILITY_MODE_DESIGN_ASSUMED_BODY
+    return "\n".join([
+        "<section>",
+        "<h2>Comparability Mode</h2>",
+        f"<p><strong>{html.escape(heading)}</strong></p>",
+        f"<p>{html.escape(body)}</p>",
+        f'<p class="note">{html.escape(COMPARABILITY_MODE_REF)}</p>',
+        "</section>",
+    ])
+
+
 def _ceeg_section_md(data: dict) -> str:
     r2_rows = data["r2_rows"]
     r3_rows = data["r3_rows"]
@@ -594,7 +645,7 @@ def _ceeg_section_html(data: dict) -> str:
     return "\n".join(parts)
 
 
-def build_markdown(profile: dict[str, str], sections: list[dict[str, object]], missing_rows: list[dict[str, str]], release_rows: list[dict[str, str]], release_summary: list[dict[str, str]], candidate_fields: list[str], candidate_rows: list[dict[str, str]], candidate_message: str, enrich_fields: list[str], enrich_rows: list[dict[str, str]], enrich_message: str, provenance_fields: list[str], provenance_rows: list[dict[str, str]], parameter_fields: list[str], parameter_rows: list[dict[str, str]], warning_fields: list[str], warning_rows: list[dict[str, str]], results_dir: Path) -> str:
+def build_markdown(profile: dict[str, str], sections: list[dict[str, object]], missing_rows: list[dict[str, str]], release_rows: list[dict[str, str]], release_summary: list[dict[str, str]], candidate_fields: list[str], candidate_rows: list[dict[str, str]], candidate_message: str, enrich_fields: list[str], enrich_rows: list[dict[str, str]], enrich_message: str, provenance_fields: list[str], provenance_rows: list[dict[str, str]], parameter_fields: list[str], parameter_rows: list[dict[str, str]], warning_fields: list[str], warning_rows: list[dict[str, str]], results_dir: Path, comparability_mode: str) -> str:
     lines = [
         "# CAME Final Report",
         "",
@@ -642,6 +693,7 @@ def build_markdown(profile: dict[str, str], sections: list[dict[str, object]], m
                 lines.append(f"- {summary}")
         lines.append("")
 
+    lines.append(_comparability_mode_md(comparability_mode))
     ceeg_data = load_ceeg_section_data(results_dir)
     lines.append(_ceeg_section_md(ceeg_data))
     lines.extend(["## Release Checks", ""])
@@ -670,7 +722,7 @@ def build_markdown(profile: dict[str, str], sections: list[dict[str, object]], m
     return "\n".join(lines)
 
 
-def build_html(profile: dict[str, str], sections: list[dict[str, object]], missing_rows: list[dict[str, str]], release_rows: list[dict[str, str]], release_summary: list[dict[str, str]], candidate_fields: list[str], candidate_rows: list[dict[str, str]], candidate_message: str, enrich_fields: list[str], enrich_rows: list[dict[str, str]], enrich_message: str, provenance_fields: list[str], provenance_rows: list[dict[str, str]], parameter_fields: list[str], parameter_rows: list[dict[str, str]], warning_fields: list[str], warning_rows: list[dict[str, str]], results_dir: Path) -> str:
+def build_html(profile: dict[str, str], sections: list[dict[str, object]], missing_rows: list[dict[str, str]], release_rows: list[dict[str, str]], release_summary: list[dict[str, str]], candidate_fields: list[str], candidate_rows: list[dict[str, str]], candidate_message: str, enrich_fields: list[str], enrich_rows: list[dict[str, str]], enrich_message: str, provenance_fields: list[str], provenance_rows: list[dict[str, str]], parameter_fields: list[str], parameter_rows: list[dict[str, str]], warning_fields: list[str], warning_rows: list[dict[str, str]], results_dir: Path, comparability_mode: str) -> str:
     stage_rows = []
     for section in sections:
         status = str(section["status"])
@@ -709,6 +761,7 @@ def build_html(profile: dict[str, str], sections: list[dict[str, object]], missi
     warning_table = html_table(warning_fields, warning_rows[:20]) if warning_rows else "<p>No warning groups were detected.</p>"
     ceeg_data = load_ceeg_section_data(results_dir)
     ceeg_html_block = _ceeg_section_html(ceeg_data)
+    comparability_mode_html_block = _comparability_mode_html(comparability_mode)
     return f"""
 <h1>CAME Final Report</h1>
 <section>
@@ -743,6 +796,7 @@ def build_html(profile: dict[str, str], sections: list[dict[str, object]], missi
 <h2>Stage Summaries</h2>
 {''.join(stage_summaries)}
 </section>
+{comparability_mode_html_block}
 {ceeg_html_block}
 <section>
 <h2>Release Checks</h2>
@@ -810,6 +864,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--asset_top_candidates")
     parser.add_argument("--asset_top_enriched_gene_sets")
     parser.add_argument("--asset_warning_summary")
+    # Consistency between the declared mode and R2/R3 inputs is enforced upstream in main.nf.
+    parser.add_argument("--comparability_mode", default="design_assumed", choices=["design_assumed", "ceeg_contract_checked"])
     args = parser.parse_args(argv)
 
     results_dir = Path(args.results_dir).resolve()
@@ -854,6 +910,7 @@ def main(argv: list[str] | None = None) -> int:
         warning_fields,
         warning_rows,
         results_dir,
+        args.comparability_mode,
     )
     html_body = build_html(
         profile,
@@ -874,6 +931,7 @@ def main(argv: list[str] | None = None) -> int:
         warning_fields,
         warning_rows,
         results_dir,
+        args.comparability_mode,
     )
 
     copy_css(template_dir, output_dir)

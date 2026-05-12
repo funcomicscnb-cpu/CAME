@@ -1,6 +1,14 @@
 #!/usr/bin/env sh
 # CAME-I1: tests for CEEG Contract Consumption section in render_final_report.py
 # Tests render_final_report.py directly — no Nextflow or CEEG repo checkout required.
+#
+# Mode/fixture policy:
+#   Every test case whose fixture produces R2 or R3 contract-consumption rows in the
+#   rendered output MUST call `render` with `ceeg_contract_checked` as the 3rd arg.
+#   Only cases without R2/R3 contract data — i.e. no R2/R3 rows beyond headers,
+#   R1-only scaffold, or completely empty CEEG fixtures — may rely on the renderer
+#   default `design_assumed`. This keeps fixtures consistent with the
+#   --comparability_mode validation contract enforced in main.nf.
 set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -46,17 +54,32 @@ setup_min_fixture() {
 }
 
 # ── helper: run render_final_report.py ────────────────────────────────────────
+# 3rd arg `mode` is optional. When omitted, the renderer's default (design_assumed)
+# applies — only valid for fixtures without R2/R3 contract-consumption rows.
 render() {
-  rd="$1"; out="$2"
-  python3 "$ROOT_DIR/bin/render_final_report.py" \
-    --study_profile "$ROOT_DIR/profiles/generic/study_profile.yaml" \
-    --results_dir   "$rd" \
-    --manifest      "$rd/final/manifest/came_outputs_manifest.tsv" \
-    --stage_summary "$rd/final/manifest/came_stage_completion_summary.tsv" \
-    --missing_outputs "$rd/final/manifest/came_missing_outputs.tsv" \
-    --release_checks  "$rd/final/release_checks/came_release_checks.tsv" \
-    --release_summary "$rd/final/release_checks/came_release_summary.tsv" \
-    --output_dir "$out"
+  rd="$1"; out="$2"; mode="${3:-}"
+  if [ -n "$mode" ]; then
+    python3 "$ROOT_DIR/bin/render_final_report.py" \
+      --study_profile "$ROOT_DIR/profiles/generic/study_profile.yaml" \
+      --results_dir   "$rd" \
+      --manifest      "$rd/final/manifest/came_outputs_manifest.tsv" \
+      --stage_summary "$rd/final/manifest/came_stage_completion_summary.tsv" \
+      --missing_outputs "$rd/final/manifest/came_missing_outputs.tsv" \
+      --release_checks  "$rd/final/release_checks/came_release_checks.tsv" \
+      --release_summary "$rd/final/release_checks/came_release_summary.tsv" \
+      --output_dir "$out" \
+      --comparability_mode "$mode"
+  else
+    python3 "$ROOT_DIR/bin/render_final_report.py" \
+      --study_profile "$ROOT_DIR/profiles/generic/study_profile.yaml" \
+      --results_dir   "$rd" \
+      --manifest      "$rd/final/manifest/came_outputs_manifest.tsv" \
+      --stage_summary "$rd/final/manifest/came_stage_completion_summary.tsv" \
+      --missing_outputs "$rd/final/manifest/came_missing_outputs.tsv" \
+      --release_checks  "$rd/final/release_checks/came_release_checks.tsv" \
+      --release_summary "$rd/final/release_checks/came_release_summary.tsv" \
+      --output_dir "$out"
+  fi
 }
 
 # ── helper: write header-only CEEG-I0 outputs ─────────────────────────────────
@@ -181,7 +204,7 @@ CASE4_OUT="$TMP_DIR/case4_out"
 mkdir -p "$CASE4_OUT"
 setup_min_fixture "$CASE4_RD"
 write_r2_success "$CASE4_RD"
-render "$CASE4_RD" "$CASE4_OUT"
+render "$CASE4_RD" "$CASE4_OUT" ceeg_contract_checked
 
 assert_grep "R2 Overlay Contract" "$CASE4_OUT/came_final_report.html" \
   "case4: R2 section missing"
@@ -204,7 +227,7 @@ CASE5_OUT="$TMP_DIR/case5_out"
 mkdir -p "$CASE5_OUT"
 setup_min_fixture "$CASE5_RD"
 write_r3_success "$CASE5_RD"
-render "$CASE5_RD" "$CASE5_OUT"
+render "$CASE5_RD" "$CASE5_OUT" ceeg_contract_checked
 
 assert_grep "R3 Mapping Audit" "$CASE5_OUT/came_final_report.html" \
   "case5: R3 section missing"
@@ -244,7 +267,7 @@ printf 'r3_mapping\t/mock/r3\tvalid\t0\tmock_mapping_validator\t1.0.0\tmock_r3_r
   >> "$CASE6_RD/ceeg_compatibility/ceeg_contract_summary.tsv"
 printf 'mock_r3_run_001\t10\t7\t1\t2\t/mock/r3\n' \
   >> "$CASE6_RD/ceeg_compatibility/ceeg_mapping_summary.tsv"
-render "$CASE6_RD" "$CASE6_OUT"
+render "$CASE6_RD" "$CASE6_OUT" ceeg_contract_checked
 
 assert_grep "R2 Overlay Contract" "$CASE6_OUT/came_final_report.html" \
   "case6: R2 section missing from combined"
@@ -263,7 +286,7 @@ mkdir -p "$CASE7_OUT"
 setup_min_fixture "$CASE7_RD"
 write_r2_fatal "$CASE7_RD"
 rc=0
-render "$CASE7_RD" "$CASE7_OUT" || rc=$?
+render "$CASE7_RD" "$CASE7_OUT" ceeg_contract_checked || rc=$?
 if [ "$rc" -ne 0 ]; then
   fail "case7: render_final_report.py exited $rc for R2 fatal (expected 0)"
 else
@@ -307,7 +330,7 @@ printf 'r3_mapping\t/mock/r3\tvalid\t0\tmock_mapping_validator\t1.0.0\tmock_r3_r
   >> "$CASE9_RD/ceeg_compatibility/ceeg_contract_summary.tsv"
 printf 'mock_r3_run_001\t10\t7\t1\t2\t/mock/r3\n' \
   >> "$CASE9_RD/ceeg_compatibility/ceeg_mapping_summary.tsv"
-render "$CASE9_RD" "$CASE9_OUT"
+render "$CASE9_RD" "$CASE9_OUT" ceeg_contract_checked
 
 assert_not_grep "conserved feature" "$CASE9_OUT/came_final_report.html" \
   "case9: forbidden 'conserved feature' found in report"
@@ -317,8 +340,11 @@ assert_not_grep "candidate score" "$CASE9_OUT/came_final_report.html" \
   "case9: forbidden 'candidate score' found in report"
 assert_not_grep "biological comparability score" "$CASE9_OUT/came_final_report.html" \
   "case9: forbidden 'biological comparability score' found in report"
-assert_not_grep "admissibility" "$CASE9_OUT/came_final_report.html" \
-  "case9: forbidden 'admissibility' found in report"
+# Bare "admissibility" appears as part of the legitimate anti-overclaim wording
+# ("R5 admissibility validation") under ceeg_contract_checked mode. The forbidden
+# claim is "admissibility status" — that is what this guard must prohibit.
+assert_not_grep "admissibility status" "$CASE9_OUT/came_final_report.html" \
+  "case9: forbidden 'admissibility status' found in report"
 # "biological absence" only allowed in the anti-overclaim note
 # Check it does NOT appear outside the notes context by verifying the approved form is present
 assert_grep "Failed mapping is not biological absence" \
@@ -337,7 +363,7 @@ write_ceeg_headers "$CASE10_RD"
 # Simulate _parse_r2 output when came_report_manifest.json is absent
 printf 'r2_overlay\t/mock/r2_missing\tmissing_manifest\t2\t\t\t\tcame_report_manifest.json not found\n' \
   >> "$CASE10_RD/ceeg_compatibility/ceeg_contract_summary.tsv"
-render "$CASE10_RD" "$CASE10_OUT"
+render "$CASE10_RD" "$CASE10_OUT" ceeg_contract_checked
 
 assert_grep "R2 Overlay Contract" "$CASE10_OUT/came_final_report.html" \
   "case10: R2 section missing when manifest was absent (adapter error)"
@@ -361,7 +387,7 @@ write_ceeg_headers "$CASE11_RD"
 # Simulate _parse_r3 output when mapping_report_manifest.json is absent
 printf 'r3_mapping\t/mock/r3_missing\tmissing_manifest\t2\t\t\t\tmapping_report_manifest.json not found\n' \
   >> "$CASE11_RD/ceeg_compatibility/ceeg_contract_summary.tsv"
-render "$CASE11_RD" "$CASE11_OUT"
+render "$CASE11_RD" "$CASE11_OUT" ceeg_contract_checked
 
 assert_grep "R3 Mapping Audit" "$CASE11_OUT/came_final_report.html" \
   "case11: R3 section missing when manifest was absent (adapter error)"
@@ -373,6 +399,99 @@ assert_not_grep "No R3 mapping-contract artifacts were supplied" \
   "$CASE11_OUT/came_final_report.html" \
   "case11: R3 adapter error misclassified as no-artifacts-supplied"
 pass "case11: R3 missing-manifest adapter error renders error status and message"
+
+# ==============================================================================
+# Case 12 — design-assumed mode (default): no R2/R3 fixtures, MD + HTML parity
+# ==============================================================================
+CASE12_RD="$TMP_DIR/case12_results"
+CASE12_OUT="$TMP_DIR/case12_out"
+mkdir -p "$CASE12_OUT"
+setup_min_fixture "$CASE12_RD"
+# Deliberately no write_ceeg_headers / write_r2_success / write_r3_success — this
+# fixture must contain no R2/R3 contract-consumption rows so the renderer's
+# default design_assumed mode is honoured by the param-validation contract.
+render "$CASE12_RD" "$CASE12_OUT"
+
+for fmt in md html; do
+  assert_grep "Comparability Mode" "$CASE12_OUT/came_final_report.$fmt" \
+    "case12/$fmt: Comparability Mode heading missing"
+  assert_grep "Comparability mode: standard / design-assumed" "$CASE12_OUT/came_final_report.$fmt" \
+    "case12/$fmt: design-assumed heading line missing"
+  assert_grep "CAME did not consume CEEG R2/R3 contract artifacts" "$CASE12_OUT/came_final_report.$fmt" \
+    "case12/$fmt: design-assumed body sentence 1 missing"
+  assert_grep "assumed from the experimental design" "$CASE12_OUT/came_final_report.$fmt" \
+    "case12/$fmt: design-assumed body sentence 2 missing"
+  assert_grep "Interpret comparative results conditional on that design assumption" \
+    "$CASE12_OUT/came_final_report.$fmt" \
+    "case12/$fmt: design-assumed closing sentence missing"
+  assert_not_grep "CEEG contract-checked" "$CASE12_OUT/came_final_report.$fmt" \
+    "case12/$fmt: unexpected ceeg_contract_checked wording present"
+  assert_not_grep "R4 comparability validation" "$CASE12_OUT/came_final_report.$fmt" \
+    "case12/$fmt: unexpected R4 wording present"
+  assert_not_grep "R5 admissibility validation" "$CASE12_OUT/came_final_report.$fmt" \
+    "case12/$fmt: unexpected R5 wording present"
+  assert_not_grep "CEEG comparability contracts" "$CASE12_OUT/came_final_report.$fmt" \
+    "case12/$fmt: forbidden 'CEEG comparability contracts' phrase present"
+done
+pass "case12: design-assumed mode renders correctly in MD and HTML"
+
+# ==============================================================================
+# Case 13 — CEEG contract-checked mode: R2 success fixture, MD + HTML parity
+# ==============================================================================
+CASE13_RD="$TMP_DIR/case13_results"
+CASE13_OUT="$TMP_DIR/case13_out"
+mkdir -p "$CASE13_OUT"
+setup_min_fixture "$CASE13_RD"
+write_r2_success "$CASE13_RD"
+render "$CASE13_RD" "$CASE13_OUT" ceeg_contract_checked
+
+for fmt in md html; do
+  assert_grep "Comparability Mode" "$CASE13_OUT/came_final_report.$fmt" \
+    "case13/$fmt: Comparability Mode heading missing"
+  assert_grep "Comparability mode: CEEG contract-checked" "$CASE13_OUT/came_final_report.$fmt" \
+    "case13/$fmt: ceeg_contract_checked heading line missing"
+  assert_grep "CAME consumed CEEG R2/R3 contract artifacts" "$CASE13_OUT/came_final_report.$fmt" \
+    "case13/$fmt: ceeg_contract_checked body sentence 1 missing"
+  assert_grep "report contract and mapping-artifact status" "$CASE13_OUT/came_final_report.$fmt" \
+    "case13/$fmt: ceeg_contract_checked body sentence 2 missing"
+  assert_grep "not by themselves constitute R4 comparability validation" \
+    "$CASE13_OUT/came_final_report.$fmt" \
+    "case13/$fmt: R4 anti-overclaim sentence missing"
+  assert_grep "R5 admissibility validation" "$CASE13_OUT/came_final_report.$fmt" \
+    "case13/$fmt: R5 anti-overclaim wording missing"
+  assert_not_grep "standard / design-assumed" "$CASE13_OUT/came_final_report.$fmt" \
+    "case13/$fmt: unexpected design-assumed wording present"
+  assert_not_grep "CEEG comparability contracts" "$CASE13_OUT/came_final_report.$fmt" \
+    "case13/$fmt: forbidden 'CEEG comparability contracts' phrase present"
+done
+pass "case13: CEEG contract-checked mode renders correctly in MD and HTML"
+
+# ==============================================================================
+# Case 14 — MD/HTML parity for the comparability-mode declaration (both modes)
+# ==============================================================================
+# Re-use the case-12 outputs (design_assumed) and case-13 outputs (ceeg_contract_checked).
+# Each body string must be present in BOTH formats for the mode in question.
+parity_check() {
+  pattern="$1"; out_dir="$2"; case_label="$3"
+  assert_grep "$pattern" "$out_dir/came_final_report.md" \
+    "case14/$case_label: MD missing '$pattern'"
+  assert_grep "$pattern" "$out_dir/came_final_report.html" \
+    "case14/$case_label: HTML missing '$pattern'"
+}
+
+# design_assumed parity (from case12 output)
+parity_check "Comparability mode: standard / design-assumed" "$CASE12_OUT" "design_assumed"
+parity_check "CAME did not consume CEEG R2/R3 contract artifacts in this run" "$CASE12_OUT" "design_assumed"
+parity_check "Cross-condition or cross-system comparability is assumed from the experimental design" "$CASE12_OUT" "design_assumed"
+parity_check "Interpret comparative results conditional on that design assumption" "$CASE12_OUT" "design_assumed"
+
+# ceeg_contract_checked parity (from case13 output)
+parity_check "Comparability mode: CEEG contract-checked" "$CASE13_OUT" "ceeg_contract_checked"
+parity_check "CAME consumed CEEG R2/R3 contract artifacts in this run" "$CASE13_OUT" "ceeg_contract_checked"
+parity_check "These artifacts report contract and mapping-artifact status" "$CASE13_OUT" "ceeg_contract_checked"
+parity_check "They do not by themselves constitute R4 comparability validation or R5 admissibility validation" \
+  "$CASE13_OUT" "ceeg_contract_checked"
+pass "case14: comparability-mode body text has MD/HTML parity for both modes"
 
 # ==============================================================================
 # Summary

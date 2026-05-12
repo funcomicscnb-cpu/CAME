@@ -311,6 +311,7 @@ nextflow run "$ROOT_DIR/main.nf" \
   --ceeg_r2_run_dir "$R2_RUN" \
   --ceeg_fail_on_contract_error false \
   --ceeg_validation_mode development \
+  --comparability_mode ceeg_contract_checked \
   > "$NF_A_LOG" 2>&1
 NF_A_RC=$?
 set -e
@@ -348,6 +349,7 @@ nextflow run "$ROOT_DIR/main.nf" \
   --ceeg_r2_run_dir "$R2_RUN" \
   --ceeg_fail_on_contract_error true \
   --ceeg_validation_mode development \
+  --comparability_mode ceeg_contract_checked \
   > "$NF_B_LOG" 2>&1
 NF_B_RC=$?
 set -e
@@ -393,6 +395,7 @@ nextflow run "$ROOT_DIR/main.nf" \
   --ceeg_r2_run_dir "$R2_RUN" \
   --ceeg_fail_on_contract_error false \
   --ceeg_validation_mode development \
+  --comparability_mode ceeg_contract_checked \
   > "$NF_C_LOG" 2>&1
 NF_C_RC=$?
 set -e
@@ -431,6 +434,7 @@ nextflow run "$ROOT_DIR/main.nf" \
   "--ceeg_run_came_overlay_cmd=sh $MOCK --mode r2_success" \
   --ceeg_r2_run_dir "$R2_RUN" \
   --ceeg_r2_overlay_dir "$R2_FIXTURE" \
+  --comparability_mode ceeg_contract_checked \
   > "$NF_D_LOG" 2>&1
 NF_D_RC=$?
 set -e
@@ -503,6 +507,7 @@ nextflow run "$ROOT_DIR/main.nf" \
   --ceeg_r2_run_dir "$R2_RUN" \
   --ceeg_fail_on_contract_error true \
   --ceeg_validation_mode development \
+  --comparability_mode ceeg_contract_checked \
   > "$NF_F_LOG" 2>&1
 NF_F_RC=$?
 set -e
@@ -517,6 +522,103 @@ if [ -f "$CEEG_SUMMARY_F" ]; then
   pass "Fb: valid contract: ceeg_contract_summary.tsv published"
 else
   fail "Fb: valid contract: ceeg_contract_summary.tsv not found"
+fi
+
+# ── Case G — ceeg_contract_checked without R2/R3 artifacts must fail ─────────
+# --comparability_mode ceeg_contract_checked declares R2/R3 contract checking,
+# but the run supplies neither R2/R3 dirs nor orchestration commands. The param
+# validator in main.nf must reject this and name `comparability_mode` in stderr.
+NF_G_OUT="$TMP_DIR/nf_g_out"
+NF_G_WORK="$TMP_DIR/nf_g_work"
+NF_G_LOG="$TMP_DIR/nf_g.log"
+set +e
+nextflow run "$ROOT_DIR/main.nf" \
+  -work-dir "$NF_G_WORK" \
+  --outdir "$NF_G_OUT" \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle "$FIXTURE_BUNDLE" \
+  --ceeg_stub true \
+  --comparability_mode ceeg_contract_checked \
+  > "$NF_G_LOG" 2>&1
+NF_G_RC=$?
+set -e
+if [ "$NF_G_RC" != "0" ]; then
+  pass "G: ceeg_contract_checked without artifacts: workflow exits nonzero"
+else
+  cat "$NF_G_LOG"
+  fail "G: ceeg_contract_checked without artifacts: expected nonzero exit, got 0"
+fi
+if grep -q "comparability_mode" "$NF_G_LOG"; then
+  pass "Gb: ceeg_contract_checked without artifacts: error names comparability_mode"
+else
+  cat "$NF_G_LOG"
+  fail "Gb: ceeg_contract_checked without artifacts: error does not name comparability_mode"
+fi
+
+# ── Case H — design_assumed with R2 artifact directory must fail ─────────────
+# --comparability_mode design_assumed declares no CEEG consumption, but the run
+# supplies an R2 overlay dir. The param validator in main.nf must reject this.
+R2_FIXTURE_H="$ROOT_DIR/assets/test_data/ceeg_compatibility/mock_r2_output_success"
+NF_H_OUT="$TMP_DIR/nf_h_out"
+NF_H_WORK="$TMP_DIR/nf_h_work"
+NF_H_LOG="$TMP_DIR/nf_h.log"
+set +e
+nextflow run "$ROOT_DIR/main.nf" \
+  -work-dir "$NF_H_WORK" \
+  --outdir "$NF_H_OUT" \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle "$FIXTURE_BUNDLE" \
+  --ceeg_stub false \
+  --ceeg_r2_overlay_dir "$R2_FIXTURE_H" \
+  --comparability_mode design_assumed \
+  > "$NF_H_LOG" 2>&1
+NF_H_RC=$?
+set -e
+if [ "$NF_H_RC" != "0" ]; then
+  pass "H: design_assumed with R2 dir: workflow exits nonzero"
+else
+  cat "$NF_H_LOG"
+  fail "H: design_assumed with R2 dir: expected nonzero exit, got 0"
+fi
+if grep -q "comparability_mode" "$NF_H_LOG"; then
+  pass "Hb: design_assumed with R2 dir: error names comparability_mode"
+else
+  cat "$NF_H_LOG"
+  fail "Hb: design_assumed with R2 dir: error does not name comparability_mode"
+fi
+
+# ── Case I — design_assumed with orchestration command must fail (orch arm) ──
+# Exercises the orchestration arm of r2r3Engaged: orchestrate=true with an R2
+# command is engagement, even without --ceeg_r2_overlay_dir. design_assumed
+# must be rejected. Validation runs before the mock validator is invoked.
+NF_I_OUT="$TMP_DIR/nf_i_out"
+NF_I_WORK="$TMP_DIR/nf_i_work"
+NF_I_LOG="$TMP_DIR/nf_i.log"
+set +e
+nextflow run "$ROOT_DIR/main.nf" \
+  -work-dir "$NF_I_WORK" \
+  --outdir "$NF_I_OUT" \
+  --run_stage ceeg_compatibility \
+  --ceeg_model_bundle "$FIXTURE_BUNDLE" \
+  --ceeg_stub false \
+  --ceeg_orchestrate_contracts true \
+  "--ceeg_run_came_overlay_cmd=sh $MOCK --mode r2_success" \
+  --ceeg_r2_run_dir "$R2_RUN" \
+  --comparability_mode design_assumed \
+  > "$NF_I_LOG" 2>&1
+NF_I_RC=$?
+set -e
+if [ "$NF_I_RC" != "0" ]; then
+  pass "I: design_assumed with orchestration command: workflow exits nonzero"
+else
+  cat "$NF_I_LOG"
+  fail "I: design_assumed with orchestration command: expected nonzero exit, got 0"
+fi
+if grep -q "comparability_mode" "$NF_I_LOG"; then
+  pass "Ib: design_assumed with orchestration command: error names comparability_mode"
+else
+  cat "$NF_I_LOG"
+  fail "Ib: design_assumed with orchestration command: error does not name comparability_mode"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════

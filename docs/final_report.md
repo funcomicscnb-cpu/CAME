@@ -95,6 +95,23 @@ Release checks write:
 
 Release `WARNING` records do not fail the workflow. Release `ERROR` records fail the Nextflow stage after report, provenance, assets, and check outputs have been written.
 
+## Comparability Mode
+
+The final report includes a "Comparability Mode" section immediately above the CEEG Contract
+Consumption section. It declares whether the current run treats cross-condition or
+cross-system comparability as assumed from experimental design (`design_assumed`, the default)
+or as informed by CEEG R2/R3 contract artifacts (`ceeg_contract_checked`).
+
+- `design_assumed`: the report states that no CEEG R2/R3 contract artifacts were consumed and
+  that comparability is assumed by the supplied experimental design.
+- `ceeg_contract_checked`: the report states that CEEG R2/R3 contract artifacts were consumed
+  and explicitly notes that R2/R3 status is **not** R4 comparability validation and **not**
+  R5 admissibility validation.
+
+The mode is set by `--comparability_mode`. CAME's parameter validation rejects mode/input
+combinations that are inconsistent (e.g. `ceeg_contract_checked` without supplied R2/R3
+inputs). See [comparability_modes.md](comparability_modes.md) for the full vocabulary.
+
 ## CEEG Contract Consumption
 
 When CAME-I0 has been run (`--run_stage ceeg_compatibility`), the final report includes a

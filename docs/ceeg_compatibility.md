@@ -12,6 +12,13 @@ CAME-I2 adds optional command orchestration: when `--ceeg_orchestrate_contracts 
 invokes external CEEG validator CLIs and feeds the resulting directories to the I0 adapter.
 CAME does not vendor CEEG validators or reimplement validation logic.
 
+CAME also exposes a `--comparability_mode` parameter to make explicit whether the current run
+consumed CEEG R2/R3 contract artifacts. Runs that consume R2/R3 (directly or via orchestration)
+must declare `--comparability_mode ceeg_contract_checked`; standard CAME runs use the default
+`design_assumed`. R2/R3 contract success is reported strictly as contract status; it is not R4
+comparability validation and not R5 admissibility validation. See
+[`comparability_modes.md`](comparability_modes.md) for the full vocabulary and rationale.
+
 ---
 
 ## Repository boundary

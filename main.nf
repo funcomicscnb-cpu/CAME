@@ -143,6 +143,7 @@ params.ceeg_r2_run_dir               = null
 params.ceeg_r3_run_dir               = null
 params.ceeg_orchestrate_contracts    = false
 params.ceeg_validator_created_at     = null
+params.comparability_mode            = 'design_assumed'
 
 workflow {
     def stageCatalog = [
@@ -240,6 +241,18 @@ workflow {
     def ceegR2Cmd                = params.ceeg_run_came_overlay_cmd ? params.ceeg_run_came_overlay_cmd.toString() : ''
     def ceegR3Cmd                = params.ceeg_run_mapping_contract_cmd ? params.ceeg_run_mapping_contract_cmd.toString() : ''
     def ceegValidatorCreatedAt   = params.ceeg_validator_created_at ? params.ceeg_validator_created_at.toString() : ''
+    def comparabilityMode = params.comparability_mode ? params.comparability_mode.toString().trim() : 'design_assumed'
+    def allowedComparabilityModes = ['design_assumed', 'ceeg_contract_checked']
+    if (!(comparabilityMode in allowedComparabilityModes)) {
+        error "Unsupported --comparability_mode '${params.comparability_mode}'. Supported values: ${allowedComparabilityModes.join(', ')}."
+    }
+    def r2r3Engaged = (ceegR2OverlayDir as boolean) || (ceegR3MappingDir as boolean) || (ceegOrchestrateContracts && ((ceegR2Cmd as boolean) || (ceegR3Cmd as boolean)))
+    if (comparabilityMode == 'ceeg_contract_checked' && !r2r3Engaged) {
+        error "Comparability mode 'ceeg_contract_checked' requires CEEG R2/R3 contract artifacts. Supply --ceeg_r2_overlay_dir or --ceeg_r3_mapping_dir, or enable --ceeg_orchestrate_contracts with at least one of --ceeg_run_came_overlay_cmd / --ceeg_run_mapping_contract_cmd. Otherwise set --comparability_mode design_assumed."
+    }
+    if (comparabilityMode == 'design_assumed' && r2r3Engaged) {
+        error "Comparability mode 'design_assumed' is incompatible with supplied CEEG R2/R3 artifacts or orchestration. Set --comparability_mode ceeg_contract_checked, or remove --ceeg_r2_overlay_dir / --ceeg_r3_mapping_dir / --ceeg_orchestrate_contracts."
+    }
     def phylogenyManifestPath = params.phylogeny_manifest ? file(params.phylogeny_manifest) : null
     def phylogenyBaseDir = phylogenyManifestPath ? (phylogenyManifestPath.parent ?: '.') : '.'
     def existingIndexByGroup = file("${params.outdir}/phenotype/index/phenotype_index_by_group.tsv")
