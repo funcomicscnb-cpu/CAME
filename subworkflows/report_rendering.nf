@@ -41,7 +41,7 @@ process RENDER_CAME_FINAL_REPORT {
       --asset_top_candidates "${asset_top_candidates}" \\
       --asset_top_enriched_gene_sets "${asset_top_enriched_gene_sets}" \\
       --asset_warning_summary "${asset_warning_summary}" \\
-      --comparability_mode "${params.comparability_mode}"
+      --comparability_mode "${params.comparability_mode ?: 'design_assumed'}"
     """
 }
 

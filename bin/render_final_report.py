@@ -8,6 +8,7 @@ import csv
 import html
 import os
 import shutil
+import sys
 from pathlib import Path
 from string import Template
 
@@ -443,6 +444,32 @@ def load_ceeg_section_data(results_dir: Path) -> dict:
     }
 
 
+def _validate_mode_against_ceeg(mode: str, ceeg_section_data: dict, results_dir: Path) -> int:
+    has_contract_rows = bool(ceeg_section_data["r2_rows"] or ceeg_section_data["r3_rows"])
+    summary_path = results_dir / "ceeg_compatibility" / "ceeg_contract_summary.tsv"
+    if mode == "design_assumed" and has_contract_rows:
+        print(
+            f"render_final_report: --comparability_mode is 'design_assumed' but CEEG R2/R3 "
+            f"contract rows are present in {summary_path}. The declared mode is inconsistent "
+            f"with the on-disk CEEG compatibility outputs. Re-render with "
+            f"--comparability_mode ceeg_contract_checked, or remove the prior CEEG "
+            f"compatibility outputs from {summary_path.parent}.",
+            file=sys.stderr,
+        )
+        return 2
+    if mode == "ceeg_contract_checked" and not has_contract_rows:
+        print(
+            f"render_final_report: --comparability_mode is 'ceeg_contract_checked' but no "
+            f"CEEG R2/R3 contract rows are present in {summary_path}. The declared mode is "
+            f"inconsistent with the on-disk CEEG compatibility outputs. Re-render with "
+            f"--comparability_mode design_assumed, or run the ceeg_compatibility stage first "
+            f"to produce R2/R3 artifacts.",
+            file=sys.stderr,
+        )
+        return 2
+    return 0
+
+
 def _ceeg_no_artifacts_msg(r1_consumed: str) -> str:
     if r1_consumed == "yes":
         return (
@@ -872,6 +899,11 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = Path(args.output_dir).resolve()
     template_dir = Path(args.template_dir).resolve()
     profile = load_profile(args.study_profile, results_dir)
+    mode_check_rc = _validate_mode_against_ceeg(
+        args.comparability_mode, load_ceeg_section_data(results_dir), results_dir
+    )
+    if mode_check_rc != 0:
+        return mode_check_rc
     _, missing_rows = read_table(args.missing_outputs)
     _, release_rows = read_table(args.release_checks)
     _, release_summary_rows = read_table(args.release_summary)

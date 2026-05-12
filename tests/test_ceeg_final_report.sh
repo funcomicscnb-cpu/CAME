@@ -494,6 +494,56 @@ parity_check "They do not by themselves constitute R4 comparability validation o
 pass "case14: comparability-mode body text has MD/HTML parity for both modes"
 
 # ==============================================================================
+# Case 15 — renderer rejects design_assumed when on-disk R2/R3 rows are present
+# (simulates a re-render where the user forgot --comparability_mode after a
+#  prior ceeg_contract_checked run wrote contract data into the results tree)
+# ==============================================================================
+CASE15_RD="$TMP_DIR/case15_results"
+CASE15_OUT="$TMP_DIR/case15_out"
+mkdir -p "$CASE15_OUT"
+setup_min_fixture "$CASE15_RD"
+write_r2_success "$CASE15_RD"
+rc=0
+# Deliberately omit the mode arg → renderer default is design_assumed, which
+# is inconsistent with the R2 rows now on disk. The renderer must reject this.
+render "$CASE15_RD" "$CASE15_OUT" > "$TMP_DIR/case15.stderr" 2>&1 || rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "case15: renderer exits 2 when design_assumed declared with R2 rows on disk"
+else
+  cat "$TMP_DIR/case15.stderr"
+  fail "case15: expected exit 2, got $rc"
+fi
+assert_grep "comparability_mode is 'design_assumed'" "$TMP_DIR/case15.stderr" \
+  "case15: stderr does not name design_assumed"
+assert_grep "ceeg_contract_summary.tsv" "$TMP_DIR/case15.stderr" \
+  "case15: stderr does not name the offending TSV path"
+assert_grep "comparability_mode ceeg_contract_checked" "$TMP_DIR/case15.stderr" \
+  "case15: stderr does not guide user to the correct mode"
+
+# ==============================================================================
+# Case 16 — renderer rejects ceeg_contract_checked when no R2/R3 rows are on disk
+# (simulates a renderer-only run that declared CEEG consumption but the
+#  ceeg_compatibility stage was never actually run)
+# ==============================================================================
+CASE16_RD="$TMP_DIR/case16_results"
+CASE16_OUT="$TMP_DIR/case16_out"
+mkdir -p "$CASE16_OUT"
+setup_min_fixture "$CASE16_RD"
+# Deliberately no write_ceeg_headers / write_r2_success → no R2/R3 rows on disk.
+rc=0
+render "$CASE16_RD" "$CASE16_OUT" ceeg_contract_checked > "$TMP_DIR/case16.stderr" 2>&1 || rc=$?
+if [ "$rc" -eq 2 ]; then
+  pass "case16: renderer exits 2 when ceeg_contract_checked declared with no R2/R3 rows"
+else
+  cat "$TMP_DIR/case16.stderr"
+  fail "case16: expected exit 2, got $rc"
+fi
+assert_grep "comparability_mode is 'ceeg_contract_checked'" "$TMP_DIR/case16.stderr" \
+  "case16: stderr does not name ceeg_contract_checked"
+assert_grep "comparability_mode design_assumed" "$TMP_DIR/case16.stderr" \
+  "case16: stderr does not guide user to the correct mode"
+
+# ==============================================================================
 # Summary
 # ==============================================================================
 echo ""
