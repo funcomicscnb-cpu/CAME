@@ -1,0 +1,2 @@
+projection_id	source_species	target_species	method
+proj1	Src_species	Tgt_species	liftover_chain

@@ -29,6 +29,7 @@ CAME owns:
 - CAME-side compatibility checks for imported CEEG model bundles;
 - consuming CEEG R2/R3 contract artifact directories;
 - optional orchestration of external CEEG validator commands;
+- optional orchestration of external reciprocal-best orthology reference bundle generator commands;
 - CAME-side summaries of consumed CEEG artifacts;
 - final-report rendering;
 - CAME stub-mode behavior;
@@ -67,6 +68,8 @@ CAME must not:
 - add `ceeg_compatibility` to `--run_stage all`.
 
 CAME may invoke CEEG tools only as external commands. CAME may inspect their emitted artifacts only through documented contract files.
+
+CAME may invoke an external reciprocal-best orthology reference bundle generator only as a user-supplied command. CAME may inspect the emitted bundle only through the documented `orthology_reference_bundle.tsv` manifest and local asset paths declared there.
 
 ## CEEG Compatibility Architecture
 
@@ -193,6 +196,44 @@ CAME distinguishes CEEG validator semantics from orchestration/tooling failure.
 | other nonzero             |               any | tooling or invocation failure; do not reinterpret as CEEG contract status |
 
 Exit 10 is a CAME orchestration-layer signal for “recognized validator exit code, but expected manifest missing.” It is not a CEEG validation result.
+
+## Orthology Reference Bundle Orchestration
+
+`orthology_reference_prepare` is an optional CAME-side orchestration layer for externally generated reciprocal-best orthology reference bundles.
+
+This layer is permitted because it invokes a user-supplied external command and validates the emitted bundle manifest. It does not make CAME the owner of synteny reconstruction.
+
+Required architecture:
+
+```text
+ORTHOLOGY_REFERENCE_PREPARE
+    -> user-supplied external bundle generator command
+    -> bundle/orthology_reference_bundle.tsv
+    -> validate_orthology_reference_bundle.py
+    -> published results/orthology_reference_prepare/*
+    -> CHECK_ORTHOLOGY_REFERENCE_PREPARE_STATUS
+```
+
+Required invariants:
+
+* `orthology_reference_prepare` is opt-in only and must not be added to `--run_stage all`.
+* `orthology_reference_prepare_stub=true` is zero-dependency and prevents external command invocation.
+* External command invocation requires an explicit command prefix and run directory.
+* CAME appends only these arguments to the external command:
+
+  * `--run-dir`
+  * `--out-dir`
+  * `--created-at`, only when supplied
+
+* The external command must emit `orthology_reference_bundle.tsv` in the supplied output directory.
+* CAME validates the emitted manifest with `validate_orthology_reference_bundle.py`.
+* CAME publishes bundle validation outputs before a nonzero workflow exit when validation fails.
+* Exit 10 is the CAME orchestration-layer signal for “external command succeeded, but expected orthology bundle manifest is missing.”
+* CAME must not implement synteny reconstruction, chain/net generation, HAL construction, or callable-mask generation as internal pipeline logic in this stage.
+* CAME must not reinterpret failed, missing, or low-confidence bundle assets as biological absence, conservation, identity, equivalence, comparability, or admissibility.
+* A generated bundle may feed `coordinate_projection` only through an explicit later `--orthology_reference_bundle_manifest` parameter. It must not be auto-wired into `coordinate_projection`, `orthology_projection`, or `--run_stage all`.
+
+Examples of synteny/reference-preparation logic that remain external to CAME ownership include `halSynteny`, pairwise aligners, `pslPosTarget`, `axtChain`, `chainSort`, `chainPreNet`, `chainNet`, `chainSwap`, `netChainSubset`, `netSyntenic`, and callable-mask construction. CAME may validate the resulting manifest and declared assets, but it must not silently repair or reinterpret them.
 
 ## Contract-Status Failure Semantics
 

@@ -6,7 +6,7 @@ CAME v0.1 prepares the repository for a public release of the phenotype-agnostic
 
 The v0.1 release includes implemented validation, phenotype processing, phylogenetic/hypothesis modeling, bulk RNA-seq/ATAC-seq interfaces, differential omics, orthology projection, GRA analysis, phenotype-omics integration, candidate prioritization, functional interpretation, final reporting, release checks, and optional interfaces.
 
-`--run_stage all` remains the v0.1 core end-to-end path. It warns that `reference_prepare`, `reference_quality`, `wgs_variants`, `coordinate_projection`, `re_to_gene_inference`, `advanced_statistics`, and `ceeg_compatibility` are excluded and must be run explicitly when needed.
+`--run_stage all` remains the v0.1 core end-to-end path. It warns that `reference_prepare`, `reference_quality`, `wgs_variants`, `coordinate_projection`, `orthology_reference_prepare`, `re_to_gene_inference`, `advanced_statistics`, and `ceeg_compatibility` are excluded and must be run explicitly when needed.
 
 ## Optional Interfaces
 
@@ -14,6 +14,7 @@ The following commands are optional interfaces and are not production implementa
 
 - `reference_prepare`: WGS-backed reference preparation interface.
 - `coordinate_projection`: coordinate lift-over and regulatory-element orthology interface.
+- `orthology_reference_prepare`: external reciprocal-best orthology reference-bundle orchestration and validation interface.
 - `re_to_gene_inference`: regulatory-element-to-gene inference interface.
 - `advanced_statistics`: optional advanced statistics and lightweight model-comparison interface.
 - `ceeg_compatibility`: optional CEEG contract artifact consumption interface; requires `--ceeg_model_bundle` and optionally consumes externally generated `--ceeg_r2_overlay_dir` and `--ceeg_r3_mapping_dir` artifact directories.

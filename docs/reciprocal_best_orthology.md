@@ -189,6 +189,11 @@ are, per species pair:
 4. `netChainSubset` to extract the chains each net retains,
 5. `netSyntenic` + level-1 fill extraction for the callable masks.
 
+The optional `orthology_reference_prepare` stage can orchestrate an external
+bundle generator that performs those steps and emits a validated
+`orthology_reference_bundle.tsv`, but CAME still treats synteny reconstruction
+and chain/net generation as external to CAME-owned analysis logic.
+
 ### `bin/define_reciprocal_best_chains.py`
 
 Defines the reciprocal-best chain set as the **intersection of chain identifiers**

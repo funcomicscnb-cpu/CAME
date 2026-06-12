@@ -92,6 +92,7 @@ Final reports are written to `results/final/report/` with linked provenance and 
 | Optional WGS small-variant baseline | `--run_stage wgs_variants` |
 | Reference-quality validation | `--run_stage reference_quality` |
 | Optional coordinate projection interface | `--run_stage coordinate_projection` |
+| Optional orthology reference bundle preparation | `--run_stage orthology_reference_prepare` |
 | Optional RE-to-gene inference interface | `--run_stage re_to_gene_inference` |
 | Optional advanced statistics interface | `--run_stage advanced_statistics` |
 | End-to-end orchestration | `--run_stage all` |
@@ -116,6 +117,7 @@ Use `--list_stages true` to print the run-stage catalog and `--run_stage all` in
 - WGS real mode: [docs/wgs_real_mode.md](docs/wgs_real_mode.md)
 - Optional coordinate projection: [docs/coordinate_projection.md](docs/coordinate_projection.md)
 - Reciprocal-best orthologous regions (coordinate-projection real mode): [docs/reciprocal_best_orthology.md](docs/reciprocal_best_orthology.md)
+- Optional orthology reference preparation: [docs/orthology_reference_prepare.md](docs/orthology_reference_prepare.md)
 - Optional RE-to-gene inference: [docs/re_to_gene_inference.md](docs/re_to_gene_inference.md)
 - Optional advanced statistics: [docs/advanced_statistics.md](docs/advanced_statistics.md)
 - Final reports: [docs/final_report.md](docs/final_report.md)
@@ -130,7 +132,7 @@ Use `--list_stages true` to print the run-stage catalog and `--run_stage all` in
 - `--resume_completed_stages` is reporting/documentation only; reuse is through Nextflow `-resume`.
 - Stage status checks are file presence/non-empty checks, not freshness or content hashes.
 - Optional interfaces such as `re_to_gene_inference` and `advanced_statistics` are not run by `--run_stage all`.
-- `--run_stage all` also excludes `reference_prepare`, `reference_quality`, `wgs_variants`, and `coordinate_projection`; run these stages explicitly when needed.
+- `--run_stage all` also excludes `reference_prepare`, `reference_quality`, `wgs_variants`, `coordinate_projection`, and `orthology_reference_prepare`; run these stages explicitly when needed.
 - Real mode requires real contrast-ready metadata, reference assets, FASTQ files, and external tools.
 - Real-mode fixtures are tiny contract tests, not biological benchmarks; production validation still requires curated real datasets and installed tools.
 - NanoSeq and mutation profiling are not implemented in v0.1.

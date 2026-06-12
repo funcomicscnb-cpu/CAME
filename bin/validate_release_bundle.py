@@ -25,6 +25,7 @@ REQUIRED_WORKFLOWS = [
     "workflows/functional_interpretation.nf",
     "workflows/gra_analysis.nf",
     "workflows/orthology_projection.nf",
+    "workflows/orthology_reference_prepare.nf",
     "workflows/phenotype_omics_integration.nf",
     "workflows/phenotype_response.nf",
     "workflows/phylo_hypothesis.nf",
@@ -43,6 +44,7 @@ REQUIRED_TESTS = [
     "tests/test_coordinate_projection.sh",
     "tests/test_differential_omics.sh",
     "tests/test_orthology_projection.sh",
+    "tests/test_orthology_reference_prepare.sh",
     "tests/test_gra_analysis.sh",
     "tests/test_phenotype_omics_integration.sh",
     "tests/test_candidate_prioritization.sh",
@@ -69,6 +71,7 @@ REQUIRED_DOCS = [
     "docs/coordinate_projection.md",
     "docs/differential_omics.md",
     "docs/orthology_projection.md",
+    "docs/orthology_reference_prepare.md",
     "docs/gra_analysis.md",
     "docs/phenotype_omics_integration.md",
     "docs/candidate_prioritization.md",
@@ -95,9 +98,11 @@ REQUIRED_BIN = [
     "bin/make_synthetic_reference_outputs.py",
     "bin/prepare_coordinate_projection_inputs.py",
     "bin/prepare_reference_inputs.py",
+    "bin/run_orthology_reference_prepare.py",
     "bin/render_final_report.py",
     "bin/summarize_coordinate_projection.py",
     "bin/summarize_reference_prepare.py",
+    "bin/validate_orthology_reference_bundle.py",
     "bin/validate_real_mode_fixtures.py",
 ]
 
@@ -123,6 +128,7 @@ REQUIRED_SCHEMAS = [
     "schemas/real_mode_metadata.schema.json",
     "assets/schema/reference_manifest.schema.json",
     "assets/schema/reference_manifest_legacy.schema.json",
+    "schemas/orthology_reference_bundle_manifest.schema.json",
 ]
 
 REQUIRED_RELEASE_FILES = [

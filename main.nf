@@ -15,6 +15,7 @@ include { FINAL_REPORT } from './workflows/final_report'
 include { REFERENCE_PREPARE } from './workflows/reference_prepare'
 include { WGS_VARIANTS } from './workflows/wgs_variants'
 include { COORDINATE_PROJECTION } from './workflows/coordinate_projection'
+include { ORTHOLOGY_REFERENCE_PREPARE } from './workflows/orthology_reference_prepare'
 include { RE_TO_GENE_INFERENCE } from './workflows/re_to_gene_inference'
 include { ADVANCED_STATISTICS } from './workflows/advanced_statistics'
 include { CEEG_COMPATIBILITY } from './workflows/ceeg_compatibility'
@@ -35,6 +36,11 @@ params.regulatory_regions = 'assets/example_samplesheets/regulatory_regions.tsv'
 params.genome_alignment_manifest = 'assets/example_samplesheets/genome_alignment_manifest.tsv'
 params.coordinate_projection_config = 'assets/example_samplesheets/coordinate_projection_config.tsv'
 params.orthology_reference_bundle_manifest = null
+params.orthology_reference_prepare_stub = true
+params.orthology_reference_prepare_cmd = null
+params.orthology_reference_prepare_run_dir = null
+params.orthology_reference_prepare_created_at = null
+params.orthology_reference_prepare_check_paths = true
 params.gene_coordinates = 'assets/example_samplesheets/gene_coordinates.tsv'
 params.chromatin_contacts = 'assets/example_samplesheets/chromatin_contacts.tsv'
 params.re_to_gene_inference_config = 'assets/example_samplesheets/re_to_gene_inference_config.tsv'
@@ -164,6 +170,7 @@ workflow {
         [run_stage: 'wgs_variants', maturity: 'production', included_in_all: false, real_mode_scope: 'WGS per-sample SNP/indel calling', notes: 'Optional; per-sample only, no joint genotyping'],
         [run_stage: 'reference_quality', maturity: 'production', included_in_all: false, real_mode_scope: 'reference assets', notes: 'Optional reference-quality validation'],
         [run_stage: 'coordinate_projection', maturity: 'basic', included_in_all: false, real_mode_scope: 'reciprocal-best orthologous regions', notes: 'Optional; basic reciprocal-best lift-over orthology, requires external lift-over tools in real mode'],
+        [run_stage: 'orthology_reference_prepare', maturity: 'basic', included_in_all: false, real_mode_scope: 'orthology reference bundle', notes: 'Optional; orchestrates external reciprocal-best bundle generation and validates the emitted manifest'],
         [run_stage: 're_to_gene_inference', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'regulatory links', notes: 'Optional scaffold; not production RE-to-gene inference'],
         [run_stage: 'advanced_statistics', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'advanced models', notes: 'Optional scaffold; not production advanced statistics'],
         [run_stage: 'ceeg_compatibility', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'CEEG model bundle', notes: 'Optional CEEG contract artifact consumption interface; requires --ceeg_model_bundle'],
@@ -230,6 +237,7 @@ workflow {
     def isWgsVariantsStage = params.run_stage == 'wgs_variants'
     def isReferenceQualityStage = params.run_stage == 'reference_quality'
     def isCoordinateProjectionStage = params.run_stage == 'coordinate_projection'
+    def isOrthologyReferencePrepareStage = params.run_stage == 'orthology_reference_prepare'
     def isReToGeneInferenceStage = params.run_stage == 're_to_gene_inference'
     def isAdvancedStatisticsStage = params.run_stage == 'advanced_statistics'
     def isCeegCompatibilityStage = params.run_stage == 'ceeg_compatibility' || (ceegEnabled && params.run_stage == 'validation')
@@ -256,6 +264,10 @@ workflow {
     def ceegR2Cmd                = params.ceeg_run_came_overlay_cmd ? params.ceeg_run_came_overlay_cmd.toString() : ''
     def ceegR3Cmd                = params.ceeg_run_mapping_contract_cmd ? params.ceeg_run_mapping_contract_cmd.toString() : ''
     def ceegValidatorCreatedAt   = params.ceeg_validator_created_at ? params.ceeg_validator_created_at.toString() : ''
+    def orthologyReferencePrepareStub = params.orthology_reference_prepare_stub.toString().trim().toLowerCase()
+    def orthologyReferencePrepareCmd = params.orthology_reference_prepare_cmd ? params.orthology_reference_prepare_cmd.toString() : ''
+    def orthologyReferencePrepareRunDir = params.orthology_reference_prepare_run_dir ? file(params.orthology_reference_prepare_run_dir.toString()).toAbsolutePath().toString() : ''
+    def orthologyReferencePrepareCreatedAt = params.orthology_reference_prepare_created_at ? params.orthology_reference_prepare_created_at.toString() : ''
     def comparabilityMode = params.comparability_mode ? params.comparability_mode.toString().trim() : 'design_assumed'
     def allowedComparabilityModes = ['design_assumed', 'ceeg_contract_checked', 'ceeg_comparability_evidence_consumed']
     if (!(comparabilityMode in allowedComparabilityModes)) {
@@ -432,6 +444,18 @@ workflow {
         } else if (!params.genome_alignment_manifest || !params.coordinate_projection_config) {
             error "Stage coordinate_projection requires --regulatory_regions plus either --orthology_reference_bundle_manifest or both --genome_alignment_manifest and --coordinate_projection_config."
         }
+    } else if (isOrthologyReferencePrepareStage) {
+        if (!(orthologyReferencePrepareStub in ["true", "1", "yes"])) {
+            if (!orthologyReferencePrepareCmd) {
+                error "Stage orthology_reference_prepare real mode requires --orthology_reference_prepare_cmd."
+            }
+            if (!orthologyReferencePrepareRunDir) {
+                error "Stage orthology_reference_prepare real mode requires --orthology_reference_prepare_run_dir."
+            }
+            if (orthologyReferencePrepareRunDir && !file(orthologyReferencePrepareRunDir).exists()) {
+                error "Stage orthology_reference_prepare could not find orthology_reference_prepare_run_dir at '${params.orthology_reference_prepare_run_dir}'."
+            }
+        }
     } else if (isReToGeneInferenceStage) {
         if (!params.regulatory_regions || !params.gene_coordinates || !params.re_to_gene_inference_config) {
             error "Stage re_to_gene_inference requires --regulatory_regions, --gene_coordinates, and --re_to_gene_inference_config."
@@ -542,7 +566,7 @@ workflow {
     def activeGeneAnnotations = params.gene_annotations ? gateFile(params.gene_annotations) : null
     def activeGeneSets = params.gene_sets ? gateFile(params.gene_sets) : null
     def activeCandidateScoringConfigValue = params.candidate_scoring_config ? gateValue(file(params.candidate_scoring_config).toString()) : null
-    if (!isAllStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && !isCeegCompatibilityStage && hasFullMetadata) {
+    if (!isAllStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isOrthologyReferencePrepareStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && !isCeegCompatibilityStage && hasFullMetadata) {
         METADATA_VALIDATION(
             activePhenotypeSamplesheet,
             activeOmicsSamplesheet,
@@ -553,7 +577,7 @@ workflow {
             params.validation_strict ?: false
         )
         metadataReport = METADATA_VALIDATION.out.report
-    } else if (!realModeValidationEnabled && !isAllStage && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && !isCeegCompatibilityStage) {
+    } else if (!realModeValidationEnabled && !isAllStage && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isOrthologyReferencePrepareStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && !isCeegCompatibilityStage) {
         PHYLO_METADATA_VALIDATION(
             activePhenotypeSamplesheet,
             activeSpeciesTraits,
@@ -572,7 +596,7 @@ workflow {
         log.info "Skipping full Stage 1 metadata validation for ${params.run_stage} because only downstream inputs were provided."
     }
 
-    if (!isAllStage && params.study_profile && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && !isCeegCompatibilityStage) {
+    if (!isAllStage && params.study_profile && !isBulkOmicsStage && !isDifferentialOmicsStage && !isOrthologyStage && !isGraStage && !isIntegrationStage && !isCandidateStage && !isFunctionalStage && !isFinalReportStage && !isReferencePrepareStage && !isWgsVariantsStage && !isReferenceQualityStage && !isCoordinateProjectionStage && !isOrthologyReferencePrepareStage && !isReToGeneInferenceStage && !isAdvancedStatisticsStage && !isCeegCompatibilityStage) {
         STUDY_PROFILE_VALIDATION(
             activeStudyProfile,
             activePhenotypeSamplesheet,
@@ -586,7 +610,7 @@ workflow {
     }
 
     if (params.run_stage == 'all' && !validateOnly) {
-        log.warn "[CAME WARNING] --run_stage all excludes optional/scaffold stages: reference_prepare, reference_quality, wgs_variants, coordinate_projection, re_to_gene_inference, advanced_statistics, ceeg_compatibility. Run each explicitly with --run_stage <name>. Use --list_stages true for the full catalog."
+        log.warn "[CAME WARNING] --run_stage all excludes optional/scaffold stages: reference_prepare, reference_quality, wgs_variants, coordinate_projection, orthology_reference_prepare, re_to_gene_inference, advanced_statistics, ceeg_compatibility. Run each explicitly with --run_stage <name>. Use --list_stages true for the full catalog."
         def functionalMinScore = params.functional_interpretation_min_score != null ? params.functional_interpretation_min_score.toString() : ''
         ALL(
             activePhenotypeSamplesheet,
@@ -673,6 +697,14 @@ workflow {
             activeOrthologyReferenceBundleManifest,
             activeOrthologyReferenceBundleManifestSource,
             params.coordinate_projection_stub
+        )
+    } else if (params.run_stage == 'orthology_reference_prepare' && !validateOnly) {
+        ORTHOLOGY_REFERENCE_PREPARE(
+            params.orthology_reference_prepare_stub,
+            orthologyReferencePrepareCmd,
+            orthologyReferencePrepareRunDir,
+            orthologyReferencePrepareCreatedAt,
+            params.orthology_reference_prepare_check_paths
         )
     } else if (params.run_stage == 're_to_gene_inference' && !validateOnly) {
         RE_TO_GENE_INFERENCE(

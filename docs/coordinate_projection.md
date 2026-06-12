@@ -101,6 +101,11 @@ per `(source_species, target_species)` pair: each pair may provide its own
 `halliftover`, `hal_alignment`. Loose non-bundle asset parameters remain
 run-wide fallbacks.
 
+Bundle manifests can be supplied externally or produced by the optional
+`orthology_reference_prepare` orchestration stage. That stage remains outside
+`--run_stage all` and only invokes an external bundle generator; it does not
+implement synteny reconstruction inside CAME.
+
 ## Projection Config
 
 Default example: `assets/example_samplesheets/coordinate_projection_config.tsv`
