@@ -8,6 +8,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
 PYTHON=${PYTHON:-python3}
 FIXTURE_DIR="$ROOT_DIR/assets/test_data/orthology_reference_bundle"
 VALIDATOR="$ROOT_DIR/bin/validate_orthology_reference_bundle.py"
+ADAPTER="$ROOT_DIR/bin/prepare_coordinate_projection_bundle_inputs.py"
 
 fail() {
   echo "FAIL: $1" >&2
@@ -125,6 +126,23 @@ assert_no_grep 'provenance' "$TMP_DIR/came_liftover/orthology_reference_bundle_v
 
 run_valid "$HAL" "$TMP_DIR/external_hal"
 assert_grep 'hal_alignment	asset_path	OK' "$TMP_DIR/external_hal/orthology_reference_bundle_validation.tsv" "valid HAL asset row absent"
+
+"$PYTHON" "$ADAPTER" \
+  --bundle-manifest "$EXT" \
+  --output-dir "$TMP_DIR/liftover_adapter" > "$TMP_DIR/liftover_adapter.log" 2>&1
+assert_grep 'reciprocal_best_chain' "$TMP_DIR/liftover_adapter/genome_alignment_manifest.from_bundle.tsv" "adapter did not emit reciprocal-best chain alignment"
+assert_grep 'liftover_chain' "$TMP_DIR/liftover_adapter/coordinate_projection_config.from_bundle.tsv" "adapter did not emit liftover_chain config"
+assert_grep '^liftover$' "$TMP_DIR/liftover_adapter/effective_orthology_lift_tool.txt" "adapter did not record liftover effective tool"
+assert_grep '^source_mask	true	' "$TMP_DIR/liftover_adapter/orthology_reference_bundle_asset_selectors.tsv" "adapter did not select source mask"
+assert_file "$TMP_DIR/liftover_adapter/opt_source_mask/mmus.callable.bed" "adapter did not stage source mask"
+
+"$PYTHON" "$ADAPTER" \
+  --bundle-manifest "$HAL" \
+  --output-dir "$TMP_DIR/hal_adapter" > "$TMP_DIR/hal_adapter.log" 2>&1
+assert_grep 'hal_alignment' "$TMP_DIR/hal_adapter/genome_alignment_manifest.from_bundle.tsv" "adapter did not emit HAL alignment metadata"
+assert_grep 'precomputed_map' "$TMP_DIR/hal_adapter/coordinate_projection_config.from_bundle.tsv" "adapter did not emit HAL-compatible config"
+assert_grep '^halliftover$' "$TMP_DIR/hal_adapter/effective_orthology_lift_tool.txt" "adapter did not record halliftover effective tool"
+assert_file "$TMP_DIR/hal_adapter/opt_hal/mmus_drer.hal" "adapter did not stage HAL asset"
 
 mutate_manifest "$CAME" "$TMP_DIR/came_missing_provenance.tsv" came_missing_provenance
 run_invalid "$TMP_DIR/came_missing_provenance.tsv" "$TMP_DIR/came_missing_provenance" 'CAME-generated bundle requires provenance field: params_hash' "CAME-generated missing provenance should fail"

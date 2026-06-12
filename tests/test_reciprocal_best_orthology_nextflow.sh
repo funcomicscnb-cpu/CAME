@@ -98,4 +98,42 @@ MANIFEST="$OUT/coordinate_projection/summary/coordinate_projection_outputs_manif
 grep -q 'region_orthology_summary' "$MANIFEST" || { cat "$MANIFEST"; echo "FAIL: region_orthology_summary missing from outputs manifest" >&2; exit 1; }
 grep -q 'orthologous_region_blocks' "$MANIFEST" || { cat "$MANIFEST"; echo "FAIL: orthologous_region_blocks missing from outputs manifest" >&2; exit 1; }
 
+BUNDLE="$TMP_DIR/orthology_reference_bundle.tsv"
+printf 'schema_version\tbundle_id\tbundle_source\tsource_species\ttarget_species\tsource_assembly\ttarget_assembly\tasset_role\tasset_path\tasset_format\torthology_lift_tool\tvalidation_status\ttool_versions\tparams_hash\tinput_hashes\tcreated_at\tcreated_by\tnotes\tprojection_id\n' > "$BUNDLE"
+printf 'orthology_reference_bundle.v1\tbundle_proj1\texternal\tMus_musculus\tPan_troglodytes\tGRCm39\tpanTro6\treciprocal_best_chain\tmmus_to_ptro.chain\tchain\tliftover\tvalid\t\t\t\t\t\tbundle fixture\tproj1\n' >> "$BUNDLE"
+printf 'orthology_reference_bundle.v1\tbundle_proj1\texternal\tMus_musculus\tPan_troglodytes\tGRCm39\tpanTro6\tsource_callable_mask\tdir_b/NO_FILE.mask.bed\tbed\tliftover\tvalid\t\t\t\t\t\tbundle fixture\tproj1\n' >> "$BUNDLE"
+printf 'orthology_reference_bundle.v1\tbundle_proj1\texternal\tMus_musculus\tPan_troglodytes\tGRCm39\tpanTro6\ttarget_callable_mask\tdir_a/NO_FILE.mask.bed\tbed\tliftover\tvalid\t\t\t\t\t\tbundle fixture\tproj1\n' >> "$BUNDLE"
+printf 'orthology_reference_bundle.v1\tbundle_proj1\texternal\tMus_musculus\tPan_troglodytes\tGRCm39\tpanTro6\tsource_element_union\telement union.bed\tbed\tliftover\tvalid\t\t\t\t\t\tbundle fixture\tproj1\n' >> "$BUNDLE"
+
+BUNDLE_OUT="$TMP_DIR/results_bundle"
+PATH="$MOCKBIN:$PATH" nextflow run "$ROOT_DIR" \
+  --run_stage coordinate_projection \
+  --regulatory_regions "$REGIONS" \
+  --orthology_reference_bundle_manifest "$BUNDLE" \
+  --coordinate_projection_stub false \
+  --outdir "$BUNDLE_OUT" > "$TMP_DIR/nf_bundle.out" 2>&1 || { cat "$TMP_DIR/nf_bundle.out"; echo "FAIL: bundle-backed coordinate projection errored" >&2; exit 1; }
+
+BUNDLE_SUMM="$BUNDLE_OUT/coordinate_projection/region_orthology_summary.tsv"
+BUNDLE_ORTH="$BUNDLE_OUT/coordinate_projection/inferred_orthologous_res.tsv"
+BUNDLE_VALIDATION="$BUNDLE_OUT/coordinate_projection/input/orthology_reference_bundle_validation.tsv"
+for f in "$BUNDLE_SUMM" "$BUNDLE_ORTH" "$BUNDLE_VALIDATION"; do
+  [ -s "$f" ] || { cat "$TMP_DIR/nf_bundle.out"; echo "FAIL: missing bundle-backed output $f" >&2; exit 1; }
+done
+grep -q 'HIGH_CONFIDENCE' "$BUNDLE_SUMM" || { cat "$BUNDLE_SUMM"; echo "FAIL: bundle-backed run did not project high-confidence loci" >&2; exit 1; }
+grep -q 'reciprocal_best_orthology' "$BUNDLE_ORTH" || { cat "$BUNDLE_ORTH"; echo "FAIL: bundle-backed inferred orthology not emitted" >&2; exit 1; }
+grep -q 'orthology_reference_bundle:bundle_proj1' "$BUNDLE_OUT/coordinate_projection/input/genome_alignment_manifest.from_bundle.tsv" || { cat "$BUNDLE_OUT/coordinate_projection/input/genome_alignment_manifest.from_bundle.tsv"; echo "FAIL: generated alignment manifest missing bundle provenance" >&2; exit 1; }
+
+if nextflow run "$ROOT_DIR" \
+  --run_stage coordinate_projection \
+  --regulatory_regions "$REGIONS" \
+  --orthology_reference_bundle_manifest "$BUNDLE" \
+  --orthology_source_callable_mask "$SOURCE_MASK" \
+  --coordinate_projection_stub false \
+  --outdir "$TMP_DIR/conflict_results" > "$TMP_DIR/nf_bundle_conflict.out" 2>&1; then
+  cat "$TMP_DIR/nf_bundle_conflict.out"
+  echo "FAIL: bundle plus loose orthology asset should fail" >&2
+  exit 1
+fi
+grep -q 'Cannot combine --orthology_reference_bundle_manifest' "$TMP_DIR/nf_bundle_conflict.out" || { cat "$TMP_DIR/nf_bundle_conflict.out"; echo "FAIL: bundle/loose conflict diagnostic absent" >&2; exit 1; }
+
 echo "reciprocal-best orthology Nextflow real-mode test passed"

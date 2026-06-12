@@ -11,6 +11,7 @@ process RECIPROCAL_BEST_REGION_LIFTOVER {
     path source_mask, stageAs: 'opt_source_mask/*'
     path element_union, stageAs: 'opt_element_union/*'
     path hal_file, stageAs: 'opt_hal/*'
+    val orthology_lift_tool
     val has_species_mask
     val has_source_mask
     val has_element_union
@@ -30,7 +31,7 @@ process RECIPROCAL_BEST_REGION_LIFTOVER {
     // named exactly like a placeholder is not mistaken for "unset". Path
     // interpolations are left UNQUOTED: Nextflow backslash-escapes staged paths,
     // so adding our own quotes would turn the escape into a literal backslash.
-    def liftTool = (params.orthology_lift_tool ?: 'liftover').toString().toLowerCase()
+    def liftTool = (orthology_lift_tool ?: 'liftover').toString().toLowerCase()
     def minMatch = params.orthology_liftover_min_match
     // Keep the path objects (not stringified) so Nextflow escaping applies.
     def halFile = has_hal ? hal_file : ''
@@ -161,6 +162,7 @@ workflow LIFTOVER_PROJECTION {
     source_mask
     element_union
     hal_file
+    orthology_lift_tool
     has_species_mask
     has_source_mask
     has_element_union
@@ -174,6 +176,7 @@ workflow LIFTOVER_PROJECTION {
         source_mask,
         element_union,
         hal_file,
+        orthology_lift_tool,
         has_species_mask,
         has_source_mask,
         has_element_union,

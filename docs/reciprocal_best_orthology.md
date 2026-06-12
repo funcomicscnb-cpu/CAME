@@ -85,6 +85,7 @@ All parameters are optional and default to the values below. They are defined in
 
 | parameter | default | description |
 | --- | --- | --- |
+| `orthology_reference_bundle_manifest` | `null` | Versioned orthology reference bundle manifest. When supplied, CAME validates it and derives the alignment/config inputs plus optional masks/HAL assets from the bundle. |
 | `orthology_lift_tool` | `liftover` | `liftover` (UCSC `liftOver` + `chainSwap`) or `halliftover` (`halLiftover`). |
 | `orthology_liftover_min_match` | `0.1` | `liftOver -minMatch`; deliberately permissive so fragmented regulatory mappings survive to QC. `-multiple` is always set. |
 | `orthology_hal_file` | `null` | HAL alignment path; required when `orthology_lift_tool=halliftover`. |
@@ -114,6 +115,19 @@ adjustable when invoking `project_orthologous_regions.py` directly:
   required; input preparation instead requires the HAL to exist. The HAL is
   staged into the preparation and projection tasks so the existence check is
   portable to remote/containerized executors and is part of the task cache key.
+
+When `orthology_reference_bundle_manifest` is supplied, the bundle's
+`orthology_lift_tool` value selects the executor and CAME ignores the loose
+alignment/config inputs. Mixing the bundle manifest with loose orthology assets
+or custom loose alignment/config files is rejected.
+
+Bundle consumption is currently local-file oriented and stages assets into
+Nextflow tasks. Remote URI assets are not supported for projection runs. The
+adapter also supports only one distinct staged asset per optional role per run:
+one source callable mask, one target callable mask, one source element union,
+and one HAL file. Multi-pair chain bundles are accepted when these optional
+assets are shared or absent; bundles with separate target masks per species
+should be split into separate runs until per-pair optional assets are supported.
 
 ## Inputs
 

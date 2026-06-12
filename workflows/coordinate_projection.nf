@@ -1,6 +1,43 @@
 include { LIFTOVER_PROJECTION } from '../subworkflows/liftover_projection'
 include { REGULATORY_ORTHOLOGY_INFERENCE } from '../subworkflows/regulatory_orthology_inference'
 
+process PREPARE_ORTHOLOGY_REFERENCE_BUNDLE {
+    publishDir { "${params.outdir}/coordinate_projection" }, mode: 'copy', pattern: 'input/orthology_reference_bundle_*.tsv'
+    publishDir { "${params.outdir}/coordinate_projection" }, mode: 'copy', pattern: 'input/*from_bundle.tsv'
+
+    input:
+    path orthology_reference_bundle_manifest
+    val orthology_reference_bundle_manifest_source
+
+    output:
+    path 'input/orthology_reference_bundle_validation.tsv', emit: validation
+    path 'input/orthology_reference_bundle_warnings.tsv', emit: warnings
+    path 'input/genome_alignment_manifest.from_bundle.tsv', emit: genome_alignment_manifest
+    path 'input/coordinate_projection_config.from_bundle.tsv', emit: coordinate_projection_config
+    path 'input/effective_orthology_lift_tool.txt', emit: effective_lift_tool
+    path 'input/orthology_reference_bundle_asset_selectors.tsv', emit: asset_selectors
+    path 'input/opt_species_mask/*', emit: species_mask
+    path 'input/opt_source_mask/*', emit: source_mask
+    path 'input/opt_element_union/*', emit: element_union
+    path 'input/opt_hal/*', emit: hal_file
+    path 'input/has_species_mask.txt', emit: has_species_mask
+    path 'input/has_source_mask.txt', emit: has_source_mask
+    path 'input/has_element_union.txt', emit: has_element_union
+    path 'input/has_hal_file.txt', emit: has_hal
+
+    script:
+    """
+    mkdir -p input
+    python3 ${projectDir}/bin/validate_orthology_reference_bundle.py \\
+      --manifest "${orthology_reference_bundle_manifest_source}" \\
+      --outdir input \\
+      --check-paths true
+    python3 ${projectDir}/bin/prepare_coordinate_projection_bundle_inputs.py \\
+      --bundle-manifest "${orthology_reference_bundle_manifest_source}" \\
+      --output-dir input
+    """
+}
+
 process PREPARE_COORDINATE_PROJECTION_INPUTS {
     publishDir { "${params.outdir}/coordinate_projection" }, mode: 'copy'
 
@@ -11,6 +48,7 @@ process PREPARE_COORDINATE_PROJECTION_INPUTS {
     val coordinate_projection_stub
     path hal_file, stageAs: 'opt_hal/*'
     val has_hal
+    val orthology_lift_tool
 
     output:
     path 'input/coordinate_projection_manifest.tsv', emit: prepared_manifest
@@ -24,14 +62,14 @@ process PREPARE_COORDINATE_PROJECTION_INPUTS {
     // paths, so our own quotes would make the escape a literal backslash.
     def halArg = has_hal ? "--orthology_hal_file ${hal_file}" : ''
     """
-    mkdir -p input
-    python3 ${projectDir}/bin/prepare_coordinate_projection_inputs.py \\
-      --regulatory_regions "${regulatory_regions}" \\
-      --genome_alignment_manifest "${genome_alignment_manifest}" \\
-      --coordinate_projection_config "${coordinate_projection_config}" \\
-      --coordinate_projection_stub "${coordinate_projection_stub}" \\
-      --orthology_lift_tool "${params.orthology_lift_tool}" ${halArg} \\
-      --output_dir input
+	    mkdir -p input
+	    python3 ${projectDir}/bin/prepare_coordinate_projection_inputs.py \\
+	      --regulatory_regions "${regulatory_regions}" \\
+	      --genome_alignment_manifest "${genome_alignment_manifest}" \\
+	      --coordinate_projection_config "${coordinate_projection_config}" \\
+	      --coordinate_projection_stub "${coordinate_projection_stub}" \\
+	      --orthology_lift_tool "${orthology_lift_tool}" ${halArg} \\
+	      --output_dir input
     """
 }
 
@@ -100,6 +138,8 @@ workflow COORDINATE_PROJECTION {
     regulatory_regions
     genome_alignment_manifest
     coordinate_projection_config
+    orthology_reference_bundle_manifest
+    orthology_reference_bundle_manifest_source
     coordinate_projection_stub
 
     main:
@@ -107,22 +147,45 @@ workflow COORDINATE_PROJECTION {
     // (distinct names avoid an input-name collision) so content changes
     // invalidate caches and remote executors/containers can see them. The HAL is
     // staged into prep too, so its existence check is portable and cache-aware.
-    def hasSpeciesMask = params.orthology_species_callable_mask ? true : false
-    def hasSourceMask = params.orthology_source_callable_mask ? true : false
-    def hasElementUnion = params.orthology_source_element_union ? true : false
-    def hasHal = params.orthology_hal_file ? true : false
-    def speciesMask = hasSpeciesMask ? file(params.orthology_species_callable_mask) : file("${projectDir}/assets/NO_FILE.species_mask")
-    def sourceMask = hasSourceMask ? file(params.orthology_source_callable_mask) : file("${projectDir}/assets/NO_FILE.source_mask")
-    def elementUnion = hasElementUnion ? file(params.orthology_source_element_union) : file("${projectDir}/assets/NO_FILE.element_union")
-    def halFile = hasHal ? file(params.orthology_hal_file) : file("${projectDir}/assets/NO_FILE.hal")
+    def hasBundle = orthology_reference_bundle_manifest ? true : false
+    if (hasBundle) {
+        PREPARE_ORTHOLOGY_REFERENCE_BUNDLE(
+            orthology_reference_bundle_manifest,
+            orthology_reference_bundle_manifest_source
+        )
+        effectiveGenomeAlignmentManifest = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.genome_alignment_manifest
+        effectiveCoordinateProjectionConfig = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.coordinate_projection_config
+        effectiveLiftTool = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.effective_lift_tool.map { it.text.trim() }
+        hasSpeciesMask = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.has_species_mask.map { it.text.trim() == 'true' }
+        hasSourceMask = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.has_source_mask.map { it.text.trim() == 'true' }
+        hasElementUnion = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.has_element_union.map { it.text.trim() == 'true' }
+        hasHal = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.has_hal.map { it.text.trim() == 'true' }
+        speciesMask = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.species_mask
+        sourceMask = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.source_mask
+        elementUnion = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.element_union
+        halFile = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.hal_file
+    } else {
+        effectiveGenomeAlignmentManifest = genome_alignment_manifest
+        effectiveCoordinateProjectionConfig = coordinate_projection_config
+        effectiveLiftTool = params.orthology_lift_tool ?: 'liftover'
+        hasSpeciesMask = params.orthology_species_callable_mask ? true : false
+        hasSourceMask = params.orthology_source_callable_mask ? true : false
+        hasElementUnion = params.orthology_source_element_union ? true : false
+        hasHal = params.orthology_hal_file ? true : false
+        speciesMask = hasSpeciesMask ? file(params.orthology_species_callable_mask) : file("${projectDir}/assets/NO_FILE.species_mask")
+        sourceMask = hasSourceMask ? file(params.orthology_source_callable_mask) : file("${projectDir}/assets/NO_FILE.source_mask")
+        elementUnion = hasElementUnion ? file(params.orthology_source_element_union) : file("${projectDir}/assets/NO_FILE.element_union")
+        halFile = hasHal ? file(params.orthology_hal_file) : file("${projectDir}/assets/NO_FILE.hal")
+    }
 
     PREPARE_COORDINATE_PROJECTION_INPUTS(
         regulatory_regions,
-        genome_alignment_manifest,
-        coordinate_projection_config,
+        effectiveGenomeAlignmentManifest,
+        effectiveCoordinateProjectionConfig,
         coordinate_projection_stub,
         halFile,
-        hasHal
+        hasHal,
+        effectiveLiftTool
     )
 
     if (params.coordinate_projection_stub.toString().toBoolean()) {
@@ -143,6 +206,7 @@ workflow COORDINATE_PROJECTION {
             sourceMask,
             elementUnion,
             halFile,
+            effectiveLiftTool,
             hasSpeciesMask,
             hasSourceMask,
             hasElementUnion,

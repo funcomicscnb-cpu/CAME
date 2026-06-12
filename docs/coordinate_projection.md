@@ -59,6 +59,39 @@ Optional columns:
 
 Stub mode records these assets as metadata only. Real mode checks that assets required by the configured method exist.
 
+## Orthology Reference Bundle Manifest
+
+Real mode can consume a versioned orthology reference bundle manifest instead of
+loose alignment/config files:
+
+```bash
+nextflow run . \
+  --run_stage coordinate_projection \
+  --regulatory_regions regions.tsv \
+  --orthology_reference_bundle_manifest orthology_reference_bundle.tsv \
+  --coordinate_projection_stub false
+```
+
+When `--orthology_reference_bundle_manifest` is supplied, CAME validates the
+bundle with `bin/validate_orthology_reference_bundle.py`, generates
+`genome_alignment_manifest.from_bundle.tsv` and
+`coordinate_projection_config.from_bundle.tsv`, and stages bundle-declared masks,
+element-union files, and HAL assets into the projection tasks. The bundle's
+`orthology_lift_tool` controls whether the run uses `liftover` or `halliftover`.
+
+Do not mix the bundle interface with loose alignment/config inputs or loose
+orthology asset parameters (`orthology_hal_file`,
+`orthology_species_callable_mask`, `orthology_source_callable_mask`,
+`orthology_source_element_union`). CAME fails clearly on that conflict.
+
+Current bundle consumption is local-file oriented: bundle assets are validated
+with local path checks and staged into Nextflow tasks, so remote URI assets are
+not supported for projection runs. It also supports only one distinct staged
+asset per optional role per run (`source_callable_mask`, `target_callable_mask`,
+`source_element_union`, and `hal_alignment`). Multi-pair chain bundles are
+accepted, but a multi-target bundle with separate target callable masks must be
+split into separate runs until per-pair optional assets are implemented.
+
 ## Projection Config
 
 Default example: `assets/example_samplesheets/coordinate_projection_config.tsv`

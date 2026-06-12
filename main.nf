@@ -34,6 +34,7 @@ params.allow_no_bqsr = true
 params.regulatory_regions = 'assets/example_samplesheets/regulatory_regions.tsv'
 params.genome_alignment_manifest = 'assets/example_samplesheets/genome_alignment_manifest.tsv'
 params.coordinate_projection_config = 'assets/example_samplesheets/coordinate_projection_config.tsv'
+params.orthology_reference_bundle_manifest = null
 params.gene_coordinates = 'assets/example_samplesheets/gene_coordinates.tsv'
 params.chromatin_contacts = 'assets/example_samplesheets/chromatin_contacts.tsv'
 params.re_to_gene_inference_config = 'assets/example_samplesheets/re_to_gene_inference_config.tsv'
@@ -237,6 +238,18 @@ workflow {
     def ceegR2OverlayDir = params.ceeg_r2_overlay_dir ? file(params.ceeg_r2_overlay_dir.toString()).toAbsolutePath().toString() : null
     def ceegR3MappingDir = params.ceeg_r3_mapping_dir ? file(params.ceeg_r3_mapping_dir.toString()).toAbsolutePath().toString() : null
     def ceegR4ComparabilityDir = params.ceeg_r4_comparability_dir ? file(params.ceeg_r4_comparability_dir.toString()).toAbsolutePath().toString() : null
+    def defaultGenomeAlignmentManifest = 'assets/example_samplesheets/genome_alignment_manifest.tsv'
+    def defaultCoordinateProjectionConfig = 'assets/example_samplesheets/coordinate_projection_config.tsv'
+    def isDefaultPath = { value, defaultPath ->
+        if (!value) {
+            return false
+        }
+        def valueText = value.toString()
+        if (valueText == defaultPath) {
+            return true
+        }
+        return file(valueText).toAbsolutePath().toString() == file(defaultPath).toAbsolutePath().toString()
+    }
     def ceegOrchestrateContracts = params.ceeg_orchestrate_contracts.toString().toBoolean()
     def ceegR2RunDir             = params.ceeg_r2_run_dir ? file(params.ceeg_r2_run_dir.toString()).toAbsolutePath().toString() : ''
     def ceegR3RunDir             = params.ceeg_r3_run_dir ? file(params.ceeg_r3_run_dir.toString()).toAbsolutePath().toString() : ''
@@ -404,8 +417,20 @@ workflow {
             error "Stage reference_quality requires --reference_manifest."
         }
     } else if (isCoordinateProjectionStage) {
-        if (!params.regulatory_regions || !params.genome_alignment_manifest || !params.coordinate_projection_config) {
-            error "Stage coordinate_projection requires --regulatory_regions, --genome_alignment_manifest, and --coordinate_projection_config."
+        if (!params.regulatory_regions) {
+            error "Stage coordinate_projection requires --regulatory_regions."
+        }
+        if (params.orthology_reference_bundle_manifest) {
+            if (!file(params.orthology_reference_bundle_manifest).exists()) {
+                error "Stage coordinate_projection could not find orthology_reference_bundle_manifest at '${params.orthology_reference_bundle_manifest}'."
+            }
+            def explicitAlignment = params.genome_alignment_manifest && !isDefaultPath(params.genome_alignment_manifest, defaultGenomeAlignmentManifest)
+            def explicitConfig = params.coordinate_projection_config && !isDefaultPath(params.coordinate_projection_config, defaultCoordinateProjectionConfig)
+            if (explicitAlignment || explicitConfig || params.orthology_hal_file || params.orthology_species_callable_mask || params.orthology_source_callable_mask || params.orthology_source_element_union) {
+                error "Cannot combine --orthology_reference_bundle_manifest with loose coordinate-projection alignment/config or orthology asset parameters. Supply the bundle manifest alone, or omit it and use --genome_alignment_manifest/--coordinate_projection_config plus optional orthology assets."
+            }
+        } else if (!params.genome_alignment_manifest || !params.coordinate_projection_config) {
+            error "Stage coordinate_projection requires --regulatory_regions plus either --orthology_reference_bundle_manifest or both --genome_alignment_manifest and --coordinate_projection_config."
         }
     } else if (isReToGeneInferenceStage) {
         if (!params.regulatory_regions || !params.gene_coordinates || !params.re_to_gene_inference_config) {
@@ -506,6 +531,8 @@ workflow {
     def activeRegulatoryRegions = params.regulatory_regions ? gateFile(params.regulatory_regions) : null
     def activeGenomeAlignmentManifest = params.genome_alignment_manifest ? gateFile(params.genome_alignment_manifest) : null
     def activeCoordinateProjectionConfig = params.coordinate_projection_config ? gateFile(params.coordinate_projection_config) : null
+    def activeOrthologyReferenceBundleManifest = params.orthology_reference_bundle_manifest ? gateFile(params.orthology_reference_bundle_manifest) : null
+    def activeOrthologyReferenceBundleManifestSource = params.orthology_reference_bundle_manifest ? gateValue(file(params.orthology_reference_bundle_manifest).toAbsolutePath().toString()) : null
     def activeGeneCoordinates = params.gene_coordinates ? gateFile(params.gene_coordinates) : null
     def activeReToGeneInferenceConfig = params.re_to_gene_inference_config ? gateFile(params.re_to_gene_inference_config) : null
     def activeAdvancedModelConfig = params.advanced_model_config ? gateFile(params.advanced_model_config) : null
@@ -643,6 +670,8 @@ workflow {
             activeRegulatoryRegions,
             activeGenomeAlignmentManifest,
             activeCoordinateProjectionConfig,
+            activeOrthologyReferenceBundleManifest,
+            activeOrthologyReferenceBundleManifestSource,
             params.coordinate_projection_stub
         )
     } else if (params.run_stage == 're_to_gene_inference' && !validateOnly) {
