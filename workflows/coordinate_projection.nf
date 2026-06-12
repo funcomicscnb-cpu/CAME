@@ -16,14 +16,7 @@ process PREPARE_ORTHOLOGY_REFERENCE_BUNDLE {
     path 'input/coordinate_projection_config.from_bundle.tsv', emit: coordinate_projection_config
     path 'input/effective_orthology_lift_tool.txt', emit: effective_lift_tool
     path 'input/orthology_reference_bundle_asset_selectors.tsv', emit: asset_selectors
-    path 'input/opt_species_mask/*', emit: species_mask
-    path 'input/opt_source_mask/*', emit: source_mask
-    path 'input/opt_element_union/*', emit: element_union
-    path 'input/opt_hal/*', emit: hal_file
-    path 'input/has_species_mask.txt', emit: has_species_mask
-    path 'input/has_source_mask.txt', emit: has_source_mask
-    path 'input/has_element_union.txt', emit: has_element_union
-    path 'input/has_hal_file.txt', emit: has_hal
+    path 'input/pair_assets', emit: pair_assets
 
     script:
     """
@@ -49,6 +42,7 @@ process PREPARE_COORDINATE_PROJECTION_INPUTS {
     path hal_file, stageAs: 'opt_hal/*'
     val has_hal
     val orthology_lift_tool
+    val allow_pair_hal_assets
 
     output:
     path 'input/coordinate_projection_manifest.tsv', emit: prepared_manifest
@@ -69,6 +63,7 @@ process PREPARE_COORDINATE_PROJECTION_INPUTS {
 	      --coordinate_projection_config "${coordinate_projection_config}" \\
 	      --coordinate_projection_stub "${coordinate_projection_stub}" \\
 	      --orthology_lift_tool "${orthology_lift_tool}" ${halArg} \\
+	      --allow_pair_hal_assets "${allow_pair_hal_assets}" \\
 	      --output_dir input
     """
 }
@@ -156,18 +151,23 @@ workflow COORDINATE_PROJECTION {
         effectiveGenomeAlignmentManifest = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.genome_alignment_manifest
         effectiveCoordinateProjectionConfig = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.coordinate_projection_config
         effectiveLiftTool = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.effective_lift_tool.map { it.text.trim() }
-        hasSpeciesMask = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.has_species_mask.map { it.text.trim() == 'true' }
-        hasSourceMask = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.has_source_mask.map { it.text.trim() == 'true' }
-        hasElementUnion = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.has_element_union.map { it.text.trim() == 'true' }
-        hasHal = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.has_hal.map { it.text.trim() == 'true' }
-        speciesMask = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.species_mask
-        sourceMask = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.source_mask
-        elementUnion = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.element_union
-        halFile = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.hal_file
+        pairAssetSelectors = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.asset_selectors
+        pairAssetsDir = PREPARE_ORTHOLOGY_REFERENCE_BUNDLE.out.pair_assets
+        hasSpeciesMask = false
+        hasSourceMask = false
+        hasElementUnion = false
+        hasHal = false
+        speciesMask = file("${projectDir}/assets/NO_FILE.species_mask")
+        sourceMask = file("${projectDir}/assets/NO_FILE.source_mask")
+        elementUnion = file("${projectDir}/assets/NO_FILE.element_union")
+        halFile = file("${projectDir}/assets/NO_FILE.hal")
+        allowPairHalAssets = true
     } else {
         effectiveGenomeAlignmentManifest = genome_alignment_manifest
         effectiveCoordinateProjectionConfig = coordinate_projection_config
         effectiveLiftTool = params.orthology_lift_tool ?: 'liftover'
+        pairAssetSelectors = file("${projectDir}/assets/NO_FILE.pair_asset_selectors.tsv")
+        pairAssetsDir = file("${projectDir}/assets/NO_FILE.pair_assets_dir")
         hasSpeciesMask = params.orthology_species_callable_mask ? true : false
         hasSourceMask = params.orthology_source_callable_mask ? true : false
         hasElementUnion = params.orthology_source_element_union ? true : false
@@ -176,6 +176,7 @@ workflow COORDINATE_PROJECTION {
         sourceMask = hasSourceMask ? file(params.orthology_source_callable_mask) : file("${projectDir}/assets/NO_FILE.source_mask")
         elementUnion = hasElementUnion ? file(params.orthology_source_element_union) : file("${projectDir}/assets/NO_FILE.element_union")
         halFile = hasHal ? file(params.orthology_hal_file) : file("${projectDir}/assets/NO_FILE.hal")
+        allowPairHalAssets = false
     }
 
     PREPARE_COORDINATE_PROJECTION_INPUTS(
@@ -185,7 +186,8 @@ workflow COORDINATE_PROJECTION {
         coordinate_projection_stub,
         halFile,
         hasHal,
-        effectiveLiftTool
+        effectiveLiftTool,
+        allowPairHalAssets
     )
 
     if (params.coordinate_projection_stub.toString().toBoolean()) {
@@ -202,6 +204,8 @@ workflow COORDINATE_PROJECTION {
         LIFTOVER_PROJECTION(
             PREPARE_COORDINATE_PROJECTION_INPUTS.out.prepared_manifest,
             coordinate_projection_stub,
+            pairAssetSelectors,
+            pairAssetsDir,
             speciesMask,
             sourceMask,
             elementUnion,

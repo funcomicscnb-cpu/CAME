@@ -133,8 +133,8 @@ assert_grep 'hal_alignment	asset_path	OK' "$TMP_DIR/external_hal/orthology_refer
 assert_grep 'reciprocal_best_chain' "$TMP_DIR/liftover_adapter/genome_alignment_manifest.from_bundle.tsv" "adapter did not emit reciprocal-best chain alignment"
 assert_grep 'liftover_chain' "$TMP_DIR/liftover_adapter/coordinate_projection_config.from_bundle.tsv" "adapter did not emit liftover_chain config"
 assert_grep '^liftover$' "$TMP_DIR/liftover_adapter/effective_orthology_lift_tool.txt" "adapter did not record liftover effective tool"
-assert_grep '^source_mask	true	' "$TMP_DIR/liftover_adapter/orthology_reference_bundle_asset_selectors.tsv" "adapter did not select source mask"
-assert_file "$TMP_DIR/liftover_adapter/opt_source_mask/mmus.callable.bed" "adapter did not stage source mask"
+assert_grep '^Mus_musculus	Danio_rerio	source_mask	true	Mus_musculus_to_Danio_rerio/' "$TMP_DIR/liftover_adapter/orthology_reference_bundle_asset_selectors.tsv" "adapter did not select per-pair source mask"
+assert_file "$TMP_DIR/liftover_adapter/pair_assets/Mus_musculus_to_Danio_rerio/source_mask/mmus.callable.bed" "adapter did not stage per-pair source mask"
 
 "$PYTHON" "$ADAPTER" \
   --bundle-manifest "$HAL" \
@@ -142,7 +142,7 @@ assert_file "$TMP_DIR/liftover_adapter/opt_source_mask/mmus.callable.bed" "adapt
 assert_grep 'hal_alignment' "$TMP_DIR/hal_adapter/genome_alignment_manifest.from_bundle.tsv" "adapter did not emit HAL alignment metadata"
 assert_grep 'precomputed_map' "$TMP_DIR/hal_adapter/coordinate_projection_config.from_bundle.tsv" "adapter did not emit HAL-compatible config"
 assert_grep '^halliftover$' "$TMP_DIR/hal_adapter/effective_orthology_lift_tool.txt" "adapter did not record halliftover effective tool"
-assert_file "$TMP_DIR/hal_adapter/opt_hal/mmus_drer.hal" "adapter did not stage HAL asset"
+assert_file "$TMP_DIR/hal_adapter/pair_assets/Mus_musculus_to_Danio_rerio/hal_file/mmus_drer.hal" "adapter did not stage per-pair HAL asset"
 
 mutate_manifest "$CAME" "$TMP_DIR/came_missing_provenance.tsv" came_missing_provenance
 run_invalid "$TMP_DIR/came_missing_provenance.tsv" "$TMP_DIR/came_missing_provenance" 'CAME-generated bundle requires provenance field: params_hash' "CAME-generated missing provenance should fail"

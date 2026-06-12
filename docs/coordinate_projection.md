@@ -10,6 +10,15 @@ This interface is optional. It is not part of the default v0.1 `--run_stage all`
 
 Coordinate projection does not replace that behavior. It can write an optional `inferred_orthologous_res.tsv` table with the same core columns as regulatory orthology inputs, but users must explicitly choose whether to review or reuse that file in later experiments.
 
+For reviewed reciprocal-best real-mode outputs, the explicit adoption bridge is
+`bin/promote_orthologous_res.py`. It converts high-confidence primary regulatory
+projections into a stable `orthologous_res.adopted.tsv` table with
+source-anchor-derived orthogroup ids, after enforcing the single-source
+star-shaped assumption and optionally running the existing
+`validate_orthology_tables.py` check. Users still opt in by passing that adopted
+file to a later main run with `--orthologous_res`; coordinate projection is not
+auto-wired into `--run_stage all`.
+
 ## Command
 
 ```bash
@@ -86,11 +95,11 @@ orthology asset parameters (`orthology_hal_file`,
 
 Current bundle consumption is local-file oriented: bundle assets are validated
 with local path checks and staged into Nextflow tasks, so remote URI assets are
-not supported for projection runs. It also supports only one distinct staged
-asset per optional role per run (`source_callable_mask`, `target_callable_mask`,
-`source_element_union`, and `hal_alignment`). Multi-pair chain bundles are
-accepted, but a multi-target bundle with separate target callable masks must be
-split into separate runs until per-pair optional assets are implemented.
+not supported for projection runs. Bundle-declared optional assets are selected
+per `(source_species, target_species)` pair: each pair may provide its own
+`source_callable_mask`, `target_callable_mask`, `source_element_union`, and, for
+`halliftover`, `hal_alignment`. Loose non-bundle asset parameters remain
+run-wide fallbacks.
 
 ## Projection Config
 
@@ -191,6 +200,21 @@ promoted.
 The primary lifted regulatory set is defined as loci with high-confidence
 round-trip recovery and a non-hyperfragmented structure.
 
+Real-mode projection shards by `(projection_id, source_species, target_species)`.
+Each shard stages only its pair's optional assets, runs the lift-over engine
+independently, and then a gather step merges the shard tables deterministically.
+This keeps multi-target bundle runs resumable and avoids applying one target's
+mask or element-union file to another target.
+
+Current sharding is **pair-level**, not region-chunked within a species pair.
+That is sufficient for the intended regulatory-element use case and multi-target
+bundle consumption, but very large single-pair region sets may still be one lift
+task. Region-level chunking is deferred. The shard handoff is also designed for
+local/shared-filesystem executors (local or HPC): bundle assets and shard
+manifests are materialized on disk and then staged by downstream tasks. Remote
+object-storage-only executors need a future channel-shaped scatter implementation
+rather than this local-file-oriented handoff.
+
 Robustness notes: chain files may be gzipped (`.chain.gz`); a callable-mask or
 element-union path that is supplied but missing is treated as an input error,
 never as an empty mask or biological absence; round-trip recovery is scored only
@@ -233,12 +257,12 @@ optional stage.
 Required tools: `liftOver` and `chainSwap` for `orthology_lift_tool=liftover`, or
 `halLiftover` for `orthology_lift_tool=halliftover`.
 
-For `orthology_lift_tool=halliftover`, the single HAL alignment replaces per-pair
-chain/MAF assets: input preparation does not require `chain_file`/`maf_file` and
-instead requires `--orthology_hal_file` to exist. Optional masks, the element
-union, and the HAL are staged as workflow inputs (via `NO_FILE.*` placeholders
-when unset) so content changes invalidate caches and remote executors/containers
-can see them.
+For `orthology_lift_tool=halliftover`, a HAL alignment replaces per-pair
+chain/MAF assets: loose-input runs require `--orthology_hal_file`, while
+bundle-backed runs may supply `hal_alignment` per source-target pair. Optional
+masks, the element union, and the HAL are staged as workflow inputs (via
+`NO_FILE.*` placeholders when unset) so content changes invalidate caches and
+remote executors/containers can see them.
 
 ### Outputs
 
@@ -253,6 +277,11 @@ In addition to the stub-mode outputs, real mode writes:
 
 `projected_regions.tsv` and `inferred_orthologous_res.tsv` keep the same schemas
 as stub mode.
+
+`inferred_orthologous_res.tsv` is a review artifact. Real-mode users who want to
+feed reviewed regulatory orthology into a later main CAME run should use
+`bin/promote_orthologous_res.py` to write `orthologous_res.adopted.tsv`, then
+pass that file explicitly with `--orthologous_res`.
 
 ## Ambiguity Handling
 

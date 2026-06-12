@@ -320,6 +320,7 @@ def parse_args():
     parser.add_argument("--coordinate_projection_stub", default="true")
     parser.add_argument("--orthology_lift_tool", default="liftover")
     parser.add_argument("--orthology_hal_file", default="")
+    parser.add_argument("--allow_pair_hal_assets", default="false")
     parser.add_argument("--output_dir", default="results/coordinate_projection/input")
     return parser.parse_args()
 
@@ -343,8 +344,12 @@ def main():
     region_species = {norm(row.get("species")) for row in valid_regions if norm(row.get("species"))}
     valid_configs = validate_configs(raw_configs, region_species, alignment_by_pair, coordinate_projection_stub, issues, lift_tool)
 
-    # In HAL real mode the single HAL alignment replaces per-pair chain/MAF assets.
-    if not coordinate_projection_stub and lift_tool == "halliftover":
+    # In HAL real mode the single loose HAL alignment replaces per-pair
+    # chain/MAF assets. Bundle-backed runs may instead supply per-pair HAL
+    # assets through the orthology reference bundle selector table; those paths
+    # are validated by the bundle validator and staged into each projection
+    # shard, so this global path check is skipped only for that explicit mode.
+    if not coordinate_projection_stub and lift_tool == "halliftover" and not parse_bool(args.allow_pair_hal_assets):
         hal_file = norm(args.orthology_hal_file)
         if not hal_file:
             add_issue(issues, "ERROR", "coordinate_projection_config", "orthology_hal_file", "", "", "orthology_lift_tool=halliftover requires --orthology_hal_file")

@@ -420,6 +420,62 @@ python3 "$ROOT_DIR/bin/classify_orthologous_regions.py" \
   --output-dir "$TMP_DIR/primary" --primary-only > "$TMP_DIR/primary.out" 2>&1
 assert_grep 'mmus_re_0001' "$TMP_DIR/primary/inferred_orthologous_res.tsv" "primary-only dropped a high-confidence locus"
 
+# Explicit adoption bridge: primary loci are promoted into a stable,
+# source-anchor orthologous_res table that passes the existing downstream
+# orthology validator when paired with the user's gene orthology table.
+python3 "$ROOT_DIR/bin/promote_orthologous_res.py" \
+  --region-summary "$SUM" \
+  --projected-regions "$ENG/projected_regions.tsv" \
+  --inferred-orthologous-res "$ORTH" \
+  --orthologous-genes "$ROOT_DIR/assets/example_samplesheets/orthologous_genes.tsv" \
+  --output-dir "$TMP_DIR/promoted" > "$TMP_DIR/promote.out" 2>&1
+ADOPTED="$TMP_DIR/promoted/orthologous_res.adopted.tsv"
+PROMOTION_REPORT="$TMP_DIR/promoted/orthologous_res_promotion_report.tsv"
+assert_grep 'OG_RE_RB_Mus_musculus_mmus_re_0001' "$ADOPTED" "promoted table missing stable source-anchor orthogroup id"
+assert_grep 'reciprocal_best_orthology_adopted' "$ADOPTED" "promoted table missing adoption source label"
+assert_grep 'validate_orthology_tables.*accepted' "$PROMOTION_REPORT" "promoted table was not passed through downstream validator"
+assert_grep 'promotion_counts.*summary_rows.*selected_primary=' "$PROMOTION_REPORT" "promotion report missing selected-primary count"
+assert_grep 'promotion_counts.*summary_rows.*excluded_non_primary=' "$PROMOTION_REPORT" "promotion report missing non-primary exclusion count"
+assert_grep 'promotion_counts.*excluded_confidence_distribution.*low=' "$PROMOTION_REPORT" "promotion report missing excluded confidence distribution"
+assert_grep 'promotion_counts.*adopted_confidence_distribution.*high=' "$PROMOTION_REPORT" "promotion report missing adopted confidence distribution"
+if grep -q 'OG_RE_RB_proj1_mmus_re_0001' "$ADOPTED"; then
+  echo "FAIL: promoted table retained projection-derived orthogroup id" >&2; exit 1
+fi
+if grep -q 'mmus_re_0003' "$ADOPTED"; then
+  echo "FAIL: failed region leaked into promoted orthologous_res" >&2; exit 1
+fi
+
+python3 "$ROOT_DIR/bin/promote_orthologous_res.py" \
+  --region-summary "$SUM" \
+  --projected-regions "$ENG/projected_regions.tsv" \
+  --inferred-orthologous-res "$ORTH" \
+  --orthologous-genes "$ROOT_DIR/assets/example_samplesheets/orthologous_genes.tsv" \
+  --output-dir "$TMP_DIR/promoted_again" > "$TMP_DIR/promote_again.out" 2>&1
+cmp "$ADOPTED" "$TMP_DIR/promoted_again/orthologous_res.adopted.tsv" || {
+  echo "FAIL: promoted orthologous_res is not byte-deterministic" >&2; exit 1;
+}
+
+python3 - "$SUM" "$TMP_DIR/multisource_summary.tsv" <<'PY'
+import csv
+import sys
+
+src, dst = sys.argv[1:3]
+rows = list(csv.DictReader(open(src), delimiter="\t"))
+rows[-1]["source_species"] = "Gallus_gallus"
+with open(dst, "w", newline="") as handle:
+    writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()), delimiter="\t", lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+PY
+if python3 "$ROOT_DIR/bin/promote_orthologous_res.py" \
+  --region-summary "$TMP_DIR/multisource_summary.tsv" \
+  --projected-regions "$ENG/projected_regions.tsv" \
+  --orthologous-genes "$ROOT_DIR/assets/example_samplesheets/orthologous_genes.tsv" \
+  --output-dir "$TMP_DIR/promoted_multisource" > "$TMP_DIR/promote_multisource.out" 2>&1; then
+  echo "FAIL: multi-source promotion should fail clearly" >&2; exit 1
+fi
+assert_grep 'supports exactly one source species' "$TMP_DIR/promoted_multisource/orthologous_res_promotion_report.tsv" "multi-source promotion diagnostic absent"
+
 # --- manifest reshaping ----------------------------------------------------
 python3 "$ROOT_DIR/bin/manifest_to_region_bed.py" \
   --prepared-manifest "$FIX/manifest.tsv" \

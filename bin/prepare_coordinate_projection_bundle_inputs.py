@@ -27,7 +27,7 @@ ALIGNMENT_FIELDS = [
     "notes",
 ]
 CONFIG_FIELDS = ["projection_id", "source_species", "target_species", "method", "notes"]
-SELECTOR_FIELDS = ["slot", "has_asset", "path"]
+SELECTOR_FIELDS = ["source_species", "target_species", "slot", "has_asset", "path"]
 
 
 def norm(value: object) -> str:
@@ -127,10 +127,10 @@ def require_local_path(path: str, role: str) -> None:
         fail(f"Bundle asset for {role} does not exist: {path}")
 
 
-def optional_singleton_path(rows: list[dict[str, str]], role: str, base_dir: Path) -> str:
-    paths = sorted({resolved_asset_path(row, base_dir) for row in role_rows(rows, role)})
+def optional_pair_path(pair_rows: list[dict[str, str]], role: str, base_dir: Path, source: str, target: str) -> str:
+    paths = sorted({resolved_asset_path(row, base_dir) for row in role_rows(pair_rows, role)})
     if len(paths) > 1:
-        fail(f"Current coordinate_projection bundle consumption supports one {role} asset per run; found {len(paths)} distinct paths")
+        fail(f"Bundle pair {source}->{target} has multiple distinct {role} assets")
     if not paths:
         return ""
     require_local_path(paths[0], role)
@@ -147,28 +147,34 @@ def link_or_copy(src: str, dst_dir: Path, placeholder: str) -> tuple[bool, Path]
     dst = dst_dir / src_path.name
     if dst.exists() or dst.is_symlink():
         dst.unlink()
-    try:
-        os.symlink(src_path, dst)
-    except OSError:
-        shutil.copy2(src_path, dst)
+    shutil.copy2(src_path, dst)
     return True, dst
 
 
 def stage_optional_assets(rows: list[dict[str, str]], base_dir: Path, output_dir: Path) -> dict[str, tuple[bool, Path]]:
     slots = {
-        "source_mask": ("source_callable_mask", "opt_source_mask", "NO_FILE.source_mask"),
-        "species_mask": ("target_callable_mask", "opt_species_mask", "NO_FILE.species_mask"),
-        "element_union": ("source_element_union", "opt_element_union", "NO_FILE.element_union"),
-        "hal_file": ("hal_alignment", "opt_hal", "NO_FILE.hal"),
+        "source_mask": ("source_callable_mask", "source_mask", "NO_FILE.source_mask"),
+        "species_mask": ("target_callable_mask", "species_mask", "NO_FILE.species_mask"),
+        "element_union": ("source_element_union", "element_union", "NO_FILE.element_union"),
+        "hal_file": ("hal_alignment", "hal_file", "NO_FILE.hal"),
     }
     staged = {}
     selector_rows = []
-    for slot, (role, subdir, placeholder) in slots.items():
-        path = optional_singleton_path(rows, role, base_dir)
-        has_asset, staged_path = link_or_copy(path, output_dir / subdir, placeholder)
-        staged[slot] = (has_asset, staged_path)
-        selector_rows.append({"slot": slot, "has_asset": str(has_asset).lower(), "path": str(staged_path)})
-        (output_dir / f"has_{slot}.txt").write_text(str(has_asset).lower() + "\n")
+    for (source, target), pair_rows in sorted(rows_by_pair(rows).items()):
+        pair_id = safe_id(source, "to", target)
+        for slot, (role, subdir, placeholder) in slots.items():
+            path = optional_pair_path(pair_rows, role, base_dir, source, target)
+            has_asset, staged_path = link_or_copy(path, output_dir / "pair_assets" / pair_id / subdir, placeholder)
+            staged[f"{source}\t{target}\t{slot}"] = (has_asset, staged_path)
+            selector_rows.append(
+                {
+                    "source_species": source,
+                    "target_species": target,
+                    "slot": slot,
+                    "has_asset": str(has_asset).lower(),
+                    "path": str(staged_path.relative_to(output_dir / "pair_assets")),
+                }
+            )
     write_tsv(output_dir / "orthology_reference_bundle_asset_selectors.tsv", SELECTOR_FIELDS, selector_rows)
     return staged
 

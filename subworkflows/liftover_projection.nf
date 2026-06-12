@@ -1,27 +1,27 @@
 process RECIPROCAL_BEST_REGION_LIFTOVER {
-    publishDir { "${params.outdir}/coordinate_projection" }, mode: 'copy'
+    label 'process_orthology_liftover'
+    errorStrategy 'retry'
+    maxRetries 2
 
     input:
-    path prepared_manifest
+    tuple val(shard_id),
+          path(prepared_manifest),
+          path(species_mask, stageAs: 'opt_species_mask/*'),
+          val(has_species_mask),
+          path(source_mask, stageAs: 'opt_source_mask/*'),
+          val(has_source_mask),
+          path(element_union, stageAs: 'opt_element_union/*'),
+          val(has_element_union),
+          path(hal_file, stageAs: 'opt_hal/*'),
+          val(has_hal)
     val coordinate_projection_stub
-    // Each optional slot stages into its own subdirectory (keeping the original
-    // basename, so gzip extensions survive) to avoid input-name collisions when
-    // two slots receive files with the same basename from different directories.
-    path species_mask, stageAs: 'opt_species_mask/*'
-    path source_mask, stageAs: 'opt_source_mask/*'
-    path element_union, stageAs: 'opt_element_union/*'
-    path hal_file, stageAs: 'opt_hal/*'
     val orthology_lift_tool
-    val has_species_mask
-    val has_source_mask
-    val has_element_union
-    val has_hal
 
     output:
-    path 'projected_regions.tsv', emit: projected_regions
-    path 'region_orthology_summary.tsv', emit: region_summary
-    path 'orthologous_region_blocks.tsv', emit: blocks
-    path 'projection_warnings.tsv', emit: projection_warnings
+    path "${shard_id}.projected_regions.tsv", emit: projected_regions
+    path "${shard_id}.region_orthology_summary.tsv", emit: region_summary
+    path "${shard_id}.orthologous_region_blocks.tsv", emit: blocks
+    path "${shard_id}.projection_warnings.tsv", emit: projection_warnings
 
     script:
     // Optional inputs are staged via NO_FILE.* placeholders so file content
@@ -49,10 +49,10 @@ process RECIPROCAL_BEST_REGION_LIFTOVER {
     """
     case "${coordinate_projection_stub}" in
       true|TRUE|1|yes|YES)
-        printf 'projection_id\\tsource_species\\ttarget_species\\tsource_feature_id\\tprojected_feature_id\\tsource_chrom\\tsource_start\\tsource_end\\ttarget_chrom\\ttarget_start\\ttarget_end\\tstrand\\tregion_type\\talignment_id\\tmethod\\tprojection_status\\toverlap_fraction\\tmapping_class\\tnotes\\n' > projected_regions.tsv
-        printf 'projection_id\\tsource_species\\ttarget_species\\tsource_feature_id\\tregion_type\\tsource_chrom\\tsource_start\\tsource_end\\tsource_window_len\\tsource_element_union_len\\tsource_callable_fraction\\traw_fragment_count\\tretained_fragment_count\\tcompeting_target_contigs\\tselected_target_contig\\tselected_piece_count\\tselected_span_len\\tselected_block_union_len\\tblock_density\\tmean_fragment_len\\tpiece_redundancy\\tspecies_mask_support_fraction\\tmask_components_overlapped\\tbacklift_fragment_count\\twindow_recovered_bp\\twindow_recovered_fraction\\telement_recovered_bp\\telement_recovered_fraction\\tcore_recovered\\tforward_status\\troundtrip_qc\\tstructural_class\\thigh_confidence_primary\\n' > region_orthology_summary.tsv
-        printf 'projection_id\\tsource_species\\ttarget_species\\tsource_feature_id\\tblock_index\\ttarget_chrom\\ttarget_start\\ttarget_end\\tlength\\n' > orthologous_region_blocks.tsv
-        printf 'severity\\tprojection_id\\tsource_feature_id\\ttarget_species\\tmessage\\n' > projection_warnings.tsv
+        printf 'projection_id\\tsource_species\\ttarget_species\\tsource_feature_id\\tprojected_feature_id\\tsource_chrom\\tsource_start\\tsource_end\\ttarget_chrom\\ttarget_start\\ttarget_end\\tstrand\\tregion_type\\talignment_id\\tmethod\\tprojection_status\\toverlap_fraction\\tmapping_class\\tnotes\\n' > "${shard_id}.projected_regions.tsv"
+        printf 'projection_id\\tsource_species\\ttarget_species\\tsource_feature_id\\tregion_type\\tsource_chrom\\tsource_start\\tsource_end\\tsource_window_len\\tsource_element_union_len\\tsource_callable_fraction\\traw_fragment_count\\tretained_fragment_count\\tcompeting_target_contigs\\tselected_target_contig\\tselected_piece_count\\tselected_span_len\\tselected_block_union_len\\tblock_density\\tmean_fragment_len\\tpiece_redundancy\\tspecies_mask_support_fraction\\tmask_components_overlapped\\tbacklift_fragment_count\\twindow_recovered_bp\\twindow_recovered_fraction\\telement_recovered_bp\\telement_recovered_fraction\\tcore_recovered\\tforward_status\\troundtrip_qc\\tstructural_class\\thigh_confidence_primary\\n' > "${shard_id}.region_orthology_summary.tsv"
+        printf 'projection_id\\tsource_species\\ttarget_species\\tsource_feature_id\\tblock_index\\ttarget_chrom\\ttarget_start\\ttarget_end\\tlength\\n' > "${shard_id}.orthologous_region_blocks.tsv"
+        printf 'severity\\tprojection_id\\tsource_feature_id\\ttarget_species\\tmessage\\n' > "${shard_id}.projection_warnings.tsv"
         exit 0
         ;;
     esac
@@ -151,6 +151,75 @@ process RECIPROCAL_BEST_REGION_LIFTOVER {
       --min-element-recovery-frac ${params.orthology_min_element_recovery_frac} \\
       --min-window-recovery-frac ${params.orthology_min_window_recovery_frac}${engineExtra} \\
       --output-dir .
+
+    mv projected_regions.tsv "${shard_id}.projected_regions.tsv"
+    mv region_orthology_summary.tsv "${shard_id}.region_orthology_summary.tsv"
+    mv orthologous_region_blocks.tsv "${shard_id}.orthologous_region_blocks.tsv"
+    mv projection_warnings.tsv "${shard_id}.projection_warnings.tsv"
+    """
+}
+
+process SHARD_COORDINATE_PROJECTION_INPUTS {
+    input:
+    path prepared_manifest
+    path pair_asset_selectors
+    path pair_assets_dir
+    path species_mask, stageAs: 'global_species_mask/*'
+    path source_mask, stageAs: 'global_source_mask/*'
+    path element_union, stageAs: 'global_element_union/*'
+    path hal_file, stageAs: 'global_hal/*'
+    val has_species_mask
+    val has_source_mask
+    val has_element_union
+    val has_hal
+
+    output:
+    path 'shards.tsv', emit: shard_index
+    path 'shards', emit: shard_dir
+
+    script:
+    // Paths are left unquoted where they may be staged user assets; Nextflow
+    // backslash-escapes spaces for shell-safe interpolation.
+    def speciesArg = has_species_mask ? "--species-mask ${species_mask}" : ''
+    def sourceArg = has_source_mask ? "--source-mask ${source_mask}" : ''
+    def elementArg = has_element_union ? "--element-union ${element_union}" : ''
+    def halArg = has_hal ? "--hal-file ${hal_file}" : ''
+    """
+    python3 ${projectDir}/bin/shard_coordinate_projection_inputs.py \\
+      --prepared-manifest "${prepared_manifest}" \\
+      --pair-asset-selectors "${pair_asset_selectors}" \\
+      --pair-assets-dir "${pair_assets_dir}" \\
+      --has-species-mask "${has_species_mask}" ${speciesArg} \\
+      --has-source-mask "${has_source_mask}" ${sourceArg} \\
+      --has-element-union "${has_element_union}" ${elementArg} \\
+      --has-hal "${has_hal}" ${halArg} \\
+      --output-dir .
+    """
+}
+
+process MERGE_COORDINATE_PROJECTION_SHARDS {
+    publishDir { "${params.outdir}/coordinate_projection" }, mode: 'copy'
+
+    input:
+    path projected_regions
+    path region_summaries
+    path blocks
+    path projection_warnings
+
+    output:
+    path 'projected_regions.tsv', emit: projected_regions
+    path 'region_orthology_summary.tsv', emit: region_summary
+    path 'orthologous_region_blocks.tsv', emit: blocks
+    path 'projection_warnings.tsv', emit: projection_warnings
+
+    script:
+    """
+    python3 ${projectDir}/bin/merge_coordinate_projection_shards.py \\
+      --projected-regions ${projected_regions.join(' ')} \\
+      --region-summaries ${region_summaries.join(' ')} \\
+      --blocks ${blocks.join(' ')} \\
+      --projection-warnings ${projection_warnings.join(' ')} \\
+      --output-dir .
     """
 }
 
@@ -158,6 +227,8 @@ workflow LIFTOVER_PROJECTION {
     take:
     prepared_manifest
     coordinate_projection_stub
+    pair_asset_selectors
+    pair_assets_dir
     species_mask
     source_mask
     element_union
@@ -169,23 +240,52 @@ workflow LIFTOVER_PROJECTION {
     has_hal
 
     main:
-    RECIPROCAL_BEST_REGION_LIFTOVER(
+    SHARD_COORDINATE_PROJECTION_INPUTS(
         prepared_manifest,
-        coordinate_projection_stub,
+        pair_asset_selectors,
+        pair_assets_dir,
         species_mask,
         source_mask,
         element_union,
         hal_file,
-        orthology_lift_tool,
         has_species_mask,
         has_source_mask,
         has_element_union,
         has_hal
     )
+    shardInputs = SHARD_COORDINATE_PROJECTION_INPUTS.out.shard_index
+        .splitCsv(header: true, sep: '\t')
+        .map { row ->
+            tuple(
+                row.shard_id,
+                file(row.prepared_manifest),
+                file(row.species_mask),
+                row.has_species_mask == 'true',
+                file(row.source_mask),
+                row.has_source_mask == 'true',
+                file(row.element_union),
+                row.has_element_union == 'true',
+                file(row.hal_file),
+                row.has_hal == 'true'
+            )
+        }
+
+    RECIPROCAL_BEST_REGION_LIFTOVER(
+        shardInputs,
+        coordinate_projection_stub,
+        orthology_lift_tool
+    )
+
+    MERGE_COORDINATE_PROJECTION_SHARDS(
+        RECIPROCAL_BEST_REGION_LIFTOVER.out.projected_regions.collect(),
+        RECIPROCAL_BEST_REGION_LIFTOVER.out.region_summary.collect(),
+        RECIPROCAL_BEST_REGION_LIFTOVER.out.blocks.collect(),
+        RECIPROCAL_BEST_REGION_LIFTOVER.out.projection_warnings.collect()
+    )
 
     emit:
-    projected_regions = RECIPROCAL_BEST_REGION_LIFTOVER.out.projected_regions
-    region_summary = RECIPROCAL_BEST_REGION_LIFTOVER.out.region_summary
-    blocks = RECIPROCAL_BEST_REGION_LIFTOVER.out.blocks
-    projection_warnings = RECIPROCAL_BEST_REGION_LIFTOVER.out.projection_warnings
+    projected_regions = MERGE_COORDINATE_PROJECTION_SHARDS.out.projected_regions
+    region_summary = MERGE_COORDINATE_PROJECTION_SHARDS.out.region_summary
+    blocks = MERGE_COORDINATE_PROJECTION_SHARDS.out.blocks
+    projection_warnings = MERGE_COORDINATE_PROJECTION_SHARDS.out.projection_warnings
 }

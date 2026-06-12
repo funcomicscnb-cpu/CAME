@@ -52,6 +52,7 @@ default CI never needs genomics binaries.
 | `bin/manifest_to_region_bed.py` | Python | Reshapes the prepared manifest into lift-ready per-pair region BEDs. |
 | `bin/project_orthologous_regions.py` | Python | The engine: mask filtering, best-contig selection, span/block, round-trip QC, structural class. |
 | `bin/classify_orthologous_regions.py` | Python | Builds `inferred_orthologous_res.tsv` from the per-region summary. |
+| `bin/promote_orthologous_res.py` | Python | Explicit adoption bridge: turns reviewed primary projections into a stable `orthologous_res.tsv` table for a later main CAME run. |
 | `bin/define_reciprocal_best_chains.py` | Python | Reference-prep helper: reciprocal-best chain-id intersection + filtering. |
 | `bin/build_callable_mask.py` | Python | Reference-prep helper: callable-mask intersection from level-1 net fills. |
 | `bin/orthology_intervals.py` | Python | Shared interval/BED/chain library used by the above. |
@@ -74,7 +75,8 @@ nextflow run . \
 Real mode requires the configured lift-over tools on `PATH` (CAME does not
 install them) plus the alignment asset for the chosen tool: for
 `orthology_lift_tool=liftover`, the per-pair `chain_file` referenced by the
-manifest; for `halliftover`, the single `--orthology_hal_file` HAL (per-pair
+manifest; for `halliftover`, a HAL alignment supplied either as loose
+`--orthology_hal_file` or as bundle-declared `hal_alignment` assets (per-pair
 `chain_file`/`maf_file` are not required). If a required tool or asset is
 missing, the workflow fails clearly rather than emitting synthetic results.
 
@@ -110,11 +112,12 @@ adjustable when invoking `project_orthologous_regions.py` directly:
   `chainSwap`. The manifest `method` must be `liftover_chain` or
   `precomputed_map`; `maf_projection` is rejected at input preparation because
   the `liftOver` executor cannot run MAF projection.
-- `halliftover` — projects with `halLiftover --noDupes` through a single HAL
-  (`--orthology_hal_file`). Per-pair `chain_file`/`maf_file` assets are not
-  required; input preparation instead requires the HAL to exist. The HAL is
-  staged into the preparation and projection tasks so the existence check is
-  portable to remote/containerized executors and is part of the task cache key.
+- `halliftover` — projects with `halLiftover --noDupes` through a HAL
+  alignment. Loose-input runs use the single `--orthology_hal_file` path;
+  bundle-backed runs may supply `hal_alignment` per source-target pair.
+  Per-pair `chain_file`/`maf_file` assets are not required. HAL files are staged
+  into projection tasks so remote/containerized executors can see them and
+  content changes invalidate caches.
 
 When `orthology_reference_bundle_manifest` is supplied, the bundle's
 `orthology_lift_tool` value selects the executor and CAME ignores the loose
@@ -122,12 +125,11 @@ alignment/config inputs. Mixing the bundle manifest with loose orthology assets
 or custom loose alignment/config files is rejected.
 
 Bundle consumption is currently local-file oriented and stages assets into
-Nextflow tasks. Remote URI assets are not supported for projection runs. The
-adapter also supports only one distinct staged asset per optional role per run:
-one source callable mask, one target callable mask, one source element union,
-and one HAL file. Multi-pair chain bundles are accepted when these optional
-assets are shared or absent; bundles with separate target masks per species
-should be split into separate runs until per-pair optional assets are supported.
+Nextflow tasks. Remote URI assets are not supported for projection runs.
+Optional bundle assets are selected per `(source_species, target_species)` pair:
+each pair may stage its own source callable mask, target callable mask, source
+element union, and HAL alignment. Loose non-bundle asset parameters remain
+run-wide fallbacks.
 
 ## Inputs
 
@@ -281,6 +283,22 @@ For each `(projection_id, source_feature_id, target_species)` record the engine:
 The **primary lifted regulatory set** is the loci with `roundtrip_qc =
 HIGH_CONFIDENCE` and a non-hyperfragmented, non-missing structure.
 
+Execution is scatter/gather. The prepared manifest is sharded by
+`(projection_id, source_species, target_species)`, each shard stages only that
+pair's optional assets, and the shard outputs are merged deterministically before
+classification. This is what allows multi-target bundle consumption without
+applying one target species' mask or element union to another. The external
+lift-over shard task has its own resource label and retries transient failures.
+
+The current granularity is pair-level only; it does not yet split one large
+species pair into region chunks. That keeps the implementation simple for the
+near-term regulatory-element scope, while leaving pair-by-region chunking as a
+future scale improvement. The current scatter also assumes local/shared
+filesystem task handoff. It works for local and HPC-style executors, but is not
+the final cloud object-storage implementation; that would require a
+channel-shaped scatter that avoids passing absolute work-dir paths between
+tasks.
+
 ### Forward-mapping status (`forward_status`)
 
 | value | meaning |
@@ -383,6 +401,65 @@ Columns: `species`, `feature_id`, `orthogroup_id`, `chrom`, `start`, `end`,
 `orthology_confidence` is `high` for primary loci, `medium` when
 `roundtrip_qc` is `HIGH_CONFIDENCE` or `LOW_RECOVERY`, else `low`.
 
+This file is still a pairwise projection artifact. Its orthogroup ids include
+the `projection_id`, so they are useful for review and traceability but are not
+the stable cross-run ids CAME should use for an adopted regulatory orthology
+table.
+
+### Promoted `orthologous_res.adopted.tsv`
+
+Adoption is a separate, explicit review step. It is not run automatically by
+`coordinate_projection`, is not part of `--run_stage all`, and does not modify
+the main pipeline inputs unless the user later passes the promoted file through
+`--orthologous_res`.
+
+```bash
+python3 bin/promote_orthologous_res.py \
+  --region-summary results/coordinate_projection/region_orthology_summary.tsv \
+  --projected-regions results/coordinate_projection/projected_regions.tsv \
+  --inferred-orthologous-res results/coordinate_projection/inferred_orthologous_res.tsv \
+  --orthologous-genes assets/example_samplesheets/orthologous_genes.tsv \
+  --output-dir reviewed_orthology
+```
+
+Outputs:
+
+- `orthologous_res.adopted.tsv` — regulatory orthology table suitable for a
+  later explicit main run via `--orthologous_res reviewed_orthology/orthologous_res.adopted.tsv`.
+- `orthologous_res_promotion_report.tsv` — `INFO`/`WARNING`/`ERROR` diagnostics
+  describing selection, validation, promoted/excluded locus counts, confidence
+  distributions, and any rejected inputs.
+- `orthologous_res_adopted.validation.tsv` — existing
+  `validate_orthology_tables.py` report, when `--orthologous-genes` is supplied.
+
+The promoter intentionally handles only the near-term regulatory-element shape:
+one source species projected to one or more target species. It fails clearly on
+multi-source input rather than attempting general N-by-N reconciliation. For
+each retained source anchor it derives a stable id from the source species and
+source `feature_id`:
+
+```text
+OG_RE_RB_<source_species>_<source_feature_id>
+```
+
+This id is independent of `projection_id`, target species order, and run order,
+so adding a target species does not rename existing source-anchor orthogroups.
+Only high-confidence primary loci are adopted. Failed, low-confidence, missing,
+or non-primary mappings are omitted with diagnostics; omission is not a
+biological absence call. The promoter preserves ambiguity using
+`orthology_type`/`orthology_confidence` values accepted by the existing CAME
+orthology validator, and it can pipe the output through
+`validate_orthology_tables.py` when the user's gene orthology table is supplied.
+
+The intended workflow is two-run and opt-in:
+
+1. run `coordinate_projection`;
+2. inspect `region_orthology_summary.tsv`, `projected_regions.tsv`, and the
+   warnings;
+3. run `promote_orthologous_res.py` on the reviewed outputs;
+4. run the main CAME workflow with the adopted table passed explicitly as
+   `--orthologous_res`.
+
 ### `projection_warnings.tsv`
 
 `severity`, `projection_id`, `source_feature_id`, `target_species`, `message`.
@@ -444,11 +521,14 @@ Default CI is independent of genomics binaries:
 
 - `tests/test_reciprocal_best_orthology.sh` — mock-driven unit tests for all
   Python components (interval ops, reciprocal-best chains, callable masks, the
-  projection engine, the classifier, and input validation), run on fixture
-  BED/chain files under `tests/fixtures/orthology/`. Wired into default CI.
+  projection engine, the classifier, the explicit adoption bridge, and input
+  validation), run on fixture BED/chain files under `tests/fixtures/orthology/`.
+  Wired into default CI.
 - `tests/test_reciprocal_best_orthology_nextflow.sh` — end-to-end real-mode
   `liftover` run using mock `liftOver`/`chainSwap` shims (identity mappers), so
-  the full orchestration is exercised without UCSC Kent tools.
+  the full orchestration is exercised without UCSC Kent tools. It includes a
+  multi-target bundle fixture with per-pair optional assets plus fresh-run and
+  `-resume` byte-determinism checks.
 - `tests/test_reciprocal_best_orthology_hal.sh` — end-to-end real-mode
   `halliftover` run using a mock `halLiftover` shim, also covering a launch-dir
   relative HAL path and projected-strand preservation.
