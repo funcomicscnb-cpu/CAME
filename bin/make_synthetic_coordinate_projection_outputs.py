@@ -44,6 +44,22 @@ ORTHOLOGOUS_RES_FIELDS = [
     "notes",
 ]
 WARNING_FIELDS = ["severity", "projection_id", "source_feature_id", "target_species", "message"]
+# Header-only placeholders so the summary manifest can list these real-mode
+# artifacts uniformly across stub and real runs. Must match the real engine.
+REGION_SUMMARY_FIELDS = [
+    "projection_id", "source_species", "target_species", "source_feature_id", "region_type",
+    "source_chrom", "source_start", "source_end", "source_window_len", "source_element_union_len",
+    "source_callable_fraction", "raw_fragment_count", "retained_fragment_count", "competing_target_contigs",
+    "selected_target_contig", "selected_piece_count", "selected_span_len", "selected_block_union_len",
+    "block_density", "mean_fragment_len", "piece_redundancy", "species_mask_support_fraction",
+    "mask_components_overlapped", "backlift_fragment_count", "window_recovered_bp", "window_recovered_fraction",
+    "element_recovered_bp", "element_recovered_fraction", "core_recovered", "forward_status",
+    "roundtrip_qc", "structural_class", "high_confidence_primary",
+]
+BLOCK_FIELDS = [
+    "projection_id", "source_species", "target_species", "source_feature_id", "block_index",
+    "target_chrom", "target_start", "target_end", "length",
+]
 
 
 def norm(value):
@@ -279,6 +295,8 @@ def create_outputs(args):
     write_tsv(os.path.join(args.output_dir, "projected_regions.tsv"), PROJECTED_FIELDS, projected)
     write_tsv(os.path.join(args.output_dir, "inferred_orthologous_res.tsv"), ORTHOLOGOUS_RES_FIELDS, orthology)
     write_tsv(os.path.join(args.output_dir, "projection_warnings.tsv"), WARNING_FIELDS, warnings)
+    write_tsv(os.path.join(args.output_dir, "region_orthology_summary.tsv"), REGION_SUMMARY_FIELDS, [])
+    write_tsv(os.path.join(args.output_dir, "orthologous_region_blocks.tsv"), BLOCK_FIELDS, [])
     print(f"CAME synthetic coordinate projection outputs: projected_records={len(projected)} orthology_rows={len(orthology)} warnings={len(warnings)}")
     return 0
 

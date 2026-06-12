@@ -10,6 +10,14 @@ from collections import Counter
 
 MISSING_VALUES = {"", "na", "n/a", "nan", "null", "none", "."}
 ALLOWED_METHODS = {"stub", "liftover_chain", "maf_projection", "precomputed_map"}
+# Reserved substrings used to encode BED fragment names downstream as
+# "projection_id::feature_id" with an optional "@@contig" provenance suffix.
+# IDs containing them would corrupt name parsing, so they are rejected here.
+RESERVED_ID_DELIMITERS = ("::", "@@")
+
+
+def reserved_delimiter(value):
+    return next((delim for delim in RESERVED_ID_DELIMITERS if delim in value), None)
 REQUIRED_REGION_COLUMNS = ["species", "feature_id", "chrom", "start", "end"]
 REQUIRED_ALIGNMENT_COLUMNS = ["source_species", "target_species", "alignment_id"]
 REQUIRED_CONFIG_COLUMNS = ["projection_id", "source_species", "target_species", "method"]
@@ -161,6 +169,9 @@ def validate_regions(rows, issues):
     for row_number, row in enumerate(rows, start=2):
         feature_id = norm(row.get("feature_id"))
         check_required_values(row, REQUIRED_REGION_COLUMNS, "regulatory_regions", row_number, issues, feature_id)
+        bad_delim = reserved_delimiter(feature_id)
+        if bad_delim:
+            add_issue(issues, "ERROR", "regulatory_regions", "feature_id", row_number, feature_id, f"feature_id must not contain the reserved delimiter '{bad_delim}'")
         start = parse_int(row.get("start"))
         end = parse_int(row.get("end"))
         if start is None:
@@ -211,12 +222,19 @@ def alignment_index(rows, issues):
     return index
 
 
-def validate_configs(rows, region_species, alignment_by_pair, coordinate_projection_stub, issues):
+def validate_configs(rows, region_species, alignment_by_pair, coordinate_projection_stub, issues, lift_tool="liftover"):
     valid = []
     projection_ids = Counter()
+    # When projection runs through a HAL alignment (halLiftover), per-pair chain
+    # and MAF assets are not used, so do not require them; the HAL file itself is
+    # validated once by the caller.
+    hal_mode = lift_tool == "halliftover"
     for row_number, row in enumerate(rows, start=2):
         projection_id = norm(row.get("projection_id"))
         check_required_values(row, REQUIRED_CONFIG_COLUMNS, "coordinate_projection_config", row_number, issues)
+        bad_delim = reserved_delimiter(projection_id)
+        if bad_delim:
+            add_issue(issues, "ERROR", "coordinate_projection_config", "projection_id", row_number, "", f"projection_id must not contain the reserved delimiter '{bad_delim}'")
         if projection_id:
             projection_ids[projection_id] += 1
         source_species = norm(row.get("source_species"))
@@ -231,19 +249,15 @@ def validate_configs(rows, region_species, alignment_by_pair, coordinate_project
             add_issue(issues, "ERROR", "coordinate_projection_config", "source_species,target_species", row_number, "", f"No alignment metadata for species pair: {source_species}->{target_species}")
         if method == "stub" and not coordinate_projection_stub:
             add_issue(issues, "ERROR", "coordinate_projection_config", "method", row_number, "", "method=stub is not valid when --coordinate_projection_stub false")
-        if not coordinate_projection_stub and alignment:
-            if method == "liftover_chain":
+        if not coordinate_projection_stub and alignment and not hal_mode:
+            # The liftOver executor projects through a chain, so it requires a
+            # chain_file for chain-based methods and cannot run MAF projection.
+            # These checks mirror the orchestration guard so prep and execution
+            # agree (no config that passes prep then fails at run time).
+            if method in ("liftover_chain", "precomputed_map"):
                 require_existing_asset(alignment.get("chain_file"), "chain_file", row_number, issues)
             elif method == "maf_projection":
-                require_existing_asset(alignment.get("maf_file"), "maf_file", row_number, issues)
-            elif method == "precomputed_map":
-                if not norm(alignment.get("chain_file")) and not norm(alignment.get("maf_file")):
-                    add_issue(issues, "ERROR", "genome_alignment_manifest", "chain_file,maf_file", row_number, "", "precomputed_map real mode requires a chain_file or maf_file asset placeholder")
-                else:
-                    for field in ["chain_file", "maf_file"]:
-                        value = norm(alignment.get(field))
-                        if value:
-                            require_existing_asset(value, field, row_number, issues)
+                add_issue(issues, "ERROR", "coordinate_projection_config", "method", row_number, "", "method=maf_projection requires orthology_lift_tool=halliftover; the liftOver executor needs a chain-based method")
         if source_species and target_species and method in ALLOWED_METHODS and alignment:
             valid.append(row)
     for projection_id, count in projection_ids.items():
@@ -304,6 +318,8 @@ def parse_args():
     parser.add_argument("--genome_alignment_manifest", required=True)
     parser.add_argument("--coordinate_projection_config", required=True)
     parser.add_argument("--coordinate_projection_stub", default="true")
+    parser.add_argument("--orthology_lift_tool", default="liftover")
+    parser.add_argument("--orthology_hal_file", default="")
     parser.add_argument("--output_dir", default="results/coordinate_projection/input")
     return parser.parse_args()
 
@@ -320,11 +336,20 @@ def main():
     require_columns(alignment_fields, REQUIRED_ALIGNMENT_COLUMNS, "genome_alignment_manifest", issues)
     require_columns(config_fields, REQUIRED_CONFIG_COLUMNS, "coordinate_projection_config", issues)
 
+    lift_tool = lower_norm(args.orthology_lift_tool) or "liftover"
     valid_regions = validate_regions(raw_regions, issues)
     alignments = prepare_alignment_rows(raw_alignments, args.genome_alignment_manifest)
     alignment_by_pair = alignment_index(alignments, issues)
     region_species = {norm(row.get("species")) for row in valid_regions if norm(row.get("species"))}
-    valid_configs = validate_configs(raw_configs, region_species, alignment_by_pair, coordinate_projection_stub, issues)
+    valid_configs = validate_configs(raw_configs, region_species, alignment_by_pair, coordinate_projection_stub, issues, lift_tool)
+
+    # In HAL real mode the single HAL alignment replaces per-pair chain/MAF assets.
+    if not coordinate_projection_stub and lift_tool == "halliftover":
+        hal_file = norm(args.orthology_hal_file)
+        if not hal_file:
+            add_issue(issues, "ERROR", "coordinate_projection_config", "orthology_hal_file", "", "", "orthology_lift_tool=halliftover requires --orthology_hal_file")
+        elif not os.path.exists(hal_file):
+            add_issue(issues, "ERROR", "coordinate_projection_config", "orthology_hal_file", "", "", f"HAL alignment does not exist: {hal_file}")
 
     manifest = []
     if not any(issue["severity"] == "ERROR" for issue in issues):

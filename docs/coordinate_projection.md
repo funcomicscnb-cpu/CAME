@@ -106,18 +106,120 @@ Outputs:
 
 The inferred regulatory orthology table includes one-to-one, many-to-one, ambiguous one-to-many, and failed-projection examples. These records are contract fixtures only and should not be interpreted biologically.
 
-## Real Mode
+## Real Mode — Reciprocal-Best Orthologous Regions
 
-`--coordinate_projection_stub false` is intentionally conservative. The workflow validates required alignment assets and then fails clearly at placeholder execution unless a production implementation is available.
+`--coordinate_projection_stub false` runs a basic reciprocal-best orthology
+pipeline that defines orthologous regions for a starting set of regions from one
+or more source species. It is a study-side, query-specific coordinate-projection
+analysis owned by CAME; it does not build or modify any CEEG model bundle, and it
+never reinterprets a mapping failure as biological absence.
 
-Potential implementation tools include:
+> Full real-mode reference: [reciprocal_best_orthology.md](reciprocal_best_orthology.md)
+> documents the method, the reference-preparation helpers
+> (`define_reciprocal_best_chains.py`, `build_callable_mask.py`), the complete
+> output schemas, the status/QC/structural label vocabularies, the chain-file
+> validation contract, and how to run everything end to end. The sections below
+> are a summary.
 
-- UCSC `liftOver`
-- CrossMap
-- HAL tools
-- custom MAF projection
+CAME orchestrates the external lift-over tools (Nextflow), while the analyzable
+logic — fragment filtering, best-contig selection, round-trip recovery, and
+structural classification — lives in dependency-free, unit-tested Python scripts.
+If the requested lift-over tool or a required alignment asset is missing, the
+workflow fails clearly rather than emitting synthetic results.
 
-The current interface does not install tools, does not run production lift-over, and does not silently emit synthetic real-mode results.
+### Pipeline
+
+For every region the workflow:
+
+1. forward-projects the region — and, when `orthology_source_element_union` is
+   supplied, its constituent elements — into each target species with `liftOver`
+   (using the supplied, ideally reciprocal-best, chain; `-multiple` and a
+   permissive `-minMatch`) or `halLiftover --noDupes`;
+2. filters forward fragments permissively by the query-side callable mask
+   (any-overlap retention) when a mask is supplied;
+3. when fragments land on more than one target contig, selects one best contig
+   by, in order: presence of a fragment overlapping a lifted constituent
+   element, total lifted element bp, total retained region length, then fewer
+   fragmented pieces;
+4. builds a span representation (min–max target coordinate) and a block
+   representation (preserving internal fragmentation);
+5. back-projects the selected fragments and measures round-trip recovery of the
+   original region window and, when `orthology_source_element_union` is
+   supplied, the original constituent-element union;
+6. assigns a forward-mapping status label, a round-trip QC label, and block-based
+   structural metrics, then classifies the locus as `compact`, `fragmented`,
+   `hyperfragmented`, or `missing`.
+
+High confidence requires recovering the constituent active core, so it is only
+reachable per region when `orthology_source_element_union` is supplied *and* has
+element rows matching that region's `projection_id::feature_id`; otherwise a
+locus that recovers its window is labelled `WINDOW_ONLY_NO_CORE` and is not
+promoted.
+The primary lifted regulatory set is defined as loci with high-confidence
+round-trip recovery and a non-hyperfragmented structure.
+
+Robustness notes: chain files may be gzipped (`.chain.gz`); a callable-mask or
+element-union path that is supplied but missing is treated as an input error,
+never as an empty mask or biological absence; round-trip recovery is scored only
+against the selected target contig; and the projected strand is taken from the
+lifted fragments (reported as `.` when the source strand was unknown).
+
+### Reciprocal-best chain and callable-mask preparation
+
+Two standalone helpers implement the UCSC reciprocal-best preparation steps so
+that masks and chains can be produced during reference preparation and supplied
+to the projection stage:
+
+- `bin/define_reciprocal_best_chains.py` — intersects the chain identifiers
+  retained by the net in both orientations (target-as-reference and
+  query-as-reference) and filters the raw chains to that reciprocal-best id set.
+- `bin/build_callable_mask.py` — drops sub-threshold fills, merges, and
+  intersects the reference-side and projected query-side level-1 net fills to
+  produce a conservative callable-orthology mask in reference coordinates.
+
+Generating chains and nets themselves (`halSynteny`, `pslPosTarget`, `axtChain`,
+`chainSort`/`chainPreNet`/`chainNet`, `chainSwap`, `netChainSubset`,
+`netSyntenic`) is performed with external UCSC/HAL tools and is outside this
+optional stage.
+
+### Parameters
+
+| parameter | default | description |
+| --- | --- | --- |
+| `orthology_lift_tool` | `liftover` | `liftover` (UCSC `liftOver` + `chainSwap`) or `halliftover`. |
+| `orthology_liftover_min_match` | `0.1` | `liftOver -minMatch`; permissive so fragmented regulatory mappings survive to QC (`-multiple` is always set). |
+| `orthology_hal_file` | `null` | HAL alignment, required for `orthology_lift_tool=halliftover`. |
+| `orthology_species_callable_mask` | `null` | Query-side reciprocal-best callable mask (BED, target coordinates). |
+| `orthology_source_callable_mask` | `null` | Source-side callable mask (BED, source coordinates). |
+| `orthology_source_element_union` | `null` | Original constituent-element union (BED, `projection_id::feature_id` names). |
+| `orthology_min_element_recovery_bp` | `50` | Minimum recovered element bp for core recovery. |
+| `orthology_min_element_recovery_frac` | `0.5` | Minimum recovered element fraction for core recovery. |
+| `orthology_min_window_recovery_frac` | `0.5` | Minimum recovered window fraction for high confidence. |
+| `orthology_primary_only` | `false` | Emit only high-confidence non-hyperfragmented loci in the inferred orthology table. |
+
+Required tools: `liftOver` and `chainSwap` for `orthology_lift_tool=liftover`, or
+`halLiftover` for `orthology_lift_tool=halliftover`.
+
+For `orthology_lift_tool=halliftover`, the single HAL alignment replaces per-pair
+chain/MAF assets: input preparation does not require `chain_file`/`maf_file` and
+instead requires `--orthology_hal_file` to exist. Optional masks, the element
+union, and the HAL are staged as workflow inputs (via `NO_FILE.*` placeholders
+when unset) so content changes invalidate caches and remote executors/containers
+can see them.
+
+### Outputs
+
+In addition to the stub-mode outputs, real mode writes:
+
+- `results/coordinate_projection/region_orthology_summary.tsv` — the integrated
+  per-region summary (window/element lengths, callable fractions, raw/retained
+  fragment counts, competing contigs, span/block metrics, round-trip recovery,
+  forward status, round-trip QC, and structural class);
+- `results/coordinate_projection/orthologous_region_blocks.tsv` — the block
+  representation of each selected locus.
+
+`projected_regions.tsv` and `inferred_orthologous_res.tsv` keep the same schemas
+as stub mode.
 
 ## Ambiguity Handling
 
@@ -132,7 +234,19 @@ Production logic should preserve ambiguous mappings with explicit confidence and
 
 ## Limitations
 
-- Production coordinate projection is not implemented.
+- This is a basic implementation, not a production-grade comparative-genomics
+  pipeline; full reciprocal-best chain and net generation is not implemented
+  within this stage, and stub mode remains a scaffold for contract fixtures.
+- Real mode requires the configured external lift-over tools to be installed;
+  CAME does not install them.
+- Reciprocal-best chain and net construction (`halSynteny`, `axtChain`,
+  `chainNet`, `netChainSubset`, `netSyntenic`) is performed outside this stage;
+  the stage consumes the resulting chains and optional callable masks.
+- Callable masks are optional inputs; without them, forward fragments are
+  retained permissively and a less conservative callable definition is used.
+- Region exclusion is reported as a status/QC label, never as biological
+  absence, and ambiguous multi-contig mappings are resolved explicitly rather
+  than collapsed silently.
 - Stub coordinates are deterministic placeholders.
 - Input coordinates are validated as zero-based, half-open intervals.
 - This interface is optional and is not required by `--run_stage all`.

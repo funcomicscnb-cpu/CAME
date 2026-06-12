@@ -1,0 +1,4 @@
+projection_id	source_species	target_species	method	alignment_id	source_feature_id	source_chrom	source_start	source_end	source_strand	region_type
+proj1	Mus_musculus	Pan_troglodytes	liftover_chain	mmus_to_ptro	mmus_re_0001	chr1	100	180	+	enhancer
+proj1	Mus_musculus	Pan_troglodytes	liftover_chain	mmus_to_ptro	mmus_re_0002	chr1	220	310	+	promoter
+proj1	Mus_musculus	Pan_troglodytes	liftover_chain	mmus_to_ptro	mmus_re_0003	chr2	400	480	-	enhancer

@@ -115,6 +115,7 @@ Use `--list_stages true` to print the run-stage catalog and `--run_stage all` in
 - ATAC real mode: [docs/atac_real_mode.md](docs/atac_real_mode.md)
 - WGS real mode: [docs/wgs_real_mode.md](docs/wgs_real_mode.md)
 - Optional coordinate projection: [docs/coordinate_projection.md](docs/coordinate_projection.md)
+- Reciprocal-best orthologous regions (coordinate-projection real mode): [docs/reciprocal_best_orthology.md](docs/reciprocal_best_orthology.md)
 - Optional RE-to-gene inference: [docs/re_to_gene_inference.md](docs/re_to_gene_inference.md)
 - Optional advanced statistics: [docs/advanced_statistics.md](docs/advanced_statistics.md)
 - Final reports: [docs/final_report.md](docs/final_report.md)

@@ -65,6 +65,7 @@ jobs:
           bash tests/test_bulk_omics.sh
           bash tests/test_differential_omics.sh
           bash tests/test_orthology_projection.sh
+          bash tests/test_reciprocal_best_orthology.sh
           bash tests/test_gra_analysis.sh
           bash tests/test_phenotype_omics_integration.sh
           bash tests/test_candidate_prioritization.sh
@@ -108,6 +109,11 @@ jobs:
 
       - name: Stage 13 all-run stub test
         run: CAME_STAGE13_SKIP_REGRESSION=true bash tests/test_end_to_end_orchestration.sh
+
+      - name: Reciprocal-best orthology real-mode (mock lift tools)
+        run: |
+          bash tests/test_reciprocal_best_orthology_nextflow.sh
+          bash tests/test_reciprocal_best_orthology_hal.sh
 
   real-mode-ci:
     name: Real-tool fixture execution

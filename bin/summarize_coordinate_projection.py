@@ -80,6 +80,12 @@ def summarize(args):
         output_record(args.inferred_orthologous_res, "inferred_orthologous_res", mode),
         output_record(args.projection_warnings, "projection_warnings", mode),
     ]
+    # Reciprocal-best projection emits a per-region summary and a block table;
+    # list them when staged (header-only placeholders in stub mode).
+    if args.region_summary and os.path.exists(args.region_summary):
+        manifest_rows.append(output_record(args.region_summary, "region_orthology_summary", mode))
+    if args.region_blocks and os.path.exists(args.region_blocks):
+        manifest_rows.append(output_record(args.region_blocks, "orthologous_region_blocks", mode))
     errors = sum(1 for row in manifest_rows if row["status"] == "ERROR")
     summary_rows = [
         {"metric": "mode", "value": mode},
@@ -107,6 +113,8 @@ def parse_args():
     parser.add_argument("--projected_regions", required=True)
     parser.add_argument("--inferred_orthologous_res", required=True)
     parser.add_argument("--projection_warnings", required=True)
+    parser.add_argument("--region_summary", default=None)
+    parser.add_argument("--region_blocks", default=None)
     parser.add_argument("--coordinate_projection_stub", default="true")
     parser.add_argument("--output_dir", default="results/coordinate_projection/summary")
     return parser.parse_args()

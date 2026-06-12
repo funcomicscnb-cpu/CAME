@@ -162,7 +162,7 @@ workflow {
         [run_stage: 'reference_prepare', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'reference assets', notes: 'Optional scaffold; not production reference preparation'],
         [run_stage: 'wgs_variants', maturity: 'production', included_in_all: false, real_mode_scope: 'WGS per-sample SNP/indel calling', notes: 'Optional; per-sample only, no joint genotyping'],
         [run_stage: 'reference_quality', maturity: 'production', included_in_all: false, real_mode_scope: 'reference assets', notes: 'Optional reference-quality validation'],
-        [run_stage: 'coordinate_projection', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'comparative coordinates', notes: 'Optional scaffold; not production coordinate projection'],
+        [run_stage: 'coordinate_projection', maturity: 'basic', included_in_all: false, real_mode_scope: 'reciprocal-best orthologous regions', notes: 'Optional; basic reciprocal-best lift-over orthology, requires external lift-over tools in real mode'],
         [run_stage: 're_to_gene_inference', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'regulatory links', notes: 'Optional scaffold; not production RE-to-gene inference'],
         [run_stage: 'advanced_statistics', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'advanced models', notes: 'Optional scaffold; not production advanced statistics'],
         [run_stage: 'ceeg_compatibility', maturity: 'scaffold', included_in_all: false, real_mode_scope: 'CEEG model bundle', notes: 'Optional CEEG contract artifact consumption interface; requires --ceeg_model_bundle'],
