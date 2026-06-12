@@ -45,6 +45,7 @@ REQUIRED_TESTS = [
     "tests/test_differential_omics.sh",
     "tests/test_orthology_projection.sh",
     "tests/test_orthology_reference_prepare.sh",
+    "tests/test_orthology_real_tools.sh",
     "tests/test_gra_analysis.sh",
     "tests/test_phenotype_omics_integration.sh",
     "tests/test_candidate_prioritization.sh",
@@ -72,6 +73,7 @@ REQUIRED_DOCS = [
     "docs/differential_omics.md",
     "docs/orthology_projection.md",
     "docs/orthology_reference_prepare.md",
+    "docs/orthology_end_to_end.md",
     "docs/gra_analysis.md",
     "docs/phenotype_omics_integration.md",
     "docs/candidate_prioritization.md",
@@ -99,6 +101,7 @@ REQUIRED_BIN = [
     "bin/prepare_coordinate_projection_inputs.py",
     "bin/prepare_reference_inputs.py",
     "bin/run_orthology_reference_prepare.py",
+    "bin/check_orthology_tools.py",
     "bin/render_final_report.py",
     "bin/summarize_coordinate_projection.py",
     "bin/summarize_reference_prepare.py",
@@ -119,6 +122,7 @@ REQUIRED_ENVIRONMENT = [
     "environment/install_local.sh",
     "environment/install_r_packages.R",
     "environment/tool_versions.tsv",
+    "environment/orthology_tools.yml",
 ]
 
 REQUIRED_SCHEMAS = [
@@ -194,6 +198,17 @@ REQUIRED_EXAMPLES = [
     "assets/test_data/real_mode_fixtures/manifests/real_mode_metadata.tsv",
     "assets/test_data/real_mode_fixtures/manifests/wgs_samplesheet.csv",
     "assets/test_data/real_mode_fixtures/manifests/expected_output_contracts.tsv",
+    "assets/test_data/orthology_real/README.md",
+    "assets/test_data/orthology_real/recip_raw.chain",
+    "assets/test_data/orthology_real/recip_target_net.chain",
+    "assets/test_data/orthology_real/recip_query_net.chain",
+    "assets/test_data/orthology_real/src_reference_fills.bed",
+    "assets/test_data/orthology_real/src_query_fills_projected.bed",
+    "assets/test_data/orthology_real/tgt_reference_fills.bed",
+    "assets/test_data/orthology_real/tgt_query_fills_projected.bed",
+    "assets/test_data/orthology_real/regulatory_regions.tsv",
+    "assets/test_data/orthology_real/element_union.bed",
+    "assets/test_data/orthology_real/coordinate_projection_config.tsv",
 ]
 
 CORE_SCAN_ROOTS = ["main.nf", "nextflow.config", "lib", "bin", "workflows", "subworkflows", "modules"]

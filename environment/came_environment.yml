@@ -10,7 +10,9 @@ dependencies:
   - numpy
   - scipy
   - openjdk=17
-  - nextflow>=22.10.0
+  # Upper bound: Nextflow >=25/26 enables a strict-syntax parser that rejects
+  # this repo's classic-DSL2 main.nf idioms. Keep <24 until main.nf is migrated.
+  - nextflow>=22.10.0,<24
   - r-base>=4.2
   - r-yaml
   - r-ape

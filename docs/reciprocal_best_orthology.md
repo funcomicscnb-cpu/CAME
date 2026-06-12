@@ -9,7 +9,9 @@ It is the detailed companion to [coordinate_projection.md](coordinate_projection
 which covers the stage's input contracts, validation, and deterministic stub
 mode. Read that first for the shared input formats; this document focuses on the
 real-mode method, the reference-preparation helpers, the output contracts, the
-status/QC vocabularies, and how to run everything end to end.
+status/QC vocabularies, and how to run everything end to end. For the operational
+reference-prep → projection → adoption → main-run walkthrough, see
+[orthology_end_to_end.md](orthology_end_to_end.md).
 
 This interface is optional and is **not** part of `--run_stage all`. It does not
 implement a production comparative-genomics pipeline. It is study-side,

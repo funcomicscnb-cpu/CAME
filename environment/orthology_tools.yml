@@ -1,0 +1,43 @@
+# Optional environment for the reciprocal-best orthology REAL-mode tools.
+#
+# CAME does not bundle these binaries. This env installs the external lift-over
+# tools that coordinate_projection real mode orchestrates, plus a Python runtime
+# for the CAME scripts, for the opt-in real-tool integration test
+# (tests/test_orthology_real_tools.sh) and for users who run real mode locally.
+# It is separate from came_environment.yml so the default stub/CI path stays free
+# of heavy genomics binaries.
+#
+# COVERAGE: this env covers the orthology_lift_tool=liftover path:
+#   - liftOver, chainSwap  (UCSC Kent, Bioconda)
+#
+# halLiftover (orthology_lift_tool=halliftover) is NOT installable here: the HAL
+# toolkit is not on Bioconda. Obtain it by building the HAL toolkit
+# (https://github.com/ComparativeGenomicsToolkit/hal) or via Cactus
+# (https://github.com/ComparativeGenomicsToolkit/cactus) -- typically the same
+# environment that produced the multi-way HAL alignment in the first place. The
+# preflight will soft-warn for halliftover when halLiftover is absent.
+#
+# PLATFORM: these Bioconda packages are built for linux-64 (and some for Intel
+# osx-64). They are NOT available for osx-arm64 (Apple Silicon). On an ARM Mac,
+# use a linux-64 container (e.g. `docker run --platform linux/amd64 ...`) or
+# install the UCSC binaries directly (see docs/orthology_end_to_end.md). The
+# opt-in CI job runs on ubuntu-latest (linux-64).
+#
+# REPRODUCIBILITY: versions are left unpinned so the env resolves on the target
+# platform; capture exact resolved versions into a lock file (as with
+# environment/conda-linux-64.lock) on the build platform when a hard pin is
+# needed.
+name: came-orthology-tools
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python >=3.10
+  - openjdk=17          # Nextflow runtime (Java 17; matches the project's tested JDK)
+  # Pinned to the classic-DSL2 parser line. Nextflow >=25/26 enables a strict
+  # syntax parser that rejects this repo's main.nf idioms (e.g. closure-style
+  # `def gateFile = { ... }` helpers). Keep this upper bound until main.nf is
+  # migrated to the new Nextflow language.
+  - nextflow >=23.10.0,<24
+  - ucsc-liftover
+  - ucsc-chainswap

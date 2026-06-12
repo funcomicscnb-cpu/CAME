@@ -118,6 +118,7 @@ Use `--list_stages true` to print the run-stage catalog and `--run_stage all` in
 - Optional coordinate projection: [docs/coordinate_projection.md](docs/coordinate_projection.md)
 - Reciprocal-best orthologous regions (coordinate-projection real mode): [docs/reciprocal_best_orthology.md](docs/reciprocal_best_orthology.md)
 - Optional orthology reference preparation: [docs/orthology_reference_prepare.md](docs/orthology_reference_prepare.md)
+- Reciprocal-best orthology end-to-end walkthrough: [docs/orthology_end_to_end.md](docs/orthology_end_to_end.md)
 - Optional RE-to-gene inference: [docs/re_to_gene_inference.md](docs/re_to_gene_inference.md)
 - Optional advanced statistics: [docs/advanced_statistics.md](docs/advanced_statistics.md)
 - Final reports: [docs/final_report.md](docs/final_report.md)

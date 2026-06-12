@@ -116,12 +116,13 @@ printf "$R" source_element_union element_union.bed bed >> "$BUNDLE"
 B_OUT="$TMP_DIR/results_bundle"
 B_WORK="$TMP_DIR/work_bundle"
 run_bundle() {
-  nextflow run "$ROOT_DIR" "$@" -work-dir "$2" \
+  outdir="$1"; workdir="$2"; shift 2
+  nextflow run "$ROOT_DIR" "$@" -work-dir "$workdir" \
     --run_stage coordinate_projection \
     --regulatory_regions "$FIX/regulatory_regions.tsv" \
     --orthology_reference_bundle_manifest "$BUNDLE" \
     --coordinate_projection_stub false \
-    --outdir "$1"
+    --outdir "$outdir"
 }
 run_bundle "$B_OUT" "$B_WORK" > "$TMP_DIR/nf_bundle.out" 2>&1 \
   || { cat "$TMP_DIR/nf_bundle.out"; fail "real-tool bundle coordinate projection errored"; }

@@ -8,6 +8,13 @@ on:
       - master
   workflow_dispatch:
 
+# Pin the Nextflow version installed by the `curl get.nextflow.io | bash` jobs.
+# Nextflow >=25/26 enables a strict-syntax parser that rejects this repo's
+# classic-DSL2 main.nf idioms; 23.10.1 is the last classic-parser line tested.
+# Harmless to the conda/Docker jobs (their Nextflow is pinned independently).
+env:
+  NXF_VER: "23.10.1"
+
 jobs:
   fast-validation:
     name: Fast validation and lightweight regression
@@ -196,3 +203,29 @@ jobs:
 
       - name: Stage 15 soft real-mode smoke
         run: bash tests/test_real_mode_smoke.sh --soft
+
+  orthology-real-tools:
+    name: Optional orthology real-tool integration
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Create self-contained orthology env (python, nextflow, java, liftOver, chainSwap)
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: environment/orthology_tools.yml
+          cache-environment: true
+
+      - name: Preflight — liftover tools required, halliftover soft (not in this env)
+        run: |
+          nextflow -version
+          python3 bin/check_orthology_tools.py --lift-tool liftover --mode strict
+          python3 bin/check_orthology_tools.py --lift-tool halliftover --mode soft
+
+      - name: Real-tool reciprocal-best orthology integration
+        run: bash tests/test_orthology_real_tools.sh --strict
