@@ -1,0 +1,5 @@
+schema_version	bundle_id	bundle_source	source_species	target_species	source_assembly	target_assembly	asset_role	asset_path	asset_format	orthology_lift_tool	validation_status	tool_versions	params_hash	input_hashes	created_at	created_by	notes
+orthology_reference_bundle.v1	external_liftover_tiny	external	Mus_musculus	Danio_rerio	GRCm39	GRCz11	reciprocal_best_chain	alignments/mmus_to_drer.recip_best.chain	chain	liftover	valid						external fixture
+orthology_reference_bundle.v1	external_liftover_tiny	external	Mus_musculus	Danio_rerio	GRCm39	GRCz11	source_callable_mask	masks/mmus.callable.bed	bed	liftover	valid						external fixture
+orthology_reference_bundle.v1	external_liftover_tiny	external	Mus_musculus	Danio_rerio	GRCm39	GRCz11	target_callable_mask	masks/drer.callable.bed	bed	liftover	valid						external fixture
+orthology_reference_bundle.v1	external_liftover_tiny	external	Mus_musculus	Danio_rerio	GRCm39	GRCz11	source_element_union	elements/mmus.element_union.bed	bed	liftover	valid						external fixture

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CAME reciprocal-best orthology reference bundle manifest row",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "bundle_id",
+    "bundle_source",
+    "source_species",
+    "target_species",
+    "source_assembly",
+    "target_assembly",
+    "asset_role",
+    "asset_path",
+    "asset_format",
+    "orthology_lift_tool",
+    "validation_status"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "const": "orthology_reference_bundle.v1"},
+    "bundle_id": {"type": "string", "minLength": 1},
+    "bundle_source": {"type": "string", "enum": ["external", "came_generated"]},
+    "source_species": {"type": "string", "minLength": 1},
+    "target_species": {"type": "string", "minLength": 1},
+    "source_assembly": {"type": "string", "minLength": 1},
+    "target_assembly": {"type": "string", "minLength": 1},
+    "asset_role": {
+      "type": "string",
+      "enum": [
+        "reciprocal_best_chain",
+        "source_callable_mask",
+        "target_callable_mask",
+        "source_element_union",
+        "hal_alignment"
+      ]
+    },
+    "asset_path": {"type": "string", "minLength": 1},
+    "asset_format": {"type": "string", "enum": ["chain", "bed", "hal"]},
+    "orthology_lift_tool": {"type": "string", "enum": ["liftover", "halliftover"]},
+    "validation_status": {"type": "string", "enum": ["valid", "warning", "unvalidated"]},
+    "tool_versions": {"type": ["string", "null"]},
+    "params_hash": {"type": ["string", "null"]},
+    "input_hashes": {"type": ["string", "null"]},
+    "created_at": {"type": ["string", "null"]},
+    "created_by": {"type": ["string", "null"]},
+    "notes": {"type": ["string", "null"]},
+    "source_fasta": {"type": ["string", "null"]},
+    "source_fai": {"type": ["string", "null"]},
+    "source_annotation_file": {"type": ["string", "null"]},
+    "target_fasta": {"type": ["string", "null"]},
+    "target_fai": {"type": ["string", "null"]},
+    "target_annotation_file": {"type": ["string", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"bundle_source": {"const": "came_generated"}},
+        "required": ["bundle_source"]
+      },
+      "then": {
+        "required": ["tool_versions", "params_hash", "input_hashes", "created_at"],
+        "properties": {
+          "tool_versions": {"type": "string", "minLength": 1},
+          "params_hash": {"type": "string", "minLength": 1},
+          "input_hashes": {"type": "string", "minLength": 1},
+          "created_at": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  ],
+  "additionalProperties": true
+}

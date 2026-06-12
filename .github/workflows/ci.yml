@@ -65,6 +65,7 @@ jobs:
           bash tests/test_bulk_omics.sh
           bash tests/test_differential_omics.sh
           bash tests/test_orthology_projection.sh
+          bash tests/test_orthology_reference_bundle.sh
           bash tests/test_reciprocal_best_orthology.sh
           bash tests/test_gra_analysis.sh
           bash tests/test_phenotype_omics_integration.sh

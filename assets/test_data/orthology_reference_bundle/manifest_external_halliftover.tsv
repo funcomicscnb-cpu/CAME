@@ -1,0 +1,4 @@
+schema_version	bundle_id	bundle_source	source_species	target_species	source_assembly	target_assembly	asset_role	asset_path	asset_format	orthology_lift_tool	validation_status	tool_versions	params_hash	input_hashes	created_at	created_by	notes
+orthology_reference_bundle.v1	external_hal_tiny	external	Mus_musculus	Danio_rerio	GRCm39	GRCz11	hal_alignment	alignments/mmus_drer.hal	hal	halliftover	valid						external HAL fixture
+orthology_reference_bundle.v1	external_hal_tiny	external	Mus_musculus	Danio_rerio	GRCm39	GRCz11	source_callable_mask	masks/mmus.callable.bed	bed	halliftover	valid						external HAL fixture
+orthology_reference_bundle.v1	external_hal_tiny	external	Mus_musculus	Danio_rerio	GRCm39	GRCz11	target_callable_mask	masks/drer.callable.bed	bed	halliftover	valid						external HAL fixture
