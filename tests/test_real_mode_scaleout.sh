@@ -165,7 +165,18 @@ assert_grep 'collide after filesystem-safe normalization' "$TMP_DIR/collision_ou
 FAKE_BIN="$TMP_DIR/fake_bin"
 make_fake_rna_tools "$FAKE_BIN"
 NF_OUT="$TMP_DIR/nf_fake_rna"
-PATH="$FAKE_BIN:$PATH" nextflow -log "$TMP_DIR/fake_rna.log" run "$ROOT_DIR" \
+# Fake tools use tiny fixtures; production resource labels are unnecessary here.
+# Apply this config only to the fake-tool run, leaving production defaults intact.
+FAKE_CONFIG="$TMP_DIR/fake_rna.config"
+cat > "$FAKE_CONFIG" <<'NF'
+process {
+    withName: '.*' {
+        cpus = 1
+        memory = '1 GB'
+    }
+}
+NF
+PATH="$FAKE_BIN:$PATH" nextflow -c "$FAKE_CONFIG" -log "$TMP_DIR/fake_rna.log" run "$ROOT_DIR" \
   -work-dir "$TMP_DIR/fake_rna_work" \
   --run_stage bulk_omics \
   --omics_mode real \
