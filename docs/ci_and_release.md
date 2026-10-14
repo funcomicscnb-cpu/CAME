@@ -71,6 +71,20 @@ Generate the linux-64 container lock after changing `environment/came_environmen
 conda-lock lock -f environment/came_environment.yml -p linux-64 -k explicit --filename-template environment/conda-{platform}.lock --micromamba --strip-auth
 ```
 
+An environment solved on Linux from the same YAML can also be frozen with
+`conda list --explicit --md5`. Both formats are accepted: the release checker
+requires one `@EXPLICIT` marker, the linux-64 platform header, and auth-free
+HTTPS package URLs for linux-64/noarch artifacts with lowercase 32-character
+MD5 checksums, matching the image’s Conda 24.5.0
+[explicit URL parser](https://github.com/conda/conda/blob/24.5.0/conda/misc.py).
+Uppercase MD5 and bare or prefixed SHA256 fragments are rejected. Exports
+containing `# no URL for:` omission comments are incomplete and rejected. Explicit exports do not capture pip-installed packages.
+The optional `conda-lock` `input_hash` comment is generator metadata, not a
+Conda explicit-format requirement or proof that the lock matches the YAML.
+Preserve any metadata emitted by the generator; do not manufacture it when
+exporting an existing environment. Lock validation does not replace building
+the image and executing its strict fixtures.
+
 Build the release image locally:
 
 ```bash

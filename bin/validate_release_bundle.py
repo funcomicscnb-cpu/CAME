@@ -10,6 +10,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 FIELDS = ["check_id", "status", "subject", "message", "remediation"]
@@ -700,15 +701,49 @@ def check_conda_lock(rows: list[dict[str, str]], root: Path) -> None:
     problems = []
     if "# platform: linux-64" not in text:
         problems.append("missing linux-64 platform marker")
-    if "@EXPLICIT" not in text:
-        problems.append("missing @EXPLICIT marker")
+    content_lines = [line for line in text.splitlines() if line.strip() and not line.startswith("#")]
+    if not content_lines or content_lines[0] != "@EXPLICIT" or content_lines.count("@EXPLICIT") != 1:
+        problems.append("expected exactly one @EXPLICIT marker before package URLs")
     if "/t/" in text or "**********" in text:
         problems.append("contains auth-token URL segment")
     if "osx-arm64" in text or "osx-64" in text:
         problems.append("contains macOS package URLs")
-    if "openjdk-" not in text:
-        problems.append("missing openjdk package")
+    # Both conda-lock and `conda list --explicit --md5` produce valid explicit
+    # specs. Generator-specific comments (including conda-lock's input_hash)
+    # are optional; reproducibility requires pinned package artifacts instead.
+    if any(line.lstrip().startswith("# no URL for:") for line in text.splitlines()):
+        problems.append("incomplete explicit export: contains no URL for omission comments")
+    package_count = 0
+    package_names = set()
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if not line.strip() or line.startswith("#") or line == "@EXPLICIT":
+            continue
+        package_count += 1
+        try:
+            url = urlsplit(line)
+            parts = url.path.rsplit("/", 2)
+            valid = (
+                url.scheme == "https"
+                and bool(url.hostname)
+                and url.username is None
+                and url.password is None
+                and not url.query
+                and len(parts) == 3
+                and parts[-2] in {"linux-64", "noarch"}
+                and re.fullmatch(r".+-[^/]+-[^/]+[.](?:conda|tar[.]bz2)", parts[-1])
+                and re.fullmatch(r"[0-9a-f]{32}", url.fragment)
+            )
+        except ValueError:
+            valid = False
+        if not valid:
+            problems.append(f"line {line_number}: expected an auth-free HTTPS linux-64/noarch package URL with a lowercase 32-character MD5 checksum")
+        else:
+            package_names.add(parts[-1].rsplit("-", 2)[0])
+    if package_count == 0:
+        problems.append("no pinned package artifacts")
     required_packages = [
+        "openjdk",
+        "nextflow",
         "bioconductor-deseq2",
         "r-ape",
         "r-nlme",
@@ -723,15 +758,13 @@ def check_conda_lock(rows: list[dict[str, str]], root: Path) -> None:
         "fastqc",
         "multiqc",
     ]
-    missing_packages = [package for package in required_packages if f"/{package}-" not in text]
+    missing_packages = [package for package in required_packages if package not in package_names]
     if missing_packages:
         problems.append("missing required real-mode package(s): " + ", ".join(missing_packages))
-    if not re.search(r"^# input_hash: [0-9a-f]{64}$", text, re.MULTILINE):
-        problems.append("missing conda-lock input_hash marker")
     if problems:
-        add(rows, "conda_linux_lock", "ERROR", path.relative_to(root).as_posix(), "; ".join(problems), "Regenerate the linux-64 explicit lock and strip auth tokens.")
+        add(rows, "conda_linux_lock", "ERROR", path.relative_to(root).as_posix(), "; ".join(problems), "Regenerate the linux-64 explicit lock with lowercase MD5 package checksums and strip auth tokens.")
     else:
-        add(rows, "conda_linux_lock", "PASS", path.relative_to(root).as_posix(), "linux-64 explicit lock is present, auth-free, and includes required real-mode tools.")
+        add(rows, "conda_linux_lock", "PASS", path.relative_to(root).as_posix(), f"linux-64 explicit lock pins {package_count} package artifacts with checksums, is auth-free, and includes required real-mode tools.")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -42,6 +42,7 @@ assert_file "$TMP_DIR/tool_versions.tsv" "print_versions.py did not write versio
 assert_grep '^python	cli	present' "$TMP_DIR/tool_versions.tsv" "Python version row missing"
 
 VALIDATION_OUT="$TMP_DIR/release_bundle_validation.tsv"
+python3 "$ROOT_DIR/tests/test_release_bundle.py"
 python3 "$ROOT_DIR/bin/validate_release_bundle.py" --output "$VALIDATION_OUT" > "$TMP_DIR/validate.out" 2>&1
 assert_file "$VALIDATION_OUT" "validate_release_bundle.py did not write validation table"
 assert_grep '^run_stage_documentation	PASS' "$VALIDATION_OUT" "run_stage documentation check did not pass"
