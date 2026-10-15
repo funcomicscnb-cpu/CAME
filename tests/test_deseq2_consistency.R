@@ -11,10 +11,18 @@ evidence <- option('--evidence-dir', tempfile('came-deseq2-'))
 case <- option('--case', 'all')
 dir.create(evidence, recursive = TRUE, showWarnings = FALSE)
 evidence <- normalizePath(evidence)
-if (!requireNamespace('DESeq2', quietly = TRUE)) stop('DESeq2 is required: skipping is not a pass')
-writeLines(capture.output(sessionInfo()), file.path(evidence, 'sessionInfo.txt'))
-writeLines(c(R.version.string, paste('DESeq2', packageVersion('DESeq2')), paste('scripts', scripts)), file.path(evidence, 'versions.txt'))
+# Record evidence before any hard failure; outcome stays INCOMPLETE unless PASS.
+writeLines('INCOMPLETE', file.path(evidence, 'outcome.txt'))
+unlink(file.path(evidence, c('comparisons.txt', 'commands.sh', 'missingness.tsv')))  # appended per run
 writeLines(paste(commandArgs(), collapse = ' '), file.path(evidence, 'invocation.txt'))
+writeLines(capture.output(sessionInfo()), file.path(evidence, 'sessionInfo.txt'))
+deseq2_available <- requireNamespace('DESeq2', quietly = TRUE)
+deseq2_version <- if (deseq2_available) as.character(packageVersion('DESeq2')) else 'unavailable'
+writeLines(c(R.version.string, paste('DESeq2', deseq2_version), paste('scripts', scripts), paste('libPaths', paste(.libPaths(), collapse = ':'))), file.path(evidence, 'versions.txt'))
+if (!deseq2_available) {
+  writeLines('FAIL DESeq2 unavailable', file.path(evidence, 'outcome.txt'))
+  stop('DESeq2 is required: skipping is not a pass')
+}
 write_tsv <- function(x, path) write.table(x, path, sep = '\t', quote = FALSE, row.names = FALSE, na = 'NA')
 read_tsv <- function(path) read.delim(path, check.names = FALSE, stringsAsFactors = FALSE)
 check <- function(ok, message) if (!isTRUE(ok)) stop(message, call. = FALSE)
@@ -120,7 +128,9 @@ validate <- function(actual, expected, kind, name, omitted = FALSE) {
   if (kind != 'gra') fields <- c(fields, base_mean = 'baseMean')
   for (field in names(fields)) compare(rows[[field]][keep], expected[[fields[[field]]]], paste(name, field))
   check(all(rows$method[!keep] == 'not_tested'), paste(name, 'filtered features labelled fitted'))
-  check(any(is.na(expected$padj) & !is.na(expected$pvalue)), paste(name, 'fixture must expose independent-filter missingness'))
+  # Independent-filter-only missingness may legitimately be zero across DESeq2
+  # versions; the exact NA-mask comparisons above enforce CAME/oracle agreement.
+  record_missingness(name, rows$p_value[keep], rows$padj[keep])
   if (omitted || kind == 'gra') check(any(is.na(expected$pvalue)), paste(name, 'fixture must expose outlier missingness'))
   compare(rows[[if (kind == 'gra') 'mean_baseline' else 'baseline_mean']], base_mean, paste(name, 'descriptive baseline'))
   compare(rows[[if (kind == 'gra') 'mean_response' else 'response_mean']], resp_mean, paste(name, 'descriptive response'))
@@ -132,6 +142,13 @@ validate <- function(actual, expected, kind, name, omitted = FALSE) {
     check(any(grepl('Batch covariate omitted', actual$warnings$message)) == omitted, paste(name, 'batch warning mismatch'))
   }
   check(identical(is.na(rows$correction_method), is.na(rows$padj)) && all(rows$correction_method[!is.na(rows$padj)] == 'BH'), paste(name, 'correction labels'))
+}
+record_missingness <- function(name, p, q) {
+  p <- as.numeric(p)
+  q <- as.numeric(q)
+  path <- file.path(evidence, 'missingness.tsv')
+  row <- data.frame(case = name, n_rows = length(p), missing_pvalue = sum(is.na(p)), missing_padj = sum(is.na(q)), finite_pvalue_missing_padj = sum(is.finite(p) & is.na(q)))
+  write.table(row, path, sep = '\t', quote = FALSE, row.names = FALSE, col.names = !file.exists(path), append = file.exists(path))
 }
 blank <- samples
 blank$batch <- ''
@@ -182,6 +199,7 @@ if (case == 'all') {
     output_field <- c(log2FoldChange = 'log2_fold_change', baseMean = 'base_mean', stat = 'statistic', pvalue = 'p_value', padj = 'padj')[[field]]
     compare(zero_actual[[output_field]], zero_expected[[field]], paste('zero-included', field))
   }
+  record_missingness('zero-included', zero_actual$p_value, zero_actual$padj)
   # Reversing feature rows and sample columns changes no keyed estimates.
   reversed <- rna[nrow(rna):1, c(names(meta), rev(colnames(x)))]
   write_tsv(reversed, file.path(evidence, 'rna.tsv'))
@@ -194,6 +212,10 @@ if (case == 'all') {
   for (kind in c('rna', 'atac', 'gra')) {
     fallback <- run(kind, blank, paste0(kind, '-fallback'), TRUE)$rows
     check(all(grepl('^fallback_', fallback$method[keep])), paste(kind, 'forced fallback label'))
+    # Filtered rows during fallback: RNA/ATAC fallback_no_test, GRA not_tested.
+    filtered_label <- if (kind == 'gra') 'not_tested' else 'fallback_no_test'
+    check(all(fallback$method[!keep] == filtered_label), paste(kind, 'filtered fallback label'))
+    check(all(fallback$status[!keep] == if (kind == 'gra') 'filtered_low_signal' else 'filtered_low_count'), paste(kind, 'filtered fallback status'))
     compare(fallback$log2_fold_change, descriptive_fc, paste(kind, 'fallback effect'))
     p <- vapply(which(keep), function(i) {
       a <- descriptive[i, resp_ids]; b <- descriptive[i, base_ids]

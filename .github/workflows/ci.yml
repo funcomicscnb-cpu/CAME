@@ -151,6 +151,7 @@ jobs:
           docker info --format '{{.OSType}}/{{.Architecture}}' > "$EVIDENCE_DIR"/docker-architecture.txt
 
       - name: Build local CAME image
+        id: build-image
         run: docker build -t came-test:pr .
 
       - name: Inspect unpublished local image
@@ -177,6 +178,41 @@ jobs:
           fixture_status=${PIPESTATUS[0]}
           printf '%s\n' "$fixture_status" > "$EVIDENCE_DIR"/fixture-exit-status.txt
           exit "$fixture_status"
+
+      # Locked-image DESeq2 checks run packaged /came source from the image;
+      # only a new evidence subdirectory is mounted. Runs even if fixtures failed.
+      - name: Run locked-image DESeq2 and differential/GRA checks
+        if: ${{ !cancelled() && steps.build-image.outcome == 'success' }}
+        run: |
+          set +e
+          deseq2_dir="$EVIDENCE_DIR/deseq2-locked-image"
+          mkdir -p "$deseq2_dir"
+          docker run --rm --mount type=bind,src="$deseq2_dir",dst=/evidence came-test:pr bash -c '
+            ev=/evidence
+            # Root-created files must stay readable by the runner uploader; chmod only this mount.
+            trap "chmod -R a+rX \"\$ev\"" EXIT
+            sha256sum bin/run_differential_analysis.R bin/run_differential_gra_activity.R \
+              tests/test_deseq2_consistency.R tests/fixtures/deseq2_counts.tsv \
+              tests/test_differential_omics.sh tests/test_gra_analysis.sh \
+              environment/conda-linux-64.lock > "$ev"/packaged-source-sha256.txt
+            grep -E "/(r-base|bioconductor-deseq2)-[0-9]" environment/conda-linux-64.lock > "$ev"/locked-r-deseq2.txt
+            conda list -n came "^(r-base|bioconductor-deseq2)$" > "$ev"/installed-r-deseq2.txt 2>&1
+            overall=0
+            run_check() {
+              name=$1; shift
+              "$@" 2>&1 | tee "$ev/$name.log"
+              status=${PIPESTATUS[0]}
+              printf "%s\n" "$status" > "$ev/$name-exit-status.txt"
+              [ "$status" -eq 0 ] || overall=1
+            }
+            run_check strict-deseq2 Rscript tests/test_deseq2_consistency.R --evidence-dir "$ev"/strict-deseq2
+            run_check differential-omics bash tests/test_differential_omics.sh
+            run_check gra-analysis bash tests/test_gra_analysis.sh
+            exit "$overall"
+          '
+          deseq2_status=$?
+          printf '%s\n' "$deseq2_status" > "$deseq2_dir"/exit-status.txt
+          exit "$deseq2_status"
 
       - name: Upload compact real-mode evidence
         if: always()

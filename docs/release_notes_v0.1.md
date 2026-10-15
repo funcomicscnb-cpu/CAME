@@ -63,7 +63,7 @@ Key release outputs include:
 
 The v0.1 release gate includes the stub-mode test matrix documented in `docs/ci_and_release.md` and `docs/release_checklist.md`, plus container-backed strict execution of the committed tiny real-mode fixtures when the release image is built.
 
-Current differential-omics CI permits fallback; passing CI does not establish successful DESeq2 fitting or validate DESeq2 numerical results. These execution and output-contract checks do not establish biological accuracy. Result rows and `differential_summary.tsv` record the method used; fallback reproduced with older local R/DESeq2 versions does not establish which method ran in CI.
+The lightweight differential-omics regression tests permit fallback; passing them does not establish successful DESeq2 fitting. Successful fitting and DESeq2 field consistency are tested separately by the strict oracle suite `tests/test_deseq2_consistency.R`, run in the locked `real-mode-ci` image with the R/DESeq2 versions from the committed Conda lock and, optionally, in the `deseq2-validation` job with the current R release (see `docs/ci_and_release.md`). These same-package comparisons and output-contract checks do not establish biological accuracy. Result rows and `differential_summary.tsv` record the method used; fallback reproduced with older local R/DESeq2 versions does not establish which method ran in CI.
 
 ## Dependencies
 
@@ -83,3 +83,6 @@ CAME v0.1 is distributed under `GPL-3.0-only`. Citation metadata is provided in 
 - Optional interfaces are not production analysis implementations.
 - NanoSeq and mutation profiling are not implemented.
 - Orthology tables and regulatory-element-to-gene links are supplied inputs for the v0.1 all-run path.
+- Orthogroup differential summaries average mapped-feature fields without separating `method` or `status`, so a fitted DESeq2 effect and a descriptive effect from a filtered feature can be mixed in one orthogroup row. These summaries are not orthogroup-level DESeq2 fits, and their p-values are minima, not meta-analysis.
+- DESeq2 effects are unshrunk. Large fitted effects, including those of sparse features passing the low-count filter, can propagate into candidate evidence, where differential scoring uses absolute effect size without a cap.
+- The strict DESeq2 fixture is adversarial: it demonstrates that fitted and descriptive effects can disagree in sign, not how often this occurs in real studies.

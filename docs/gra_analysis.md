@@ -99,7 +99,9 @@ Successful DESeq2 fits use `~ group` and the explicit response-versus-baseline c
 
 `normalized_gra_activity.tsv` remains a global descriptive total-count-scaled matrix: divide each input column by its total divided by the median positive column total, with factor 1 for zero-total columns. Scaling uses all input GRAs and sample columns before contrast selection and low-signal filtering. `mean_baseline` and `mean_response` are descriptive means of selected columns of that matrix, not batch-adjusted estimates or contrast-specific DESeq2-normalized counts. Their ratio can disagree in direction with the DESeq2 effect under compositional imbalance. DESeq2 estimates its own size factors on selected samples and passing GRAs.
 
-Otherwise CAME uses the existing fallback tests with explicit fallback method labels, descriptive `log2((mean_response + 1) / (mean_baseline + 1))`, and BH adjustment. Filtered GRAs retain descriptive effects without inferential tests. If no executable contrasts are available, it writes empty differential output with headers and a warning. Output headers are unchanged; numeric result fields retain 12 significant digits.
+Otherwise CAME uses the existing fallback tests with explicit fallback method labels, descriptive `log2((mean_response + 1) / (mean_baseline + 1))`, and BH adjustment. Filtered GRAs retain descriptive effects without inferential tests and are labelled `method=not_tested` with `status=filtered_low_signal` on both the DESeq2 and fallback paths. Before this correction, filtered rows in a successful DESeq2 contrast were labelled `DESeq2`. If no executable contrasts are available, it writes empty differential output with headers and a warning.
+
+Output headers are unchanged. Numeric fields in `differential_gra_activity.tsv` are written with an explicit 12 significant digits; earlier v0.1 development builds used R's default of 7 significant digits. This serialization change also applies to fallback rows, whose calculations are unchanged. `normalized_gra_activity.tsv` serialization is unchanged.
 
 ## Outputs
 
