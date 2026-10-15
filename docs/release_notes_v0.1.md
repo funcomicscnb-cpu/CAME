@@ -63,13 +63,15 @@ Key release outputs include:
 
 The v0.1 release gate includes the stub-mode test matrix documented in `docs/ci_and_release.md` and `docs/release_checklist.md`, plus container-backed strict execution of the committed tiny real-mode fixtures when the release image is built.
 
+Current differential-omics CI permits fallback; passing CI does not establish successful DESeq2 fitting or validate DESeq2 numerical results. These execution and output-contract checks do not establish biological accuracy. Result rows and `differential_summary.tsv` record the method used; fallback reproduced with older local R/DESeq2 versions does not establish which method ran in CI.
+
 ## Dependencies
 
 Stub-mode tests require Java, Nextflow, Python, and a small R package set. Real-mode RNA-seq, ATAC-seq, and WGS paths require external tools and prepared references as documented in `docs/installation.md`. Docker/Apptainer/Singularity profiles default to `ghcr.io/funcomicscnb-cpu/came:<VERSION>`.
 
 ## Licensing And Citation
 
-CAME v0.1 is distributed under `GPL-3.0-only`. Citation metadata is provided in `CITATION.cff` with David Juan as author and `https://github.com/funcomicscnb-cpu/CAME` as the public code repository. The release date remains unset until the final public tag.
+CAME v0.1 is distributed under `GPL-3.0-only`. Citation metadata is provided in `CITATION.cff` with David Juan as author and `https://github.com/funcomicscnb-cpu/CAME` as the public code repository. The confirmed v0.1.0 release date is 2026-10-15.
 
 ## Known Limitations
 

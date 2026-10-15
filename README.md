@@ -12,7 +12,11 @@ Current release metadata targets `v0.1.0`. CAME is an **advanced beta for expert
 
 This release prepares the public repository package, stub-mode orchestration, final reports, release checks, and real-mode operational contracts. It does not add new biological analyses, implement NanoSeq or mutation profiling, or make optional interfaces part of `--run_stage all`.
 
-CAME is distributed under `GPL-3.0-only`. Citation metadata is available in [CITATION.cff](CITATION.cff); the public repository is `https://github.com/funcomicscnb-cpu/CAME`, and the release date is still unset.
+CAME is distributed under `GPL-3.0-only`.
+
+Copyright (C) 2026 David Juan
+
+Citation metadata is available in [CITATION.cff](CITATION.cff); the public repository is `https://github.com/funcomicscnb-cpu/CAME`, and the v0.1.0 release date is 2026-10-15.
 
 ## Quick Install
 

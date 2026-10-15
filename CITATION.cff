@@ -3,7 +3,7 @@ title: "CAME: Comparative Analysis of Multi-omics Evolution"
 message: "If you use CAME, please cite this software release."
 type: software
 version: 0.1.0
-date-released: "TODO: confirm v0.1 public release date"
+date-released: "2026-10-15"
 authors:
   - family-names: "Juan"
     given-names: "David"

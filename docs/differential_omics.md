@@ -37,7 +37,7 @@ Only condition/timepoint labels present in the selected omics metadata are execu
 
 ## Differential Engine
 
-DESeq2 is used when available unless `--differential_force_fallback true` is set. The fallback path performs library-size normalization, computes log2 fold change with pseudocount 1, and uses base R tests only when both groups have at least two samples.
+For contrasts with at least two samples per group and features passing the low-count filter, CAME attempts DESeq2 when available unless `--differential_force_fallback true` is set. A DESeq2 fitting error triggers fallback and a `WARNING` in `differential_warnings.tsv`. Result rows and `differential_summary.tsv` report the method used. The fallback path performs library-size normalization, computes log2 fold change with pseudocount 1, and uses base R tests only when both groups have at least two samples.
 
 When either group has fewer than two samples, CAME still emits normalized means and log2 fold changes, but inferential p-values are `NA` with warnings. Low-count filtered features remain in output with `status=filtered_low_count`.
 

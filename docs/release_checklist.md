@@ -96,7 +96,7 @@ nextflow run . -resume \
 - Final reporting does not perform new biological analyses.
 - Offline enrichment depends on the supplied gene annotations and gene sets.
 - Orthology and regulatory-element-to-gene links are consumed as inputs.
-- Coordinates are not lifted over or converted.
+- Coordinates are not lifted over or converted in the core `--run_stage all` path. Coordinate lift-over is available through the explicitly invoked optional `coordinate_projection` stage.
 - Partial upstream runs produce partial final reports with warnings.
 - NanoSeq and mutation profiling are skipped in v0.1.
 - Optional interface outputs are contract fixtures, not production biological results.
@@ -109,5 +109,5 @@ nextflow run . -resume \
 4. Inspect `results/final/release_checks/came_release_checks.tsv` and resolve all `ERROR` records.
 5. Inspect `results/all/summary/came_all_run_summary.tsv`.
 6. Review the final HTML and Markdown reports for missing or misleading sections.
-7. Resolve release-date and copyright-holder decisions.
+7. Confirm metadata: v0.1.0 release date **2026-10-15**; exact notice **Copyright (C) 2026 David Juan**. Publication remains pending.
 8. Create a version tag only after tests, release checks, and public metadata are clean.
