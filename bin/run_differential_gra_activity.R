@@ -49,7 +49,7 @@ fmt <- function(value) {
   if (length(value) == 0 || is.na(value) || is.nan(value) || is.infinite(value)) {
     return("NA")
   }
-  format(signif(as.numeric(value), 12), scientific = FALSE, trim = TRUE)
+  format(signif(as.numeric(value), 12), digits = 12, scientific = FALSE, trim = TRUE)
 }
 
 infer_sep <- function(path) {
@@ -299,7 +299,8 @@ deseq_tests <- function(raw_subset, sample_ids, baseline_ids, response_ids, keep
   pvals <- rep(NA_real_, nrow(raw_subset))
   padj <- rep(NA_real_, nrow(raw_subset))
   stats <- rep(NA_real_, nrow(raw_subset))
-  methods <- rep("DESeq2", nrow(raw_subset))
+  log2fc <- rep(NA_real_, nrow(raw_subset))
+  methods <- ifelse(keep, "DESeq2", "not_tested")
   result <- try({
     group <- ifelse(sample_ids %in% response_ids, "response", "baseline")
     group <- factor(group, levels = c("baseline", "response"))
@@ -315,11 +316,12 @@ deseq_tests <- function(raw_subset, sample_ids, baseline_ids, response_ids, keep
   if (inherits(result, "try-error")) {
     return(NULL)
   }
-  kept_indices <- which(keep)
+  kept_indices <- match(rownames(result), rownames(raw_subset))
   pvals[kept_indices] <- result$pvalue
   padj[kept_indices] <- result$padj
   stats[kept_indices] <- result$stat
-  list(pvals = pvals, padj = padj, stats = stats, methods = methods)
+  log2fc[kept_indices] <- result$log2FoldChange
+  list(pvals = pvals, padj = padj, stats = stats, log2fc = log2fc, methods = methods)
 }
 
 run_contrast <- function(contrast, feature_meta, raw_matrix, norm_matrix, args, warnings) {
@@ -364,6 +366,7 @@ run_contrast <- function(contrast, feature_meta, raw_matrix, norm_matrix, args, 
         padj <- tests$padj
         stats <- tests$stats
         methods <- tests$methods
+        log2fc[keep] <- tests$log2fc[keep]
         used_deseq <- TRUE
       } else {
         warnings <- rbind(warnings, data.frame(severity = "WARNING", contrast_name = contrast$contrast_name, species = contrast$species, message = "DESeq2 failed; using fallback tests", stringsAsFactors = FALSE))
@@ -428,6 +431,7 @@ main <- function() {
   feature_meta <- activity[, normalized_prefix, drop = FALSE]
   raw_matrix <- as.matrix(activity[, sample_columns, drop = FALSE])
   suppressWarnings(storage.mode(raw_matrix) <- "numeric")
+  rownames(raw_matrix) <- as.character(seq_len(nrow(raw_matrix)))
   if (any(is.nan(raw_matrix))) {
     raw_matrix[is.nan(raw_matrix)] <- NA_real_
   }

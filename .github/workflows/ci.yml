@@ -231,8 +231,20 @@ jobs:
       - name: Install R dependencies including DESeq2
         run: Rscript environment/install_r_packages.R --install-core --install-deseq2
 
+      - name: Strict DESeq2 oracle comparisons
+        run: Rscript tests/test_deseq2_consistency.R --evidence-dir results/deseq2-validation
+
       - name: Differential omics test with real DESeq2
         run: bash tests/test_differential_omics.sh
+
+      - name: Retain DESeq2 comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deseq2-evidence-${{ github.sha }}-${{ github.run_attempt }}
+          path: results/deseq2-validation/
+          retention-days: 7
+          if-no-files-found: error
 
   real-mode-smoke:
     name: Optional real-mode smoke inventory

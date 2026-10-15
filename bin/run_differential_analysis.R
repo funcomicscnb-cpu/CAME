@@ -50,7 +50,7 @@ fmt <- function(value) {
   if (length(value) == 0 || is.na(value) || is.nan(value) || is.infinite(value)) {
     return("NA")
   }
-  format(signif(as.numeric(value), 12), scientific = FALSE, trim = TRUE)
+  format(signif(as.numeric(value), 12), digits = 12, scientific = FALSE, trim = TRUE)
 }
 
 split_ids <- function(value) {
@@ -110,11 +110,11 @@ batch_is_valid <- function(sample_rows, group_values) {
   if (!"batch" %in% names(sample_rows)) {
     return(FALSE)
   }
-  batch <- trimws(sample_rows$batch)
-  if (all(batch == "")) {
+  batch <- trimws(as.character(sample_rows$batch))
+  # Do not impute a batch category or drop samples for incomplete metadata.
+  if (any(is.na(batch) | batch == "")) {
     return(FALSE)
   }
-  batch[batch == ""] <- "missing_batch"
   if (length(unique(batch)) < 2) {
     return(FALSE)
   }
@@ -122,7 +122,7 @@ batch_is_valid <- function(sample_rows, group_values) {
   if (inherits(design, "try-error")) {
     return(FALSE)
   }
-  qr(design)$rank == ncol(design)
+  qr(design)$rank == ncol(design) && nrow(design) > ncol(design)
 }
 
 fallback_tests <- function(norm_subset, baseline_ids, response_ids, keep) {
@@ -155,7 +155,9 @@ deseq_tests <- function(count_subset, sample_rows, baseline_ids, response_ids, k
   pvals <- rep(NA_real_, nrow(count_subset))
   padj <- rep(NA_real_, nrow(count_subset))
   stats <- rep(NA_real_, nrow(count_subset))
-  methods <- rep("DESeq2", nrow(count_subset))
+  log2fc <- rep(NA_real_, nrow(count_subset))
+  base_mean <- rep(NA_real_, nrow(count_subset))
+  methods <- ifelse(keep, "DESeq2", "not_tested")
   group <- ifelse(sample_rows$sample_id %in% response_ids, "response", "baseline")
   group <- factor(group, levels = c("baseline", "response"))
   use_batch <- batch_is_valid(sample_rows, group)
@@ -165,7 +167,7 @@ deseq_tests <- function(count_subset, sample_rows, baseline_ids, response_ids, k
       data.frame(
         severity = "WARNING", omics_type = contrast$omics_type, species = contrast$species,
         contrast_name = contrast$contrast_name,
-        message = "Batch covariate omitted because it is absent, single-level, or not estimable",
+        message = "Batch covariate omitted because it is absent, contains missing values, is single-level, or is not estimable with residual degrees of freedom",
         stringsAsFactors = FALSE
       )
     )
@@ -174,8 +176,7 @@ deseq_tests <- function(count_subset, sample_rows, baseline_ids, response_ids, k
     col_data <- data.frame(row.names = sample_rows$sample_id, group = group, stringsAsFactors = FALSE)
     design_formula <- ~ group
     if (use_batch) {
-      batch <- trimws(sample_rows$batch)
-      batch[batch == ""] <- "missing_batch"
+      batch <- trimws(as.character(sample_rows$batch))
       col_data$batch <- factor(batch)
       design_formula <- ~ batch + group
     }
@@ -200,11 +201,15 @@ deseq_tests <- function(count_subset, sample_rows, baseline_ids, response_ids, k
     )
     return(c(fallback_tests(normalize_counts(count_subset), baseline_ids, response_ids, keep), list(warnings = warnings)))
   }
-  kept_indices <- which(keep)
+  # Result row names identify input matrix rows, including after filtering.
+  kept_indices <- match(rownames(result), rownames(count_subset))
   pvals[kept_indices] <- result$pvalue
   padj[kept_indices] <- result$padj
   stats[kept_indices] <- result$stat
-  list(pvals = pvals, padj = padj, stats = stats, methods = methods, warnings = warnings)
+  log2fc[kept_indices] <- result$log2FoldChange
+  base_mean[kept_indices] <- result$baseMean
+  list(pvals = pvals, padj = padj, stats = stats, log2fc = log2fc,
+       base_mean = base_mean, methods = methods, warnings = warnings)
 }
 
 run_contrast <- function(contrast, counts_df, feature_meta, count_matrix, norm_matrix, samples, args, deseq_available, warnings) {
@@ -257,6 +262,10 @@ run_contrast <- function(contrast, counts_df, feature_meta, count_matrix, norm_m
       stats <- tests$stats
       methods <- tests$methods
       warnings <- tests$warnings
+      if (!is.null(tests$log2fc)) {
+        log2fc[keep] <- tests$log2fc[keep]
+        base_mean[keep] <- tests$base_mean[keep]
+      }
       if (!is.null(tests$padj)) {
         padj <- tests$padj
       } else {
@@ -358,6 +367,8 @@ main <- function() {
   feature_meta <- counts_df[, metadata_fields, drop = FALSE]
   count_matrix <- as.matrix(counts_df[, sample_ids, drop = FALSE])
   suppressWarnings(storage.mode(count_matrix) <- "numeric")
+  # Stable internal row identities; output feature metadata stays in input order.
+  rownames(count_matrix) <- as.character(seq_len(nrow(count_matrix)))
   if (any(is.na(count_matrix))) {
     stop("Count matrix contains non-numeric sample values")
   }

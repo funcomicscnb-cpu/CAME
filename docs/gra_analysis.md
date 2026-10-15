@@ -85,7 +85,7 @@ Missing RE values are not converted to zero. A GRA/sample value is `NA` when all
 Differential GRA testing uses the CAME contrast direction convention:
 
 ```text
-log2_fold_change = response - baseline
+log2_fold_change = log2(response / baseline)  # fitted DESeq2 contrast direction
 ```
 
 DESeq2 is used only when all of the following are true:
@@ -95,7 +95,11 @@ DESeq2 is used only when all of the following are true:
 - DESeq2 is installed
 - `--differential_force_fallback false`
 
-Otherwise CAME uses deterministic fallback tests. If no executable contrasts are available, it writes empty differential output with headers and a warning.
+Successful DESeq2 fits use `~ group` and the explicit response-versus-baseline contrast. `log2_fold_change`, `statistic`, `p_value`, and `padj` come from that same fit (`log2FoldChange`, `stat`, `pvalue`, `padj`). DESeq2 missing values and default independent-filtering/outlier behavior are retained without replacement. Filtered rows are `method=not_tested`; results map back to input GRA identities after filtering. This GRA engine does not adjust for batch; RNA/ATAC batch handling does not extend to GRA. There is no `base_mean` column in the GRA interface.
+
+`normalized_gra_activity.tsv` remains a global descriptive total-count-scaled matrix: divide each input column by its total divided by the median positive column total, with factor 1 for zero-total columns. Scaling uses all input GRAs and sample columns before contrast selection and low-signal filtering. `mean_baseline` and `mean_response` are descriptive means of selected columns of that matrix, not batch-adjusted estimates or contrast-specific DESeq2-normalized counts. Their ratio can disagree in direction with the DESeq2 effect under compositional imbalance. DESeq2 estimates its own size factors on selected samples and passing GRAs.
+
+Otherwise CAME uses the existing fallback tests with explicit fallback method labels, descriptive `log2((mean_response + 1) / (mean_baseline + 1))`, and BH adjustment. Filtered GRAs retain descriptive effects without inferential tests. If no executable contrasts are available, it writes empty differential output with headers and a warning. Output headers are unchanged; numeric result fields retain 12 significant digits.
 
 ## Outputs
 

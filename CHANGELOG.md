@@ -2,6 +2,9 @@
 
 ## 0.1.0
 
+- Corrected successful RNA/ATAC and integer-sum GRA DESeq2 rows to report the fitted response-versus-baseline effect and RNA/ATAC base mean alongside the same fit's statistics and p-values, preserving missing values and filtering semantics. Descriptive group means and global total-count-scaled files retain their existing definitions, now documented explicitly.
+- Omit incomplete, single-level or non-estimable RNA/ATAC batch covariates with a warning, retaining all selected samples. Added strict independent DESeq2 oracle checks to the existing optional validation job and explicit 12-significant-digit result serialization.
+
 - Confirmed release metadata: release date `2026-10-15`, exact notice `Copyright (C) 2026 David Juan`, and unchanged GPL-3.0-only licensing. These decisions do not assert that tagging or publication has occurred.
 
 - Added Stage 22 public release preparation: GPL-3.0-only licensing, citation metadata, issue and pull request templates, Dependabot configuration, versioning policy, and v0.1 release notes.

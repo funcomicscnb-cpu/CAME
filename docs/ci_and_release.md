@@ -12,6 +12,8 @@ The GitHub Actions workflow in `.github/workflows/ci.yml` runs on pull requests 
 
 The default lightweight jobs do not install heavy real-mode bioinformatics tools and do not require DESeq2. Real-tool fixture execution is isolated in the container-backed `real-mode-ci` job.
 
+The existing manual `deseq2-validation` job also runs `Rscript tests/test_deseq2_consistency.R --evidence-dir results/deseq2-validation`. This strict check requires DESeq2 and successful fits: absence or unexpected fallback fails. A fixed heterogeneous count fixture tests RNA/ATAC and eligible integer-sum GRA against independently constructed DESeq2 fits, with keyed field and exact missingness comparisons at tolerance `1e-8` (relative error for p-values and adjusted p-values; absolute error divided by `max(1, abs(reference))` for other fields). It covers compositional imbalance, filtering, ordering, batch omission/adjustment and forced fallback, and retains input, oracle, command, version and comparison evidence. Lightweight regression checks remain usable without DESeq2. These same-package comparisons establish the tested field contracts; host execution does not establish locked-image correctness or production biological validity.
+
 Real-mode smoke validation is also available as an optional manual `workflow_dispatch` job. That job runs `bash tests/test_real_mode_smoke.sh --soft` as a compact inventory and skips unavailable real-mode execution paths.
 
 ## Local Test Matrix

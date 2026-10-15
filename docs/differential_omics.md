@@ -41,7 +41,18 @@ For contrasts with at least two samples per group and features passing the low-c
 
 When either group has fewer than two samples, CAME still emits normalized means and log2 fold changes, but inferential p-values are `NA` with warnings. Low-count filtered features remain in output with `status=filtered_low_count`.
 
-Batch is used only when a non-empty, multi-level `batch` column is estimable for the selected contrast. Otherwise it is omitted with a warning.
+Batch is used as `~ batch + group` only when every selected sample has a known batch, there are at least two batch levels, and the design is full rank with residual degrees of freedom. Text is trimmed; R `NA`, empty and whitespace-only values are missing. If batch is absent, entirely or partially missing, single-level, confounded with group, or otherwise non-estimable (including a saturated design), the entire batch covariate is omitted with a warning and the fit uses `~ group`. All selected samples are retained; missing batches are not imputed. Batch is assessed separately for each contrast.
+
+### Field provenance
+
+| Fields | Successful DESeq2 rows | Fallback or filtered rows |
+| --- | --- | --- |
+| `log2_fold_change` | DESeq2 `log2FoldChange` for explicit `group`, `response`, `baseline` contrast; no shrinkage | Existing `log2((response_mean + 1) / (baseline_mean + 1))` |
+| `base_mean` | DESeq2 `baseMean` from the same fit | Descriptive mean across selected samples |
+| `statistic`, `p_value`, `padj` | DESeq2 `stat`, `pvalue`, `padj`, including missing values and default independent-filtering/outlier behavior | Existing base R tests and BH adjustment; filtered rows have no test |
+| `baseline_mean`, `response_mean` | Descriptive means from the global matrix below | Same descriptive means |
+
+`normalized_counts.tsv` is a global descriptive total-count-scaled matrix: each input sample column is divided by its total count divided by the median positive library total (zero-total columns use factor 1). Scaling uses all input features and samples before contrast selection and low-count filtering. Group means use the selected columns of this matrix. Neither the file nor these group means are contrast-specific DESeq2-normalized counts or batch-adjusted model estimates; their ratio can disagree in direction with the fitted effect under compositional imbalance. DESeq2 fits only passing features and selected samples and estimates its own size factors. Successful fit values, including `NA`, are never filled from descriptive estimates. Filtered rows retain descriptive values with `method=not_tested`. Headers are unchanged; numeric result fields retain 12 significant digits.
 
 ## Outputs
 
