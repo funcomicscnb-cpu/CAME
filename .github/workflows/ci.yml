@@ -60,6 +60,7 @@ jobs:
       - name: Real-mode unit tests
         run: |
           bash tests/test_real_mode_unit.sh
+          python3 tests/test_fixture_harness.py
           bash tests/test_real_mode_fixtures.sh --soft
 
       - name: Lightweight regression tests
@@ -129,9 +130,13 @@ jobs:
     defaults:
       run:
         shell: bash
-    env:
-      EVIDENCE_DIR: ${{ runner.temp }}/came-real-mode-evidence
     steps:
+      - name: Initialize evidence directory
+        run: |
+          evidence_dir="$RUNNER_TEMP/came-real-mode-evidence"
+          mkdir -p "$evidence_dir"
+          printf 'EVIDENCE_DIR=%s\n' "$evidence_dir" >> "$GITHUB_ENV"
+
       - name: Check out repository
         uses: actions/checkout@v4
 
@@ -178,7 +183,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: real-mode-evidence-${{ github.sha }}-${{ github.run_attempt }}
-          path: ${{ env.EVIDENCE_DIR }}/
+          path: ${{ runner.temp }}/came-real-mode-evidence/
           retention-days: 7
           if-no-files-found: warn
           include-hidden-files: true

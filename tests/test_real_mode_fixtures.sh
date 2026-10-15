@@ -58,6 +58,20 @@ cleanup() {
       # Preserve an existing fixture failure; fail a successful run on evidence loss.
       [ "$status" -ne 0 ] || status=$retention_status
     fi
+    # The container may run as root. Open only our unique child for the runner's
+    # artifact uploader, including partial evidence if retention failed. Do not
+    # follow symlinks or change the caller directory, ownership, or other files.
+    find "$EVIDENCE_DIR" -type d -exec chmod a+rx {} +
+    local directory_mode_status=$?
+    find "$EVIDENCE_DIR" -type f -exec chmod a+r {} +
+    local file_mode_status=$?
+    if [ "$directory_mode_status" -ne 0 ] || [ "$file_mode_status" -ne 0 ]; then
+      echo "FAIL: fixture evidence permission adjustment failed" >&2
+      if [ "$status" -eq 0 ]; then
+        status=$directory_mode_status
+        [ "$status" -ne 0 ] || status=$file_mode_status
+      fi
+    fi
     printf 'Fixture evidence: %s\n' "$EVIDENCE_DIR"
   fi
   rm -rf "$TMP_DIR"

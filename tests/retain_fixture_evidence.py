@@ -21,6 +21,11 @@ def retain(source, destination, status):
                 ".command.out", ".command.log",
             ))
             candidates.extend(sorted(task.glob("logs/**/*.log")))
+            candidates.extend(sorted(task.glob("logs/**/*.out")))
+            # STAR alignment logs remain here if it fails before moving logs;
+            # genomeGenerate can leave its default Log.out at the task root.
+            candidates.extend(sorted(task.glob("star/*.out")))
+            candidates.extend(sorted(task.glob("Log*.out")))
     # Top-level harness/Nextflow logs, traces, and published validation tables.
     candidates.extend(sorted(source.glob("*.out")))
     candidates.extend(sorted(source.glob("*.log")))
