@@ -156,4 +156,4 @@ Use the repository's normal review and approval process before pushing a release
 - `--resume_completed_stages` is documented/reporting only; actual process reuse uses Nextflow `-resume`.
 - Stage status checks are presence/non-empty checks, not content hashing.
 - DESeq2 is optional for smoke tests; fallback differential paths are expected when DESeq2 is absent.
-- Release date and copyright holder must be resolved before the final public tag.
+- Release metadata is confirmed: release date `2026-10-15` and exact notice `Copyright (C) 2026 David Juan`; GPL-3.0-only remains unchanged. This records metadata decisions, not completion of tagging or publication. Existing container-publication behavior is unchanged.
