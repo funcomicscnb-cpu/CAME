@@ -234,10 +234,24 @@ test -s "$SUMMARY/gra_analysis_summary.tsv"
 test -s "$SUMMARY/gra_outputs_manifest.tsv"
 assert_grep 'n_gras' "$SUMMARY/gra_analysis_summary.tsv" "GRA summary missing n_gras"
 
-if rg 'DDR|RoR' "$ROOT_DIR/bin/validate_re_to_gene_links.py" "$ROOT_DIR/bin/build_gra_table.py" "$ROOT_DIR/bin/aggregate_gra_activity.py" "$ROOT_DIR/bin/run_differential_gra_activity.R" "$ROOT_DIR/bin/summarize_gra_analysis.py" "$ROOT_DIR/workflows/gra_analysis.nf" "$ROOT_DIR/subworkflows/gra_building.nf" "$ROOT_DIR/subworkflows/gra_activity.nf" "$ROOT_DIR/subworkflows/differential_gra_activity.nf" >/dev/null 2>&1; then
-  echo "FAIL: Stage 8 core files contain DDR/RoR-specific terms" >&2
-  exit 1
-fi
+# Guard against DDR/RoR-specific terms in Stage 8 core files. Uses grep -E
+# (available in the locked image); grep exit 2 (unreadable input, missing file)
+# is a test error, never "no match".
+guard_status=0
+grep -E 'DDR|RoR' "$ROOT_DIR/bin/validate_re_to_gene_links.py" "$ROOT_DIR/bin/build_gra_table.py" "$ROOT_DIR/bin/aggregate_gra_activity.py" "$ROOT_DIR/bin/run_differential_gra_activity.R" "$ROOT_DIR/bin/summarize_gra_analysis.py" "$ROOT_DIR/workflows/gra_analysis.nf" "$ROOT_DIR/subworkflows/gra_building.nf" "$ROOT_DIR/subworkflows/gra_activity.nf" "$ROOT_DIR/subworkflows/differential_gra_activity.nf" > "$TMP_DIR/ddr_guard.out" 2> "$TMP_DIR/ddr_guard.err" || guard_status=$?
+case "$guard_status" in
+  0)
+    cat "$TMP_DIR/ddr_guard.out" >&2
+    echo "FAIL: Stage 8 core files contain DDR/RoR-specific terms" >&2
+    exit 1
+    ;;
+  1) ;;
+  *)
+    cat "$TMP_DIR/ddr_guard.err" >&2
+    echo "FAIL: DDR/RoR guard could not search Stage 8 core files (grep exit $guard_status)" >&2
+    exit 1
+    ;;
+esac
 
 if nextflow run "$ROOT_DIR" \
   --run_stage gra_analysis \

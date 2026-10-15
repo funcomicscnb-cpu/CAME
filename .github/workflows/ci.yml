@@ -191,13 +191,32 @@ jobs:
             ev=/evidence
             # Root-created files must stay readable by the runner uploader; chmod only this mount.
             trap "chmod -R a+rX \"\$ev\"" EXIT
+            overall=0
+            # Incomplete provenance fails the step, but checks below still run.
+            prov=0
+            prov_fail() { printf "%s\n" "$*" | tee -a "$ev"/provenance-diagnostics.txt >&2; prov=1; }
             sha256sum bin/run_differential_analysis.R bin/run_differential_gra_activity.R \
               tests/test_deseq2_consistency.R tests/fixtures/deseq2_counts.tsv \
               tests/test_differential_omics.sh tests/test_gra_analysis.sh \
               environment/conda-linux-64.lock > "$ev"/packaged-source-sha256.txt
-            grep -E "/(r-base|bioconductor-deseq2)-[0-9]" environment/conda-linux-64.lock > "$ev"/locked-r-deseq2.txt
+            status=$?
+            n=$(wc -l < "$ev"/packaged-source-sha256.txt)
+            [ "$status" -eq 0 ] && [ "$n" -eq 7 ] || prov_fail "sha256sum exit $status with $n of 7 hashes"
+            # Exactly one lock record per package; versions are compared to the lock in later review.
+            : > "$ev"/locked-r-deseq2.txt
+            for pkg in r-base bioconductor-deseq2; do
+              n=$(grep -E "/$pkg-[0-9]" environment/conda-linux-64.lock | tee -a "$ev"/locked-r-deseq2.txt | wc -l)
+              [ "$n" -eq 1 ] || prov_fail "lock has $n records for $pkg (expected 1)"
+            done
             conda list -n came "^(r-base|bioconductor-deseq2)$" > "$ev"/installed-r-deseq2.txt 2>&1
-            overall=0
+            status=$?
+            [ "$status" -eq 0 ] || prov_fail "conda list exit $status"
+            for pkg in r-base bioconductor-deseq2; do
+              n=$(grep -cE "^$pkg[[:space:]]" "$ev"/installed-r-deseq2.txt)
+              [ "$n" -eq 1 ] || prov_fail "conda list has $n installed records for $pkg (expected 1)"
+            done
+            printf "%s\n" "$prov" > "$ev"/provenance-exit-status.txt
+            [ "$prov" -eq 0 ] || overall=1
             run_check() {
               name=$1; shift
               "$@" 2>&1 | tee "$ev/$name.log"
