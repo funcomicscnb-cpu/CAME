@@ -30,3 +30,40 @@ Curated fixture additions should:
 - require an explicit opt-in command or manual CI dispatch for external datasets.
 
 NanoSeq and mutation profiling remain skipped. CNV/SV, ChIP, TOBIAS, HMMRATAC-based peak calling, HAL liftOver, and OU models also remain outside this fixture strategy.
+
+## Fixture resources and retained CI evidence
+
+`tests/test_real_mode_fixtures.sh` generates a temporary config and explicitly
+passes it to reference-quality, RNA, ATAC, and WGS Nextflow runs. Its name selector
+(`withName: '.*'`) takes precedence over production resource labels: each task
+requests 1 CPU and 4 GB, with one local task scheduled at a time. This is for tiny
+fixtures only. STAR already uses small-reference indexing parameters; the 4 GB
+allowance is retained for JVM-backed FastQC/GATK and other tools without changing
+their arguments or heap settings. Actual locked-image execution remains the
+acceptance check for runtime sufficiency. Production defaults are unchanged.
+
+Local runs still remove their owned scratch directory by default. Optional
+`--evidence-dir DIR` creates a unique `fixtures.*` child under DIR, retaining the
+resource config, runtime tool inventory with versions, harness/Nextflow logs,
+resource traces, validation tables, and failed/incomplete-task command diagnostics
+including redirected tool logs. It never deletes DIR or overwrites existing runs.
+The text selection is limited to 200 files, 256 KiB per file, and 16 MiB total;
+`retention.json` records the original fixture exit status, sizes, truncation
+selection, and omitted-file count. Logs retain tails; tables retain heads. No
+indexes, BAMs, or general work-directory archives are retained. The owned scratch
+directory is removed after capture, including on failure. Capture failure fails an
+otherwise successful test but never replaces an existing fixture failure status.
+
+The nonpublishing `real-mode-ci` job runs the fixture script packaged in the built
+image, mounting only evidence storage outside `/came`. Its always-run artifact
+upload retains evidence for seven days, including source SHA, lock SHA256, direct
+runner/container architecture, image inspection, Nextflow version, strict runtime
+tool inventory, fixture console log and exit status, plus the bounded diagnostic
+selection. The local image ID is a config digest; `RepoDigests` are recorded
+separately and may be empty for this unpublished image. Neither identifies an
+unperformed registry publication. A successful inventory alone does not establish
+RNA/ATAC/WGS execution or biological validity.
+
+Focused host/mock checks: `python3 tests/test_fixture_harness.py`. These exercise
+actual Nextflow selector precedence when Nextflow is available, but they do not
+substitute for locked-image real-tool execution.

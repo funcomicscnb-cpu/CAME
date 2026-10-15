@@ -3,13 +3,15 @@ set -euo pipefail
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 MODE="soft"
+EVIDENCE_DIR=""
 
 usage() {
   cat <<'EOF'
-Usage: tests/test_real_mode_fixtures.sh [--soft|--strict]
+Usage: tests/test_real_mode_fixtures.sh [--soft|--strict] [--evidence-dir DIR]
 
 --soft     Validate fixtures and skip unavailable executable RNA/ATAC/WGS paths. Default.
 --strict   Fail when any required RNA/ATAC/WGS fixture execution tool is absent.
+--evidence-dir DIR  Retain bounded diagnostics in a new child of DIR; never delete DIR.
 EOF
 }
 
@@ -17,6 +19,11 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --soft) MODE="soft" ;;
     --strict) MODE="strict" ;;
+    --evidence-dir)
+      [ "$#" -ge 2 ] && [ -n "$2" ] || { echo "FAIL: --evidence-dir requires DIR" >&2; exit 1; }
+      EVIDENCE_DIR="$2"
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -30,11 +37,50 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-TMP_DIR=$(mktemp -d)
-trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
-
 PYTHON=${PYTHON:-python3}
 PYTHON_BIN=$(command -v "$PYTHON")
+# A unique retained child avoids overwriting caller files, even on retries.
+if [ -n "$EVIDENCE_DIR" ]; then
+  mkdir -p "$EVIDENCE_DIR"
+  EVIDENCE_DIR=$(mktemp -d "$EVIDENCE_DIR/fixtures.XXXXXX")
+  EVIDENCE_DIR=$(CDPATH= cd -- "$EVIDENCE_DIR" && pwd)
+fi
+TMP_DIR=$(mktemp -d)
+cleanup() {
+  local status=$?
+  trap - EXIT
+  set +e
+  if [ -n "$EVIDENCE_DIR" ]; then
+    "$PYTHON_BIN" "$ROOT_DIR/tests/retain_fixture_evidence.py" "$TMP_DIR" "$EVIDENCE_DIR" "$status"
+    local retention_status=$?
+    if [ "$retention_status" -ne 0 ]; then
+      echo "FAIL: fixture evidence retention failed ($retention_status)" >&2
+      # Preserve an existing fixture failure; fail a successful run on evidence loss.
+      [ "$status" -ne 0 ] || status=$retention_status
+    fi
+    printf 'Fixture evidence: %s\n' "$EVIDENCE_DIR"
+  fi
+  rm -rf "$TMP_DIR"
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Name selectors outrank production label selectors. Only these test runs load it.
+FIXTURE_CONFIG="$TMP_DIR/fixture_resources.config"
+cat > "$FIXTURE_CONFIG" <<'EOF'
+process {
+    withName: '.*' {
+        cpus = 1
+        memory = '4 GB'
+    }
+}
+executor.queueSize = 1
+trace.fields = 'task_id,hash,name,status,exit,cpus,memory'
+EOF
+# Keep Nextflow session metadata out of the source tree as well.
+cd "$TMP_DIR"
 DATA_DIR="$TMP_DIR/real_mode_fixtures"
 TOOL_DIR="$TMP_DIR/tool_check"
 TOOL_TSV="$TOOL_DIR/tool_check.tsv"
@@ -88,10 +134,12 @@ run_logged() {
   local label="$1"
   local log="$2"
   shift 2
-  if ! "$@" > "$log" 2>&1; then
+  local status=0
+  "$@" > "$log" 2>&1 || status=$?
+  if [ "$status" -ne 0 ]; then
     printf 'FAIL: %s failed; see %s\n' "$label" "$log" >&2
     tail -n 80 "$log" >&2 || true
-    exit 1
+    exit "$status"
   fi
 }
 
@@ -236,6 +284,7 @@ pass "prepared WGS fixture inputs"
 REF_OUT="$TMP_DIR/reference_quality_results"
 run_logged "reference_quality fixture run" "$TMP_DIR/reference_quality.out" \
   nextflow -log "$TMP_DIR/reference_quality.nextflow.log" run "$ROOT_DIR" \
+    -c "$FIXTURE_CONFIG" -with-trace "$TMP_DIR/reference_quality.trace.tsv" \
     -work-dir "$TMP_DIR/reference_quality_work" \
     --run_stage reference_quality \
     --reference_manifest "$DATA_DIR/manifests/reference_manifest.tsv" \
@@ -277,6 +326,7 @@ if all_tools_found fastqc STAR featureCounts samtools multiqc; then
   RNA_OUT="$TMP_DIR/rna_results"
   run_logged "RNA real-mode fixture Nextflow run" "$TMP_DIR/rna_nextflow.out" \
     nextflow -log "$TMP_DIR/rna.nextflow.log" run "$ROOT_DIR" \
+      -c "$FIXTURE_CONFIG" -with-trace "$TMP_DIR/rna.trace.tsv" \
       -work-dir "$TMP_DIR/rna_work" \
       --run_stage bulk_omics \
       --omics_mode real \
@@ -299,6 +349,7 @@ if all_tools_found fastqc bowtie2 bowtie2-build macs3 samtools bedtools multiqc;
   ATAC_OUT="$TMP_DIR/atac_results"
   run_logged "ATAC real-mode fixture Nextflow run" "$TMP_DIR/atac_nextflow.out" \
     nextflow -log "$TMP_DIR/atac.nextflow.log" run "$ROOT_DIR" \
+      -c "$FIXTURE_CONFIG" -with-trace "$TMP_DIR/atac.trace.tsv" \
       -work-dir "$TMP_DIR/atac_work" \
       --run_stage bulk_omics \
       --omics_mode real \
@@ -321,6 +372,7 @@ if all_tools_found fastqc bwa-mem2 samtools gatk; then
   WGS_OUT="$TMP_DIR/wgs_results"
   run_logged "WGS real-mode fixture Nextflow run" "$TMP_DIR/wgs_nextflow.out" \
     nextflow -log "$TMP_DIR/wgs.nextflow.log" run "$ROOT_DIR" \
+      -c "$FIXTURE_CONFIG" -with-trace "$TMP_DIR/wgs.trace.tsv" \
       -work-dir "$TMP_DIR/wgs_work" \
       --run_stage wgs_variants \
       --wgs_samplesheet "$DATA_DIR/manifests/wgs_samplesheet.csv" \

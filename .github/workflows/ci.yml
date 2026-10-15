@@ -126,21 +126,62 @@ jobs:
   real-mode-ci:
     name: Real-tool fixture execution
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      EVIDENCE_DIR: ${{ runner.temp }}/came-real-mode-evidence
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Record source and runner
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+          git rev-parse HEAD > "$EVIDENCE_DIR"/source-sha.txt
+          sha256sum environment/conda-linux-64.lock > "$EVIDENCE_DIR"/lock-sha256.txt
+          uname -a > "$EVIDENCE_DIR"/runner-uname.txt
+          printf '%s\n' "$RUNNER_ARCH" > "$EVIDENCE_DIR"/runner-arch.txt
+          docker version > "$EVIDENCE_DIR"/docker-version.txt
+          docker info --format '{{.OSType}}/{{.Architecture}}' > "$EVIDENCE_DIR"/docker-architecture.txt
+
       - name: Build local CAME image
         run: docker build -t came-test:pr .
 
+      - name: Inspect unpublished local image
+        run: |
+          docker image inspect came-test:pr > "$EVIDENCE_DIR"/image-inspect.json
+          docker image inspect --format 'local_image_id_config_digest={{.Id}} os={{.Os}} architecture={{.Architecture}} registry_repo_digests={{json .RepoDigests}}' came-test:pr > "$EVIDENCE_DIR"/image-identity.txt
+          docker run --rm --mount type=bind,src="$EVIDENCE_DIR",dst=/evidence came-test:pr bash -c '
+            uname -a > /evidence/container-uname.txt
+            sha256sum environment/conda-linux-64.lock tests/test_real_mode_fixtures.sh tests/retain_fixture_evidence.py > /evidence/packaged-source-sha256.txt
+          '
+
       - name: Verify Nextflow in image
-        run: docker run --rm came-test:pr nextflow -version
+        run: |
+          docker run --rm came-test:pr nextflow -version 2>&1 | tee "$EVIDENCE_DIR"/nextflow-version.txt
 
       - name: Verify real-mode tools in image
-        run: docker run --rm came-test:pr python3 bin/check_real_mode_tools.py --mode strict --omics-types rnaseq,atacseq,wgs
+        run: |
+          docker run --rm --mount type=bind,src="$EVIDENCE_DIR",dst=/evidence came-test:pr python3 bin/check_real_mode_tools.py --mode strict --omics-types rnaseq,atacseq,wgs --outdir /evidence/runtime-tools 2>&1 | tee "$EVIDENCE_DIR"/tool-check.log
 
       - name: Run strict real-mode fixtures
-        run: docker run --rm -v "$PWD:/came" -w /came came-test:pr bash tests/test_real_mode_fixtures.sh --strict
+        run: |
+          set +e
+          docker run --rm --mount type=bind,src="$EVIDENCE_DIR",dst=/evidence came-test:pr bash tests/test_real_mode_fixtures.sh --strict --evidence-dir /evidence 2>&1 | tee "$EVIDENCE_DIR"/fixtures.log
+          fixture_status=${PIPESTATUS[0]}
+          printf '%s\n' "$fixture_status" > "$EVIDENCE_DIR"/fixture-exit-status.txt
+          exit "$fixture_status"
+
+      - name: Upload compact real-mode evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-mode-evidence-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ env.EVIDENCE_DIR }}/
+          retention-days: 7
+          if-no-files-found: warn
+          include-hidden-files: true
 
   deseq2-validation:
     name: Optional DESeq2 differential validation
